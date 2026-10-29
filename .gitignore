@@ -19,3 +19,4 @@ downloads/
 *.log
 .pytest_cache/
 conversa.txt
+EXPLICACAO_DO_PROJETO.md
