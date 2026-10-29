@@ -35,7 +35,7 @@ function showSearchSuggestions(data) {
   searchState.active=-1;
   const html=groups.filter(([,items])=>items.length).map(([title,items])=>`<div class="search-group-title" role="presentation">${title}</div>${items.map(item=>{
     const index=searchState.items.push(item)-1;
-    return `<button type="button" role="option" aria-selected="false" tabindex="-1" id="search-option-${index}" data-search-option="${index}">${item.type==="global-artist"?remotePhoto(item.photo,true):icon(item.name)}<span><strong>${escapeHTML(item.label)}</strong><small>${escapeHTML(item.detail)}</small></span>${icon("arrow")}</button>`;
+    return `<button type="button" role="option" aria-selected="false" tabindex="-1" id="search-option-${index}" data-search-option="${index}">${item.type==="global-artist"?catalogPhoto(item.photo,true):icon(item.name)}<span><strong>${escapeHTML(item.label)}</strong><small>${escapeHTML(item.detail)}</small></span>${icon("arrow")}</button>`;
   }).join("")}`).join("");
   if(!html){searchMessage(global?"Sem sugestões. Pressione Enter para buscar músicas.":"Nenhuma sugestão. Pressione Enter para ver os resultados.");return;}
   searchPanel.innerHTML=html;

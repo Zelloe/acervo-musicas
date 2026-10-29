@@ -12,6 +12,22 @@ const token = $('meta[name="library-token"]').content;
 const playlistState = {draft:null, pending:null, exists:false};
 let toastTimeout;
 
+function catalogPhoto(url, artist=false) {
+  return typeof remotePhoto==="function"?remotePhoto(url,artist):`<span class="remote-photo${artist?" artist-photo":""}">${icon(artist?"music":"disc")}</span>`;
+}
+
+function recordingBadges(version) {
+  return typeof versionBadges==="function"?versionBadges(version):"";
+}
+
+function recordingChips(selected, attribute) {
+  return typeof versionChips==="function"?versionChips(selected,attribute):"";
+}
+
+function recordingMatches(version, choice) {
+  return typeof versionMatches==="function"?versionMatches(version,choice):true;
+}
+
 async function api(path, data) {
   const options = data === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json", "X-Library-Token":token}, body:JSON.stringify(data)};
   const response = await fetch(path, options);
@@ -35,6 +51,8 @@ function settings() {
 async function updateState() {
   state.summary = await api("/api/state");
   const info = state.summary;
+  const restart=$('#restart-notice');
+  if(restart)restart.hidden=!(info.reinicio_necessario || typeof remotePhoto!=="function" || typeof versionChips!=="function");
   $('#library-count').textContent = number(info.resumo.lidos);
   $('#folder-label').textContent = info.biblioteca.replace(/^\/home\/[^/]+/, "~");
   $('#folder-label').title = info.biblioteca;
@@ -66,7 +84,7 @@ function statCard(label, value, name, description, amber = false) {
 }
 
 function trackTable(tracks, offset = 0) {
-  return `<div class="table-wrap"><table><thead><tr><th class="num">#</th><th>TÍTULO</th><th>ÁLBUM</th><th>GÊNERO</th><th>FORMATO</th><th class="time-cell">${icon("clock")}</th><th></th></tr></thead><tbody>${tracks.map((t,i) => `<tr><td class="num row-number"><span>${offset+i+1}</span><button class="icon-button row-play" data-play="${t.id}" aria-label="Ouvir ${escapeHTML(join(t.titulo))}">${icon("play")}</button></td><td><div class="track-info"><img class="track-cover" src="${cover(t.id)}" alt="" loading="lazy"><div class="track-text"><span class="track-name" title="${escapeHTML(join(t.titulo))}">${escapeHTML(join(t.titulo))}</span><span class="track-artist">${escapeHTML(join(t.artista))}</span>${t.versao?versionBadges(t.versao):""}</div></div></td><td class="album-cell" title="${escapeHTML(join(t.album))}">${escapeHTML(join(t.album))}</td><td>${t.genero.length ? `<span class="source">${escapeHTML(join(t.genero))}</span>` : '<span class="missing">Não definido</span>'}</td><td><span class="format ${t.formato === "FLAC" ? "flac" : ""}">${t.formato}</span></td><td class="time-cell">${duration(t.duracao_segundos)}</td><td><button class="icon-button" data-info="${t.id}" aria-label="Ver metadados de ${escapeHTML(join(t.titulo))}">${icon("more")}</button></td></tr>`).join("")}</tbody></table></div>`;
+  return `<div class="table-wrap"><table><thead><tr><th class="num">#</th><th>TÍTULO</th><th>ÁLBUM</th><th>GÊNERO</th><th>FORMATO</th><th class="time-cell">${icon("clock")}</th><th></th></tr></thead><tbody>${tracks.map((t,i) => `<tr><td class="num row-number"><span>${offset+i+1}</span><button class="icon-button row-play" data-play="${t.id}" aria-label="Ouvir ${escapeHTML(join(t.titulo))}">${icon("play")}</button></td><td><div class="track-info"><img class="track-cover" src="${cover(t.id)}" alt="" loading="lazy"><div class="track-text"><span class="track-name" title="${escapeHTML(join(t.titulo))}">${escapeHTML(join(t.titulo))}</span><span class="track-artist">${escapeHTML(join(t.artista))}</span>${t.versao?recordingBadges(t.versao):""}</div></div></td><td class="album-cell" title="${escapeHTML(join(t.album))}">${escapeHTML(join(t.album))}</td><td>${t.genero.length ? `<span class="source">${escapeHTML(join(t.genero))}</span>` : '<span class="missing">Não definido</span>'}</td><td><span class="format ${t.formato === "FLAC" ? "flac" : ""}">${t.formato}</span></td><td class="time-cell">${duration(t.duracao_segundos)}</td><td><button class="icon-button" data-info="${t.id}" aria-label="Ver metadados de ${escapeHTML(join(t.titulo))}">${icon("more")}</button></td></tr>`).join("")}</tbody></table></div>`;
 }
 
 function breadcrumb(label) { return `<div class="page-topline">Seu espaço ${icon("arrow")} <span>${label}</span></div>`; }
@@ -88,7 +106,7 @@ async function renderLibrary() {
   state.queue = result.musicas.map(t=>t.id);
   const searching = !!(state.search || state.searchArtist || state.searchAlbum);
   const description = searching ? `${number(result.total)} faixas para “${escapeHTML(state.searchLabel || state.search)}” · resultados por relevância` : `${number(result.total)} faixas · ${number(state.summary.total_artistas)} créditos de artista`;
-  return `${heading("SEU SOM, SEU ACERVO",searching?"Resultados da busca":"Todas as suas músicas",description, `<button class="button ghost" data-action="export-playlist" ${state.summary.job?.estado==="executando"?"disabled":""}>${icon("download")} Exportar M3U8</button><button class="button ghost" data-action="analyze">${icon("refresh")} Atualizar biblioteca</button>`)}<div class="table-toolbar"><div class="tabs">${[["todas","Todas as faixas"],["sem-genero","Sem gênero"],["flac","FLAC"],["versoes","Versões e extras"]].map(([key,label])=>`<button class="tab ${state.filter===key?"active":""}" data-filter="${key}">${label}</button>`).join("")}</div><span class="table-note">${icon("shield")} Seus arquivos originais</span></div>${versionChips(state.versionFilter,"data-library-version")}${result.musicas.length ? trackTable(result.musicas,state.page*50) : empty("Nenhuma faixa por aqui", "Tente outro termo de busca ou mude os filtros.", "search")}<div class="table-footer"><span>${result.total ? `${number(state.page*50+1)}–${number(Math.min((state.page+1)*50,result.total))} de ${number(result.total)} faixas` : "0 faixas"}</span><div class="pagination"><button class="button small ghost" data-page="${state.page-1}" ${state.page===0?"disabled":""}>Anterior</button><button class="button small ghost" data-page="${state.page+1}" ${(state.page+1)*50>=result.total?"disabled":""}>Próxima</button></div></div>`;
+  return `${heading("SEU SOM, SEU ACERVO",searching?"Resultados da busca":"Todas as suas músicas",description, `<button class="button ghost" data-action="export-playlist" ${state.summary.job?.estado==="executando"?"disabled":""}>${icon("download")} Exportar M3U8</button><button class="button ghost" data-action="analyze">${icon("refresh")} Atualizar biblioteca</button>`)}<div class="table-toolbar"><div class="tabs">${[["todas","Todas as faixas"],["sem-genero","Sem gênero"],["flac","FLAC"],["versoes","Versões e extras"]].map(([key,label])=>`<button class="tab ${state.filter===key?"active":""}" data-filter="${key}">${label}</button>`).join("")}</div><span class="table-note">${icon("shield")} Seus arquivos originais</span></div>${recordingChips(state.versionFilter,"data-library-version")}${result.musicas.length ? trackTable(result.musicas,state.page*50) : empty("Nenhuma faixa por aqui", "Tente outro termo de busca ou mude os filtros.", "search")}<div class="table-footer"><span>${result.total ? `${number(state.page*50+1)}–${number(Math.min((state.page+1)*50,result.total))} de ${number(result.total)} faixas` : "0 faixas"}</span><div class="pagination"><button class="button small ghost" data-page="${state.page-1}" ${state.page===0?"disabled":""}>Anterior</button><button class="button small ghost" data-page="${state.page+1}" ${(state.page+1)*50>=result.total?"disabled":""}>Próxima</button></div></div>`;
 }
 
 function filteredProposals() {
