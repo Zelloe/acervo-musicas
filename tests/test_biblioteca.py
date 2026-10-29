@@ -293,18 +293,18 @@ class MusicBrainzTest(unittest.TestCase):
             with patch.object(client, "get", return_value={"artists": [{"name": "Death", "score": "100", "id": "a"}, {"name": "Death", "score": "100", "id": "b"}]}):
                 self.assertIsNone(client.artist("Death"))
 
-    def test_specific_genre_and_ambiguous_album_fallback(self):
+    def test_specific_genre_and_unconfirmed_album_needs_review(self):
         from musicbrainz_local import MusicBrainz
         self.assertEqual(MusicBrainz.choose_genre({"genres": [{"name": "rock", "count": 20}, {"name": "progressive rock", "count": 5}]}), "Progressive Rock")
         self.assertIsNone(MusicBrainz.choose_genre({"genres": [{"name": "wrong", "count": -1}]}))
         with tempfile.TemporaryDirectory() as folder:
             client = MusicBrainz(Path(folder), "unit-tests@example.invalid")
-            with patch.object(client, "get", side_effect=[{"artists": [{"name": "Pink Floyd", "score": "100", "id": "artist"}]}, {"release-groups": []}, {"genres": [{"name": "progressive rock", "count": 5}]}]) as mock:
+            with patch.object(client, "get", side_effect=[{"artists": [{"name": "Pink Floyd", "score": "100", "id": "artist"}]}, {"release-groups": []}]) as mock:
                 result = client.genre("Pink Floyd", "Unknown album")
-                self.assertEqual(result["genero"], "Progressive Rock")
-                self.assertEqual(result["fonte"], "https://musicbrainz.org/artist/artist")
+                self.assertNotIn("genero", result)
+                self.assertIn("revisao", result)
                 client.genre("Pink Floyd", "Unknown album")
-                self.assertEqual(mock.call_count, 3)
+                self.assertEqual(mock.call_count, 2)
 
 
 if __name__ == "__main__":
