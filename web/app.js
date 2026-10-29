@@ -9,6 +9,7 @@ const duration = (value) => { const seconds = Math.max(0, Math.floor(Number(valu
 const cover = (id) => `/api/cover?id=${encodeURIComponent(id)}`;
 const state = {view:"inicio", summary:null, albums:[], proposals:null, pending:[], selected:new Set(), page:0, filter:"todas", reviewFilter:"todas", albumFilter:"todas", search:"", queue:[], current:null, request:0, lastJob:null};
 const token = $('meta[name="library-token"]').content;
+const playlistState = {draft:null, pending:null, exists:false};
 let toastTimeout;
 
 async function api(path, data) {
@@ -44,7 +45,7 @@ async function updateState() {
   $('#job-percent').textContent = info.job?.progresso === null || info.job?.progresso === undefined ? "" : `${info.job.progresso}%`;
   $('#job-progress').style.width = `${info.job?.progresso || 0}%`;
   $('#top-refresh').disabled = busy;
-  document.querySelectorAll('[data-action="analyze"], [data-action="confirm-apply"], [data-action="confirm-restore"], [data-action="fetch-downloads"], [data-action="review-import"], [data-action="confirm-import"], #download-form [type="submit"]').forEach(el => { el.disabled = busy; });
+  document.querySelectorAll('[data-action="analyze"], [data-action="confirm-apply"], [data-action="confirm-restore"], [data-action="fetch-downloads"], [data-action="review-import"], [data-action="confirm-import"], [data-action="export-playlist"], [data-action="confirm-playlist"], [data-playlist-album], #playlist-form [type="submit"], #download-form [type="submit"]').forEach(el => { el.disabled = busy; });
 }
 
 function featuredAlbums() {
@@ -52,7 +53,7 @@ function featuredAlbums() {
 }
 
 function albumCard(album) {
-  return `<article class="album-card"><div class="album-image"><img src="${cover(album.track_id)}" alt="Capa de ${escapeHTML(album.album)}" loading="lazy"><button class="album-play" data-play="${album.track_id}" aria-label="Ouvir ${escapeHTML(album.album)}">${icon("play")}</button></div><button class="album-title" data-album="${escapeHTML(album.album)}" title="${escapeHTML(album.album)}">${escapeHTML(album.album)}</button><span class="album-artist">${escapeHTML(album.artista)}</span><span class="album-meta">${escapeHTML(album.ano.slice(0,4) || "Sem ano")} · ${album.faixas} ${album.faixas === 1 ? "faixa" : "faixas"}</span></article>`;
+  return `<article class="album-card"><div class="album-image"><img src="${cover(album.track_id)}" alt="Capa de ${escapeHTML(album.album)}" loading="lazy"><button class="album-play" data-play="${album.track_id}" aria-label="Ouvir ${escapeHTML(album.album)}">${icon("play")}</button></div><button class="album-title" data-album="${escapeHTML(album.album)}" title="${escapeHTML(album.album)}">${escapeHTML(album.album)}</button><span class="album-artist">${escapeHTML(album.artista)}</span><span class="album-meta">${escapeHTML(album.ano.slice(0,4) || "Sem ano")} · ${album.faixas} ${album.faixas === 1 ? "faixa" : "faixas"}</span><button class="text-button" data-playlist-album="${album.track_id}" aria-label="Exportar M3U8 de ${escapeHTML(album.album)} por ${escapeHTML(album.artista)}" ${state.summary.job?.estado==="executando"?"disabled":""}>${icon("download")} Exportar M3U8</button></article>`;
 }
 
 function statCard(label, value, name, description, amber = false) {
@@ -80,7 +81,7 @@ async function renderLibrary() {
   const query = new URLSearchParams({q:state.search, filter:state.filter, offset:state.page*50, limit:50});
   const result = await api(`/api/library?${query}`);
   state.queue = result.musicas.map(t=>t.id);
-  return `${heading("SEU SOM, SEU ACERVO","Todas as suas músicas",`${number(result.total)} faixas · ${number(state.summary.total_artistas)} créditos de artista`, `<button class="button ghost" data-action="analyze">${icon("refresh")} Atualizar biblioteca</button>`)}<div class="table-toolbar"><div class="tabs">${[["todas","Todas as faixas"],["sem-genero","Sem gênero"],["flac","FLAC"],["versoes","Versões e extras"]].map(([key,label])=>`<button class="tab ${state.filter===key?"active":""}" data-filter="${key}">${label}</button>`).join("")}</div><span class="table-note">${icon("shield")} Seus arquivos originais</span></div>${result.musicas.length ? trackTable(result.musicas,state.page*50) : empty("Nenhuma faixa por aqui", "Tente outro termo de busca ou mude os filtros.", "search")}<div class="table-footer"><span>${result.total ? `${number(state.page*50+1)}–${number(Math.min((state.page+1)*50,result.total))} de ${number(result.total)} faixas` : "0 faixas"}</span><div class="pagination"><button class="button small ghost" data-page="${state.page-1}" ${state.page===0?"disabled":""}>Anterior</button><button class="button small ghost" data-page="${state.page+1}" ${(state.page+1)*50>=result.total?"disabled":""}>Próxima</button></div></div>`;
+  return `${heading("SEU SOM, SEU ACERVO","Todas as suas músicas",`${number(result.total)} faixas · ${number(state.summary.total_artistas)} créditos de artista`, `<button class="button ghost" data-action="export-playlist" ${state.summary.job?.estado==="executando"?"disabled":""}>${icon("download")} Exportar M3U8</button><button class="button ghost" data-action="analyze">${icon("refresh")} Atualizar biblioteca</button>`)}<div class="table-toolbar"><div class="tabs">${[["todas","Todas as faixas"],["sem-genero","Sem gênero"],["flac","FLAC"],["versoes","Versões e extras"]].map(([key,label])=>`<button class="tab ${state.filter===key?"active":""}" data-filter="${key}">${label}</button>`).join("")}</div><span class="table-note">${icon("shield")} Seus arquivos originais</span></div>${result.musicas.length ? trackTable(result.musicas,state.page*50) : empty("Nenhuma faixa por aqui", "Tente outro termo de busca ou mude os filtros.", "search")}<div class="table-footer"><span>${result.total ? `${number(state.page*50+1)}–${number(Math.min((state.page+1)*50,result.total))} de ${number(result.total)} faixas` : "0 faixas"}</span><div class="pagination"><button class="button small ghost" data-page="${state.page-1}" ${state.page===0?"disabled":""}>Anterior</button><button class="button small ghost" data-page="${state.page+1}" ${(state.page+1)*50>=result.total?"disabled":""}>Próxima</button></div></div>`;
 }
 
 function filteredProposals() {
@@ -167,6 +168,30 @@ function modal(content) { $('#modal-content').innerHTML=content; if (!$('#modal'
 function modalHead(title,text) { return `<div class="modal-head"><div><h2>${title}</h2><p>${text}</p></div><button class="icon-button" data-action="close-modal" aria-label="Fechar">${icon("close")}</button></div>`; }
 function bytes(value) { return value >= 1073741824 ? `${(value/1073741824).toFixed(2).replace(".",",")} GB` : `${(value/1048576).toFixed(1).replace(".",",")} MB`; }
 
+function showPlaylist(albumId="", previousName) {
+  const album = state.albums.find(a=>a.track_id===albumId);
+  playlistState.draft = albumId ? {album_id:albumId} : {q:state.search, filter:state.filter};
+  playlistState.pending = null;
+  const name = (previousName ?? (album?.album || state.search || "Minha seleção")).replace(/[\\/:*?"<>|\x00-\x1f\x7f]/g,"_").slice(0,90);
+  const scope = album ? `Álbum: ${album.album} · ${album.artista}` : `Todas as faixas da busca e do filtro atuais, incluindo as outras páginas${state.search?` · busca: ${state.search}`:""}.`;
+  modal(`${modalHead("Exportar playlist M3U8",escapeHTML(scope))}<form id="playlist-form"><div class="modal-body"><label for="playlist-name">Nome da playlist</label><input class="field" id="playlist-name" name="nome" required maxlength="100" value="${escapeHTML(name)}"><div class="backup-note">${icon("folder")}<span>A playlist ficará na pasta <strong>Playlists/</strong> da coleção, com caminhos relativos. Para usar em outro disco, copie a coleção junto com essa pasta.</span></div></div><div class="modal-actions"><button class="button ghost" type="button" data-action="close-modal">Cancelar</button><button class="button primary" type="submit">Ver prévia ${icon("arrow")}</button></div></form>`);
+  $('#playlist-name').focus();
+}
+
+document.addEventListener("submit",async event=>{
+  if(event.target.id!=="playlist-form")return;
+  event.preventDefault();
+  const submit=event.target.querySelector('[type="submit"]');
+  submit.disabled=true;
+  try {
+    const data={...playlistState.draft,nome:$('#playlist-name').value};
+    const result=await api("/api/playlists/preview",data);
+    playlistState.pending={...data,anterior_sha256:result.anterior_sha256};
+    playlistState.exists=result.existe;
+    modal(`${modalHead("Conferir a playlist",`${number(result.faixas)} faixas em ordem de artista, álbum, disco e faixa.`)}<div class="modal-body"><dl class="details-list"><div><dt>Destino</dt><dd>${escapeHTML(result.playlist)}</dd></div><div><dt>Formato</dt><dd>M3U8 · UTF-8 · caminhos relativos</dd></div></dl>${result.existe?'<div class="form-row"><label><input class="check" id="playlist-overwrite" type="checkbox"> Substituir a playlist que já existe</label><p>A versão anterior será guardada em backup. Para manter as duas na coleção, volte e escolha outro nome.</p></div>':""}<ul class="confirm-list">${result.amostra.map(t=>`<li><strong>${escapeHTML(join(t.titulo))}</strong><span>${escapeHTML(join(t.artista))}</span></li>`).join("")}</ul>${result.faixas>result.amostra.length?`<p class="download-hint">E mais ${number(result.faixas-result.amostra.length)} faixas da seleção.</p>`:""}</div><div class="modal-actions"><button class="button ghost" data-action="edit-playlist">Alterar nome</button><button class="button primary" data-action="confirm-playlist">${icon("download")} Salvar playlist</button></div>`);
+  }catch(error){submit.disabled=false;toast(error.message);}
+});
+
 function confirmApply() {
   const selected = state.proposals.filter(p=>state.selected.has(p.id));
   if (!selected.length) return;
@@ -234,6 +259,7 @@ document.addEventListener("click",async event=>{
     if(button.dataset.view){ state.search="";$('#search').value="";navigate(button.dataset.view); }
     else if(button.dataset.play)await play(button.dataset.play);
     else if(button.dataset.info)await showDetails(button.dataset.info);
+    else if(button.dataset.playlistAlbum)showPlaylist(button.dataset.playlistAlbum);
     else if(button.dataset.album){ state.search=button.dataset.album;$('#search').value=state.search;state.filter="todas";navigate("biblioteca"); }
     else if(button.dataset.filter){state.filter=button.dataset.filter;state.page=0;await render();}
     else if(button.dataset.reviewFilter){state.reviewFilter=button.dataset.reviewFilter;state.page=0;await render();}
@@ -244,6 +270,17 @@ document.addEventListener("click",async event=>{
     } else {
       const action=button.dataset.action;
       if(action==="close-modal")$('#modal').close();
+      else if(action==="export-playlist")showPlaylist();
+      else if(action==="edit-playlist")showPlaylist(playlistState.draft?.album_id||"",playlistState.pending?.nome);
+      else if(action==="confirm-playlist"){
+        if(!playlistState.pending)return;
+        const overwrite=!!$('#playlist-overwrite')?.checked;
+        if(playlistState.exists&&!overwrite)throw new Error("Escolha substituir a playlist existente ou volte e altere o nome.");
+        button.disabled=true;
+        const result=await api("/api/playlists/export",{...playlistState.pending,sobrescrever:overwrite});
+        playlistState.pending=null;
+        modal(`${modalHead("Playlist salva",`${number(result.encontradas)} de ${number(result.faixas)} caminhos conferidos.`)}<div class="modal-body"><dl class="details-list"><div><dt>Arquivo</dt><dd>${escapeHTML(result.playlist)}</dd></div><div><dt>Para transportar</dt><dd>Copie a coleção junto com a pasta Playlists/.</dd></div>${result.backup?`<div><dt>Cópia anterior</dt><dd>${escapeHTML(result.backup)}</dd></div><div><dt>Para restaurar a playlist</dt><dd>Copie o backup para o caminho da playlist acima.</dd></div>`:""}</dl>${result.ausentes.length?`<p class="download-warning">${number(result.ausentes.length)} arquivos ficaram indisponíveis durante a gravação. Confira a coleção.</p>`:""}</div><div class="modal-actions"><button class="button primary" data-action="close-modal">Concluir</button></div>`);
+      }
       else if(action==="preferences")showSettings();
       else if(action==="select-filtered"){filteredProposals().forEach(p=>state.selected.add(p.id));updateSelection();}
       else if(action==="clear-selection"){state.selected.clear();updateSelection();}
