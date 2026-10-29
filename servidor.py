@@ -21,6 +21,9 @@ from biblioteca_plano import BASE, create_plan
 from musicbrainz_local import MusicBrainz
 
 
+WRITING_JOBS = {"importacao", "aplicacao", "restauracao"}
+
+
 class App:
     def __init__(self, root: Path, storage: Path | None = None):
         self.root = root.expanduser().resolve(strict=True)
@@ -34,6 +37,7 @@ class App:
         self.lock = threading.RLock()
         self.token = secrets.token_urlsafe(32)
         self.job = None
+        self.worker = None
         self.tracks = []
         self.by_id = {}
         self.plan = None
@@ -74,7 +78,14 @@ class App:
                 with self.lock:
                     self.error = str(error)
                     self.job.update(estado="erro", mensagem=str(error), progresso=None)
-        threading.Thread(target=run, daemon=True).start()
+        self.worker = threading.Thread(target=run, daemon=True)
+        self.worker.start()
+
+    def writing(self):
+        """Tarefa que grava na coleção e não deve ser interrompida no meio."""
+        with self.lock:
+            job = self.job
+        return bool(job and job["estado"] == "executando" and job["tipo"] in WRITING_JOBS and self.worker)
 
     def download_progress(self, message, percent):
         with self.lock:
@@ -373,6 +384,13 @@ def serve(root: Path, port: int = 8765, storage: Path | None = None, open_browse
     try:
         server.serve_forever()
     except KeyboardInterrupt:
+        server.server_close()
+        while app.writing():
+            print("\nAguardando a gravação em andamento terminar para não deixar arquivos pela metade…", flush=True)
+            try:
+                app.worker.join()
+            except KeyboardInterrupt:
+                continue
         print("\nInterface encerrada.")
     finally:
         server.server_close()
