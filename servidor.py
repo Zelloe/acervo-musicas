@@ -29,6 +29,15 @@ from versoes import classificar
 
 
 WRITING_JOBS = {"importacao", "aplicacao", "restauracao"}
+SERVER_SOURCE = Path(__file__).resolve()
+SERVER_CODE_HASH = sha256(SERVER_SOURCE)
+
+
+def restart_required():
+    try:
+        return sha256(SERVER_SOURCE) != SERVER_CODE_HASH
+    except OSError:
+        return True
 
 
 def album_key(track):
@@ -433,7 +442,7 @@ class App:
                        "arquivos_com_propostas": len({p["arquivo"] for p in proposals}),
                        "propostas_por_campo": dict(Counter(p["campo"] for p in proposals))}
             revision = hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest() if policy is not None else None
-            return {"biblioteca": str(self.root), "biblioteca_revisao": self.library_revision, "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "erro": self.error, "erro_protecoes": policy_error, "protecoes_revisao": revision, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(proposals)}
+            return {"biblioteca": str(self.root), "biblioteca_revisao": self.library_revision, "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "erro": self.error, "erro_protecoes": policy_error, "protecoes_revisao": revision, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(proposals), "reinicio_necessario": restart_required()}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -493,9 +502,14 @@ class Handler(BaseHTTPRequestHandler):
         if url.path in ("/", "/index.html"):
             html = (BASE / "web/index.html").read_text().replace("__TOKEN__", self.app.token)
             self.send(200, html.encode(), "text/html; charset=utf-8")
-        elif url.path in ("/app.js", "/downloads.js", "/protecoes.js", "/baixar.js", "/busca.js", "/versoes.js", "/style.css"):
+        elif re.fullmatch(r"/[a-z0-9_-]+\.(js|css)", url.path):
+            web = BASE / "web"
+            asset = web / url.path[1:]
+            if web.is_symlink() or asset.is_symlink() or not asset.is_file() or asset.resolve().parent != web.resolve():
+                self.send(404, b"Recurso nao encontrado", "text/plain; charset=utf-8")
+                return
             mime = "text/javascript; charset=utf-8" if url.path.endswith(".js") else "text/css; charset=utf-8"
-            self.send(200, (BASE / "web" / url.path[1:]).read_bytes(), mime)
+            self.send(200, asset.read_bytes(), mime)
         elif url.path == "/api/state":
             self.json(self.app.snapshot())
         elif url.path == "/api/protections":
