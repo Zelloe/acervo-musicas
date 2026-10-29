@@ -1,0 +1,333 @@
+"""Interface local do Acervo. Escuta exclusivamente no endereço de loopback."""
+
+from collections import Counter, defaultdict
+import csv
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+import mimetypes
+from pathlib import Path
+import re
+import secrets
+import threading
+from urllib.parse import parse_qs, urlsplit
+
+from mutagen.flac import FLAC
+from mutagen.id3 import ID3
+
+from biblioteca_core import apply_plan, atomic_json, load_plan, restore, secure_file
+from biblioteca_plano import BASE, create_plan
+from musicbrainz_local import MusicBrainz
+
+
+class App:
+    def __init__(self, root: Path, storage: Path | None = None):
+        self.root = root.expanduser().resolve(strict=True)
+        if not self.root.is_dir():
+            raise ValueError("A biblioteca deve ser uma pasta")
+        self.storage = (storage or BASE).expanduser().resolve()
+        if self.storage == self.root or self.root in self.storage.parents:
+            raise ValueError("Os dados do programa devem ficar fora da biblioteca musical")
+        self.state_dir = self.storage / ".biblioteca"
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        self.lock = threading.RLock()
+        self.token = secrets.token_urlsafe(32)
+        self.job = None
+        self.tracks = []
+        self.plan = None
+        self.plan_path = None
+        self.error = None
+        for path in sorted((self.storage / "relatorios").glob("*/plano.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+            try:
+                plan = load_plan(path)
+                if plan["biblioteca"] == str(self.root):
+                    self.load(path)
+                    break
+            except (OSError, ValueError, KeyError):
+                continue
+
+    def load(self, path: Path):
+        plan = load_plan(path)
+        tracks = json.loads((path.parent / "inventario.json").read_text())["musicas"]
+        with self.lock:
+            self.plan = plan
+            self.plan_path = path
+            self.tracks = tracks
+            self.by_id = {t["id"]: t for t in tracks}
+            self.root = Path(plan["biblioteca"])
+
+    def start(self, kind, operation):
+        with self.lock:
+            if self.job and self.job["estado"] == "executando":
+                raise ValueError("Aguarde a operação atual terminar")
+            self.error = None
+            self.job = {"tipo": kind, "estado": "executando", "mensagem": "Preparando…", "progresso": None}
+        def run():
+            try:
+                result = operation()
+                with self.lock:
+                    self.job.update(estado="concluido", mensagem="Operação concluída", progresso=100, resultado=result)
+            except Exception as error:
+                with self.lock:
+                    self.error = str(error)
+                    self.job.update(estado="erro", mensagem=str(error), progresso=None)
+        threading.Thread(target=run, daemon=True).start()
+
+    def analyze(self, online=None):
+        output = self.storage / "relatorios" / datetime.now().strftime("previa_%Y%m%d_%H%M%S_%f")
+        def progress(done, total, name):
+            with self.lock:
+                self.job.update(mensagem=f"{done} de {total} · {name}", progresso=round(done / total * 100) if total else 0)
+        result = create_plan(self.root, output, normalize_albums=True, online=online, progress=progress)
+        self.load(Path(result["plano"]))
+        return result
+
+    def proposals(self):
+        tracks = {t["arquivo"]: t for t in self.tracks}
+        rows = []
+        for entry in (self.plan or {}).get("arquivos", []):
+            track = tracks[entry["arquivo"]]
+            for change in entry["alteracoes"]:
+                rows.append({**change, "arquivo": entry["arquivo"], "track_id": track["id"], "titulo": " / ".join(track["titulo"]), "artista": " / ".join(track["artista"]), "album": " / ".join(track["album"]), "tamanho_bytes": entry["tamanho_bytes"]})
+        return rows
+
+    def history(self):
+        rows = []
+        for path in (self.storage / "backups").glob("*/manifesto.json"):
+            try:
+                manifest = json.loads(path.read_text())
+                if manifest["biblioteca"] == str(self.root):
+                    rows.append({"id": path.parent.name, "estado": manifest["estado"], "data": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(), "arquivos": len(manifest["arquivos"]), "erro": manifest.get("erro")})
+            except (OSError, ValueError, KeyError):
+                continue
+        return sorted(rows, key=lambda r: r["data"], reverse=True)
+
+    def snapshot(self):
+        with self.lock:
+            summary = (self.plan or {}).get("resumo", {})
+            return {"biblioteca": str(self.root), "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "erro": self.error, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(self.proposals())}
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "Acervo/0.1"
+
+    @property
+    def app(self):
+        return self.server.app
+
+    def log_message(self, fmt, *args):
+        pass
+
+    def trusted(self):
+        port = self.server.server_port
+        return self.headers.get("Host") in (f"127.0.0.1:{port}", f"localhost:{port}")
+
+    def send(self, status, data: bytes, mime="application/json; charset=utf-8", extra=None):
+        self.send_response(status)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; media-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; connect-src 'self'")
+        for key, value in (extra or {}).items():
+            self.send_header(key, value)
+        self.end_headers()
+        self.wfile.write(data)
+
+    def json(self, data, status=200):
+        self.send(status, json.dumps(data, ensure_ascii=False).encode())
+
+    def track(self, query):
+        with self.app.lock:
+            track = getattr(self.app, "by_id", {}).get(query.get("id", [""])[0])
+            if track is None:
+                raise ValueError("Música não encontrada")
+            secure_file(self.app.root, track["arquivo"])
+            return track
+
+    def do_GET(self):
+        if not self.trusted():
+            self.json({"erro": "Host não permitido"}, 403)
+            return
+        try:
+            self.get_route()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except (ValueError, OSError, KeyError) as error:
+            self.json({"erro": str(error)}, 400)
+
+    def get_route(self):
+        url = urlsplit(self.path)
+        query = parse_qs(url.query)
+        if url.path in ("/", "/index.html"):
+            html = (BASE / "web/index.html").read_text().replace("__TOKEN__", self.app.token)
+            self.send(200, html.encode(), "text/html; charset=utf-8")
+        elif url.path in ("/app.js", "/style.css"):
+            mime = "text/javascript; charset=utf-8" if url.path.endswith(".js") else "text/css; charset=utf-8"
+            self.send(200, (BASE / "web" / url.path[1:]).read_bytes(), mime)
+        elif url.path == "/api/state":
+            self.json(self.app.snapshot())
+        elif url.path == "/api/library":
+            needle = query.get("q", [""])[0].casefold()
+            kind = query.get("filter", ["todas"])[0]
+            rows = self.app.tracks
+            if needle:
+                rows = [t for t in rows if needle in " ".join(t["titulo"] + t["artista"] + t["album"]).casefold()]
+            if kind == "sem-genero":
+                rows = [t for t in rows if "genero" in t["campos_ausentes"]]
+            elif kind == "flac":
+                rows = [t for t in rows if t["formato"] == "FLAC"]
+            elif kind == "versoes":
+                rows = [t for t in rows if t["marcadores_versao"]]
+            offset = max(0, int(query.get("offset", [0])[0]))
+            limit = min(100, max(1, int(query.get("limit", [50])[0])))
+            self.json({"total": len(rows), "musicas": [{k: t[k] for k in ("id", "titulo", "artista", "album", "genero", "ano", "faixa", "formato", "duracao_segundos", "bitrate_bps", "campos_ausentes", "capas")} for t in rows[offset:offset + limit]]})
+        elif url.path == "/api/albums":
+            groups = defaultdict(list)
+            for track in self.app.tracks:
+                groups[(tuple(track["artista_album"] or track["artista"]), tuple(track["album"]))].append(track)
+            rows = [{"artista": " / ".join(artist), "album": " / ".join(album), "track_id": members[0]["id"], "faixas": len(members), "ano": " / ".join(members[0]["ano"]), "genero": " / ".join(members[0]["genero"])} for (artist, album), members in groups.items()]
+            self.json({"albuns": rows})
+        elif url.path == "/api/proposals":
+            self.json({"alteracoes": self.app.proposals()})
+        elif url.path == "/api/unidentified":
+            suggested = {p["arquivo"] for p in self.app.proposals() if p["campo"] == "genero"}
+            self.json({"musicas": [t for t in self.app.tracks if "genero" in t["campos_ausentes"] and t["arquivo"] not in suggested]})
+        elif url.path == "/api/history":
+            self.json({"execucoes": self.app.history()})
+        elif url.path == "/api/track":
+            self.json(self.track(query))
+        elif url.path == "/api/cover":
+            track = self.track(query)
+            path = Path(track["arquivo"])
+            covers = ID3(path).getall("APIC") if path.suffix.casefold() == ".mp3" else FLAC(path).pictures
+            if not covers:
+                self.send(404, b"")
+                return
+            cover = next((c for c in covers if c.type == 3), covers[0])
+            mime = cover.mime if cover.mime in ("image/jpeg", "image/png", "image/webp", "image/gif") else "application/octet-stream"
+            self.send(200, cover.data, mime)
+        elif url.path == "/api/audio":
+            path = Path(self.track(query)["arquivo"])
+            size = path.stat().st_size
+            start, end = 0, size - 1
+            header = self.headers.get("Range")
+            if header:
+                match = re.fullmatch(r"bytes=(\d*)-(\d*)", header)
+                if not match or not any(match.groups()):
+                    self.send(416, b"", extra={"Content-Range": f"bytes */{size}"})
+                    return
+                first, last = match.groups()
+                if not first:
+                    start = max(0, size - int(last))
+                else:
+                    start = int(first)
+                    end = min(size - 1, int(last)) if last else size - 1
+                if start > end or start >= size:
+                    self.send(416, b"", extra={"Content-Range": f"bytes */{size}"})
+                    return
+            self.send_response(206 if header else 200)
+            self.send_header("Content-Type", "audio/mpeg" if path.suffix.casefold() == ".mp3" else "audio/flac")
+            self.send_header("Content-Length", str(end - start + 1))
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Cache-Control", "no-store")
+            if header:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            self.end_headers()
+            with path.open("rb") as handle:
+                handle.seek(start)
+                remaining = end - start + 1
+                while remaining:
+                    chunk = handle.read(min(65536, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
+        elif url.path == "/api/export":
+            if self.app.plan_path is None:
+                raise ValueError("Execute uma análise primeiro")
+            self.send(200, (self.app.plan_path.parent / "alteracoes.csv").read_bytes(), "text/csv; charset=utf-8", {"Content-Disposition": 'attachment; filename="alteracoes.csv"'})
+        else:
+            self.send(404, b"Pagina nao encontrada", "text/plain; charset=utf-8")
+
+    def do_POST(self):
+        origin = self.headers.get("Origin")
+        host = self.headers.get("Host")
+        if not self.trusted() or origin != "http://" + host or not secrets.compare_digest(self.headers.get("X-Library-Token", ""), self.app.token):
+            self.json({"erro": "Requisição não autorizada"}, 403)
+            return
+        try:
+            size = int(self.headers.get("Content-Length", 0))
+            if size < 0 or size > 1024 * 1024 or self.headers.get_content_type() != "application/json":
+                raise ValueError("Requisição inválida")
+            data = json.loads(self.rfile.read(size))
+            if not isinstance(data, dict):
+                raise ValueError("O corpo da requisição deve ser um objeto JSON")
+            route = urlsplit(self.path).path
+            if route == "/api/analyze":
+                online = MusicBrainz(self.app.state_dir / "cache/musicbrainz", data.get("contato", ""), 200) if data.get("musicbrainz") else None
+                self.app.start("analise", lambda: self.app.analyze(online))
+            elif route == "/api/apply":
+                ids = set(data.get("ids", []))
+                if not ids or any(not isinstance(i, str) for i in ids):
+                    raise ValueError("Selecione alterações para aprovar")
+                plan_path = self.app.plan_path
+                if plan_path is None:
+                    raise ValueError("Analise a biblioteca primeiro")
+                plan = load_plan(plan_path)
+                known = {c["id"] for t in plan["arquivos"] for c in t["alteracoes"]}
+                if not ids <= known:
+                    raise ValueError("A seleção está desatualizada; recarregue a página")
+                def apply():
+                    path = self.app.state_dir / ("aprovacoes_" + secrets.token_hex(8) + ".csv")
+                    with (plan_path.parent / "alteracoes.csv").open(encoding="utf-8-sig", newline="") as handle:
+                        reader = csv.DictReader(handle)
+                        fields = reader.fieldnames
+                        rows = list(reader)
+                    for row in rows:
+                        row["aprovar"] = "sim" if row["id"] in ids else "nao"
+                    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+                        writer = csv.DictWriter(handle, fieldnames=fields)
+                        writer.writeheader()
+                        writer.writerows(rows)
+                    self.app.job["mensagem"] = "Criando backups completos e validando as tags…"
+                    result = apply_plan(plan_path, path, self.app.storage / "backups")
+                    self.app.analyze()
+                    return result
+                self.app.start("aplicacao", apply)
+            elif route == "/api/restore":
+                ident = data.get("id", "")
+                if ident not in {r["id"] for r in self.app.history()}:
+                    raise ValueError("Execução não encontrada")
+                def undo():
+                    self.app.job["mensagem"] = "Validando backups e restaurando os arquivos…"
+                    result = restore(self.app.storage / "backups" / ident / "manifesto.json")
+                    self.app.analyze()
+                    return result
+                self.app.start("restauracao", undo)
+            else:
+                self.json({"erro": "Rota não encontrada"}, 404)
+                return
+            self.json({"iniciado": True}, 202)
+        except (ValueError, OSError, TypeError) as error:
+            self.json({"erro": str(error)}, 400)
+
+
+def serve(root: Path, port: int = 8765, storage: Path | None = None, open_browser: bool = False):
+    app = App(root, storage)
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server.app = app
+    print(f"Acervo · http://127.0.0.1:{port}", flush=True)
+    print(f"Biblioteca: {app.root}", flush=True)
+    if app.plan is None:
+        app.start("analise", app.analyze)
+    if open_browser:
+        import webbrowser
+        threading.Timer(.5, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nInterface encerrada.")
+    finally:
+        server.server_close()

@@ -1,0 +1,307 @@
+"use strict";
+
+const $ = (selector) => document.querySelector(selector);
+const icon = (name) => `<svg aria-hidden="true"><use href="#i-${name}"/></svg>`;
+const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const join = (values) => (values || []).join(" / ");
+const number = (value) => new Intl.NumberFormat("pt-BR").format(value || 0);
+const duration = (value) => { const seconds = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`; };
+const cover = (id) => `/api/cover?id=${encodeURIComponent(id)}`;
+const state = {view:"inicio", summary:null, albums:[], proposals:null, pending:[], selected:new Set(), page:0, filter:"todas", reviewFilter:"todas", albumFilter:"todas", search:"", queue:[], current:null, request:0, lastJob:null};
+const token = $('meta[name="library-token"]').content;
+let toastTimeout;
+
+async function api(path, data) {
+  const options = data === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json", "X-Library-Token":token}, body:JSON.stringify(data)};
+  const response = await fetch(path, options);
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.erro || "Não foi possível concluir a operação.");
+  return result;
+}
+
+function toast(message) {
+  $('#toast').textContent = message;
+  $('#toast').hidden = false;
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => { $('#toast').hidden = true; }, 6500);
+}
+
+function settings() {
+  try { return JSON.parse(localStorage.getItem("acervo-options")) || {musicbrainz:false, contato:""}; }
+  catch { return {musicbrainz:false, contato:""}; }
+}
+
+async function updateState() {
+  state.summary = await api("/api/state");
+  const info = state.summary;
+  $('#library-count').textContent = number(info.resumo.lidos);
+  $('#folder-label').textContent = info.biblioteca.replace(/^\/home\/[^/]+/, "~");
+  $('#folder-label').title = info.biblioteca;
+  $('#review-dot').hidden = !info.propostas;
+  const busy = info.job?.estado === "executando";
+  $('#job-banner').hidden = !busy;
+  $('#job-label').textContent = info.job?.mensagem || "";
+  $('#job-percent').textContent = info.job?.progresso === null || info.job?.progresso === undefined ? "" : `${info.job.progresso}%`;
+  $('#job-progress').style.width = `${info.job?.progresso || 0}%`;
+  $('#top-refresh').disabled = busy;
+  document.querySelectorAll('[data-action="analyze"], [data-action="confirm-apply"], [data-action="confirm-restore"]').forEach(el => { el.disabled = busy; });
+}
+
+function featuredAlbums() {
+  const patterns = [/Back In Black/i, /Justice.*Remastered\)/i, /Nevermind/i, /Dark Side/i, /Larks.*Tongues/i, /^Dirt/i];
+  const used = new Set();
+  const albums = [];
+  for (const pattern of patterns) {
+    const found = state.albums.find(a => pattern.test(a.album) && !used.has(a.track_id));
+    if (found) { albums.push(found); used.add(found.track_id); }
+  }
+  for (const album of state.albums) {
+    if (albums.length >= 6) break;
+    if (!used.has(album.track_id)) { albums.push(album); used.add(album.track_id); }
+  }
+  return albums;
+}
+
+function albumCard(album) {
+  return `<article class="album-card"><div class="album-image"><img src="${cover(album.track_id)}" alt="Capa de ${escapeHTML(album.album)}" loading="lazy"><button class="album-play" data-play="${album.track_id}" aria-label="Ouvir ${escapeHTML(album.album)}">${icon("play")}</button></div><button class="album-title" data-album="${escapeHTML(album.album)}" title="${escapeHTML(album.album)}">${escapeHTML(album.album)}</button><span class="album-artist">${escapeHTML(album.artista)}</span><span class="album-meta">${escapeHTML(album.ano.slice(0,4) || "Sem ano")} · ${album.faixas} ${album.faixas === 1 ? "faixa" : "faixas"}</span></article>`;
+}
+
+function statCard(label, value, name, description, amber = false) {
+  return `<div class="stat-card${amber ? " amber" : ""}"><div class="stat-head"><span class="stat-label">${label}</span><span class="stat-icon">${icon(name)}</span></div><strong class="stat-value">${number(value)}</strong><div class="stat-bottom">${description}</div></div>`;
+}
+
+function trackTable(tracks, offset = 0) {
+  return `<div class="table-wrap"><table><thead><tr><th class="num">#</th><th>TÍTULO</th><th>ÁLBUM</th><th>GÊNERO</th><th>FORMATO</th><th class="time-cell">${icon("clock")}</th><th></th></tr></thead><tbody>${tracks.map((t,i) => `<tr><td class="num row-number"><span>${offset+i+1}</span><button class="icon-button row-play" data-play="${t.id}" aria-label="Ouvir ${escapeHTML(join(t.titulo))}">${icon("play")}</button></td><td><div class="track-info"><img class="track-cover" src="${cover(t.id)}" alt="" loading="lazy"><div class="track-text"><span class="track-name" title="${escapeHTML(join(t.titulo))}">${escapeHTML(join(t.titulo))}</span><span class="track-artist">${escapeHTML(join(t.artista))}</span></div></div></td><td class="album-cell" title="${escapeHTML(join(t.album))}">${escapeHTML(join(t.album))}</td><td>${t.genero.length ? `<span class="source">${escapeHTML(join(t.genero))}</span>` : '<span class="missing">Não definido</span>'}</td><td><span class="format ${t.formato === "FLAC" ? "flac" : ""}">${t.formato}</span></td><td class="time-cell">${duration(t.duracao_segundos)}</td><td><button class="icon-button" data-info="${t.id}" aria-label="Ver metadados de ${escapeHTML(join(t.titulo))}">${icon("more")}</button></td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function breadcrumb(label) { return `<div class="page-topline">Seu espaço ${icon("arrow")} <span>${label}</span></div>`; }
+function empty(title, text, name="library", action="") { return `<div class="empty-state">${icon(name)}<h2>${title}</h2><p>${text}</p>${action}</div>`; }
+function heading(kicker,title,text,actions="") { return `${breadcrumb(title)}<div class="page-heading"><div><span class="section-kicker">${kicker}</span><h1>${title}</h1><p>${text}</p></div><div class="page-heading-actions">${actions}</div></div>`; }
+
+async function renderHome() {
+  const result = await api("/api/library?limit=8");
+  state.queue = result.musicas.map(t=>t.id);
+  const data = state.summary;
+  const sum = data.resumo;
+  const albums = featuredAlbums();
+  return `${breadcrumb("Visão geral")}<section class="hero"><div class="hero-copy"><div class="eyebrow">${icon("disc")} SUA BIBLIOTECA PESSOAL</div><h1>Sua música.<br><span>Cada detalhe importa.</span></h1><p>Uma coleção com a sua identidade.<br>Descubra o que falta, revise e deixe tudo em harmonia.</p><div class="hero-actions"><button class="button primary" data-view="revisao">Revisar minha coleção ${icon("arrow")}</button><button class="button secondary" data-view="biblioteca">Ver biblioteca</button></div></div><div class="hero-art" aria-hidden="true">${albums.map(a=>`<img src="${cover(a.track_id)}" alt="">`).join("")}</div></section><div class="stat-grid">${statCard("Músicas na coleção",sum.lidos,"music",`${number(sum.formatos?.MP3)} MP3 <span class="green">·</span> ${number(sum.formatos?.FLAC)} FLAC`)}${statCard("Álbuns na biblioteca",data.total_albuns,"disc","Histórias que merecem ser ouvidas")}${statCard("Gêneros pendentes",sum.campos_ausentes?.genero,"tag","Uma coleção pronta para ganhar detalhes",true)}${statCard("Capas presentes",sum.com_capa,"image",'<span class="green">A identidade visual da sua música</span>')}</div><section class="section"><div class="section-heading"><div><h2>Na sua estante</h2><p>Alguns dos discos que fazem parte de você.</p></div><button class="text-button" data-view="albuns">Ver todos ${icon("arrow")}</button></div><div class="album-grid">${albums.map(albumCard).join("")}</div></section><section class="section overview-table"><div class="section-heading"><div><h2>Faixas da coleção</h2><p>${number(sum.lidos)} boas razões para apertar o play.</p></div><button class="text-button" data-view="biblioteca">Explorar biblioteca ${icon("arrow")}</button></div>${result.musicas.length ? trackTable(result.musicas) : empty("Sua biblioteca está sendo preparada", "A primeira análise pode levar alguns minutos. Você acompanha o progresso no topo da página.")}</section>`;
+}
+
+async function renderLibrary() {
+  const query = new URLSearchParams({q:state.search, filter:state.filter, offset:state.page*50, limit:50});
+  const result = await api(`/api/library?${query}`);
+  state.queue = result.musicas.map(t=>t.id);
+  return `${heading("SEU SOM, SEU ACERVO","Todas as suas músicas",`${number(result.total)} faixas · ${number(state.summary.total_artistas)} créditos de artista`, `<button class="button ghost" data-action="analyze">${icon("refresh")} Atualizar biblioteca</button>`)}<div class="table-toolbar"><div class="tabs">${[["todas","Todas as faixas"],["sem-genero","Sem gênero"],["flac","FLAC"],["versoes","Versões e extras"]].map(([key,label])=>`<button class="tab ${state.filter===key?"active":""}" data-filter="${key}">${label}</button>`).join("")}</div><span class="table-note">${icon("shield")} Seus arquivos originais</span></div>${result.musicas.length ? trackTable(result.musicas,state.page*50) : empty("Nenhuma faixa por aqui", "Tente outro termo de busca ou mude os filtros.", "search")}<div class="table-footer"><span>${result.total ? `${number(state.page*50+1)}–${number(Math.min((state.page+1)*50,result.total))} de ${number(result.total)} faixas` : "0 faixas"}</span><div class="pagination"><button class="button small ghost" data-page="${state.page-1}" ${state.page===0?"disabled":""}>Anterior</button><button class="button small ghost" data-page="${state.page+1}" ${(state.page+1)*50>=result.total?"disabled":""}>Próxima</button></div></div>`;
+}
+
+function filteredProposals() {
+  const needle = state.search.toLocaleLowerCase("pt-BR");
+  return (state.proposals||[]).filter(p=>(state.reviewFilter==="todas" || p.campo===state.reviewFilter) && (!needle || `${p.titulo} ${p.artista} ${p.album} ${join(p.proposto)}`.toLocaleLowerCase("pt-BR").includes(needle)));
+}
+
+async function renderReview() {
+  if (state.proposals === null) {
+    const [proposals, pending] = await Promise.all([api("/api/proposals"),api("/api/unidentified")]);
+    state.proposals = proposals.alteracoes;
+    state.pending = pending.musicas;
+  }
+  const reviewTabs = () => `<div class="tabs">${[["todas","Todas"],["genero","Gêneros"],["album","Álbuns"],["pendentes",`Sem sugestão · ${number(state.pending.length)}`]].map(([key,label])=>`<button class="tab ${state.reviewFilter===key?"active":""}" data-review-filter="${key}">${label}</button>`).join("")}</div>`;
+  if (state.reviewFilter === "pendentes") {
+    const query = state.search.toLowerCase();
+    const rows = state.pending.filter(t=>`${join(t.titulo)} ${join(t.artista)} ${join(t.album)}`.toLowerCase().includes(query));
+    return `${heading("UM OLHAR MAIS ATENTO","Ainda falta conhecer melhor.",`${number(rows.length)} músicas sem uma sugestão de gênero segura.`)}<div class="review-summary">${icon("search")}<p><strong>Uma dúvida é melhor que uma tag errada.</strong>Estas faixas foram preservadas. Você pode ativar a consulta ao MusicBrainz e analisar novamente.</p><button class="button small ghost" data-action="preferences">Preferências</button></div>${reviewTabs()}${rows.length?trackTable(rows):empty("Nenhuma música pendente neste filtro","Tente outro termo de busca ou confira as sugestões disponíveis.","check")}`;
+  }
+  const rows = filteredProposals();
+  const visible = rows.slice(state.page*40,(state.page+1)*40);
+  state.visibleProposals = visible;
+  const counts = state.summary.resumo.propostas_por_campo || {};
+  const titles = {genero:"Gênero", album:"Álbum"};
+  return `${heading("VOCÊ ESCOLHE O QUE MUDA","Um pouco mais de harmonia.",`${number(counts.genero)} sugestões de gênero e ${number(counts.album)} de álbum, esperando sua revisão.`, `<a class="button ghost" href="/api/export">${icon("download")} Exportar prévia</a>`)}<div class="review-summary">${icon("shield")}<p><strong>Sua coleção continua nas suas mãos.</strong>Selecione as alterações que fazem sentido. Cada aplicação inclui um backup completo.</p><span class="chip">Aprovação por alteração</span></div><div class="table-toolbar">${reviewTabs()}${rows.length ? `<button class="text-button" data-action="select-filtered">Selecionar ${number(rows.length)} sugestões filtradas</button>` : ""}</div>${rows.length ? `<div class="table-wrap"><table class="review-table"><thead><tr><th><input class="check" id="check-visible" type="checkbox" aria-label="Selecionar alterações desta página"></th><th>MÚSICA</th><th>CAMPO</th><th>ATUAL → SUGERIDO</th><th>ORIGEM</th></tr></thead><tbody>${visible.map(p=>`<tr><td><input class="check proposal-check" type="checkbox" data-id="${p.id}" aria-label="Aprovar ${titles[p.campo]} de ${escapeHTML(p.titulo)}" ${state.selected.has(p.id)?"checked":""}></td><td><div class="track-info"><img class="track-cover" src="${cover(p.track_id)}" alt="" loading="lazy"><div class="track-text"><span class="track-name">${escapeHTML(p.titulo)}</span><span class="track-artist">${escapeHTML(p.artista)}</span></div></div></td><td><span class="chip ${p.campo==="album"?"amber":"neutral"}">${titles[p.campo]}</span></td><td><span class="change-old">${escapeHTML(join(p.atual) || "Não definido")}</span><span class="change-new">${icon("arrow")}${escapeHTML(join(p.proposto))}</span>${p.campo==="album"?'<span class="source">Edição anterior preservada em tag própria</span>':""}</td><td><span class="source ${p.fonte.includes("usuario")?"user":""}" title="${escapeHTML(p.criterio)}">${p.fonte.startsWith("https://musicbrainz.org/")?"MusicBrainz · revisão":p.fonte.includes("usuario")?"Sua regra de gênero":"Sugestão de curadoria"}</span></td></tr>`).join("")}</tbody></table></div><div class="table-footer"><span>${number(state.page*40+1)}–${number(Math.min((state.page+1)*40,rows.length))} de ${number(rows.length)} alterações · nada aplicado</span><div class="pagination"><button class="button small ghost" data-page="${state.page-1}" ${state.page===0?"disabled":""}>Anterior</button><button class="button small ghost" data-page="${state.page+1}" ${(state.page+1)*40>=rows.length?"disabled":""}>Próxima</button></div></div>` : empty("Tudo revisado por aqui", "Não há sugestões para este filtro. Confira também a lista de músicas sem sugestão.", "check")}<div id="selection-bar"></div>`;
+}
+
+function updateSelection() {
+  const target = $('#selection-bar');
+  if (target) {
+    target.className = state.selected.size ? "selection-bar" : "";
+    target.innerHTML = state.selected.size ? `<span><strong>${number(state.selected.size)}</strong> alterações selecionadas</span><div class="tabs"><button class="text-button" data-action="clear-selection">Limpar seleção</button><button class="button primary" data-action="review-apply">Revisar e aplicar ${icon("arrow")}</button></div>` : "";
+  }
+  const check = $('#check-visible');
+  if (check) {
+    const count = (state.visibleProposals||[]).filter(p=>state.selected.has(p.id)).length;
+    check.checked = count>0 && count===state.visibleProposals.length;
+    check.indeterminate = count>0 && count<state.visibleProposals.length;
+  }
+  document.querySelectorAll('.proposal-check').forEach(el=>{ el.checked=state.selected.has(el.dataset.id); });
+}
+
+async function renderAlbums() {
+  let rows = state.albums;
+  if (state.albumFilter === "edicoes") {
+    const key = a => `${a.artista.toLowerCase()}|${a.album.normalize("NFKC").replace(/\s*[([][^()[\]]*(?:remaster|deluxe|expanded|anniversary)[^()[\]]*[)\]]\s*$/i, "").trim().toLowerCase()}`;
+    const groups = new Map();
+    for (const a of rows) groups.set(key(a),(groups.get(key(a))||0)+1);
+    rows=rows.filter(a=>groups.get(key(a))>1);
+  }
+  const needle = state.search.toLowerCase();
+  if (needle) rows = rows.filter(a=>`${a.album} ${a.artista}`.toLowerCase().includes(needle));
+  return `${heading("A SUA ESTANTE, SEM POEIRA","Discos que contam histórias.",`${number(rows.length)} álbuns · edições exibidas como estão nos seus arquivos`)}<div class="table-toolbar"><div class="tabs"><button class="tab ${state.albumFilter==="todas"?"active":""}" data-album-filter="todas">Todos os álbuns</button><button class="tab ${state.albumFilter==="edicoes"?"active":""}" data-album-filter="edicoes">Nomes semelhantes</button></div><span class="table-note">${icon("disc")} Cada edição tem sua história</span></div>${rows.length ? `<div class="album-grid full">${rows.map(albumCard).join("")}</div>` : empty("Nenhum álbum encontrado", "Experimente mudar a busca ou o filtro.", "disc")}`;
+}
+
+async function renderHistory() {
+  const rows = (await api("/api/history")).execucoes;
+  const labels = {concluido:"Concluída",restaurado:"Restaurada",interrompido:"Interrompida",aplicando:"Em andamento",preparando_backups:"Preparando backup"};
+  return `${heading("CADA MUDANÇA TEM UM CAMINHO DE VOLTA","Histórico da coleção", "Acompanhe suas alterações e restaure os arquivos de uma execução.")}${rows.length ? rows.map(r=>`<article class="history-row"><span class="history-icon">${icon("history")}</span><div class="history-text"><strong>${number(r.arquivos)} ${r.arquivos===1?"arquivo":"arquivos"} · atualização de metadados</strong><p>${escapeHTML(new Date(r.data).toLocaleString("pt-BR"))} · backup completo${r.erro?" · "+escapeHTML(r.erro):""}</p></div><span class="chip ${r.estado==="interrompido"?"amber":""}">${escapeHTML(labels[r.estado]||r.estado)}</span><button class="button small ghost" data-restore="${r.id}" ${r.estado==="restaurado"?"disabled":""}>${icon("history")} Restaurar</button></article>`).join("") : empty("Sua coleção começa um novo capítulo.", "Quando você aplicar as primeiras alterações, os backups e os registros aparecerão aqui. Até lá, seus arquivos seguem como estão.", "history", '<button class="button primary" data-view="revisao">Conhecer as sugestões '+icon("arrow")+'</button>')}`;
+}
+
+async function render() {
+  const request = ++state.request;
+  document.querySelectorAll('.nav-item').forEach(el=>{ el.classList.toggle("active",el.dataset.view===state.view); el.setAttribute("aria-current",el.dataset.view===state.view?"page":"false"); });
+  try {
+    let html = await ({inicio:renderHome,biblioteca:renderLibrary,revisao:renderReview,albuns:renderAlbums,historico:renderHistory}[state.view] || renderHome)();
+    if (request !== state.request) return;
+    if (state.summary.erro) html = `<div class="error-box">${escapeHTML(state.summary.erro)}</div>`+html;
+    $('#content').innerHTML=html;
+    updateSelection();
+  } catch(error) { toast(error.message); }
+}
+
+function navigate(view) {
+  if (!["inicio","biblioteca","revisao","albuns","historico"].includes(view)) view="inicio";
+  state.view=view;
+  state.page=0;
+  history.replaceState(null,"",`#${view}`);
+  window.scrollTo({top:0});
+  render();
+}
+
+function modal(content) { $('#modal-content').innerHTML=content; if (!$('#modal').open) $('#modal').showModal(); }
+function modalHead(title,text) { return `<div class="modal-head"><div><h2>${title}</h2><p>${text}</p></div><button class="icon-button" data-action="close-modal" aria-label="Fechar">${icon("close")}</button></div>`; }
+function bytes(value) { return value >= 1073741824 ? `${(value/1073741824).toFixed(2).replace(".",",")} GB` : `${(value/1048576).toFixed(1).replace(".",",")} MB`; }
+
+function confirmApply() {
+  const selected = state.proposals.filter(p=>state.selected.has(p.id));
+  if (!selected.length) return;
+  const files = new Map(selected.map(p=>[p.arquivo,p.tamanho_bytes]));
+  const size = [...files.values()].reduce((a,b)=>a+b,0);
+  modal(`${modalHead("Vamos cuidar desses detalhes?",`${number(selected.length)} alterações em ${number(files.size)} arquivos. Confira a seleção antes de continuar.`)}<div class="modal-body"><div class="backup-note">${icon("shield")}<span>Será criado um backup completo de <strong>${bytes(size)}</strong> em <strong>backups/</strong>. Depois, você poderá restaurar esta execução pelo histórico.</span></div><ul class="confirm-list">${selected.map(p=>`<li><strong>${escapeHTML(p.artista)} — ${escapeHTML(p.titulo)}</strong><span>${p.campo==="genero"?"Gênero":"Álbum"}: ${escapeHTML(join(p.atual)||"Não definido")} → ${escapeHTML(join(p.proposto))}</span>${p.campo==="album"?'<span>O nome anterior do álbum será preservado em uma tag própria.</span>':""}</li>`).join("")}</ul></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">Voltar à revisão</button><button class="button primary" data-action="confirm-apply">${icon("check")} Criar backup e aplicar</button></div>`);
+}
+
+async function showDetails(id) {
+  const track = await api(`/api/track?id=${encodeURIComponent(id)}`);
+  const pairs = [["Artista",join(track.artista)],["Álbum",join(track.album)],["Gênero",join(track.genero)||"Não definido"],["Ano",join(track.ano)||"Não definido"],["Faixa / disco",`${join(track.faixa)||"—"} / ${join(track.disco)||"—"}`],["Áudio",`${track.formato} · ${duration(track.duracao_segundos)} · ${Math.round((track.bitrate_bps||0)/1000)} kbps`],["Artista do álbum",join(track.artista_album)||"Não definido"],["Capas",`${track.capas.length} imagens preservadas`]];
+  modal(`${modalHead("Os detalhes da faixa", "Metadados lidos do seu arquivo.")}<div class="detail-hero"><img src="${cover(id)}" alt="Capa do álbum"><div><h3>${escapeHTML(join(track.titulo))}</h3><p>${escapeHTML(join(track.artista))}</p><button class="button small primary" data-play="${id}">${icon("play")} Ouvir</button></div></div><div class="modal-body"><dl class="details-list">${pairs.map(([k,v])=>`<div><dt>${k}</dt><dd>${escapeHTML(v)}</dd></div>`).join("")}</dl></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">Fechar</button></div>`);
+}
+
+function showSettings() {
+  const options=settings();
+  modal(`${modalHead("Do seu jeito.","Preferências para a próxima análise da coleção.")}<div class="modal-body"><div class="form-row"><label><input type="checkbox" class="check" id="use-musicbrainz" ${options.musicbrainz?"checked":""}> Consultar MusicBrainz para gêneros sem regra local</label><p>Consulta nomes de artista e álbum. As sugestões sempre passam pela sua aprovação. Nenhum arquivo de áudio é enviado.</p><input id="musicbrainz-contact" class="field" type="text" placeholder="Seu e-mail ou URL de contato" aria-label="Contato do cliente MusicBrainz" value="${escapeHTML(options.contato)}"></div><div class="form-row"><label>${icon("folder")} Biblioteca atual</label><p>${escapeHTML(state.summary.biblioteca)}</p></div><div class="form-row"><label>${icon("tag")} Regras de gênero editáveis</label><p>As propostas locais ficam em generos_artistas.csv. Gêneros que já existem nos arquivos são preservados.</p></div></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">Cancelar</button><button class="button primary" data-action="save-settings">Salvar preferências</button></div>`);
+}
+
+async function analyze() {
+  const options=settings();
+  if (options.musicbrainz && !options.contato.trim()) { showSettings(); toast("Informe seu contato para identificar o cliente MusicBrainz."); return; }
+  await api("/api/analyze",options);
+  await updateState();
+  toast("Análise iniciada. Acompanhe o progresso no topo.");
+}
+
+const audio=$('#audio');
+audio.volume=.7;
+async function play(id) {
+  if (state.current?.id === id) {
+    if (audio.paused) await audio.play(); else audio.pause();
+    return;
+  }
+  const track=await api(`/api/track?id=${encodeURIComponent(id)}`);
+  state.current=track;
+  $('#player-title').textContent=join(track.titulo);
+  $('#player-artist').textContent=join(track.artista);
+  $('#player-cover').innerHTML=`<img src="${cover(id)}" alt="">`;
+  $('#audio-quality').textContent=`${track.formato} · ${Math.round((track.bitrate_bps||0)/1000)} KBPS`;
+  audio.src=`/api/audio?id=${encodeURIComponent(id)}`;
+  $('#play-toggle').disabled=false;
+  $('#seek').disabled=false;
+  $('#time-total').textContent=duration(track.duracao_segundos);
+  const inQueue=state.queue.includes(id);
+  $('#previous').disabled=!inQueue || state.queue.indexOf(id)===0;
+  $('#next').disabled=!inQueue || state.queue.indexOf(id)===state.queue.length-1;
+  await audio.play();
+}
+audio.addEventListener("play",()=>{ $('#play-toggle').innerHTML=icon("pause"); $('#play-toggle').setAttribute("aria-label","Pausar"); $('#playing-dot').hidden=false; });
+audio.addEventListener("pause",()=>{ $('#play-toggle').innerHTML=icon("play"); $('#play-toggle').setAttribute("aria-label","Reproduzir"); $('#playing-dot').hidden=true; });
+audio.addEventListener("timeupdate",()=>{ $('#time-current').textContent=duration(audio.currentTime); $('#seek').value=Number.isFinite(audio.duration)&&audio.duration>0 ? audio.currentTime/audio.duration*1000 : 0; });
+audio.addEventListener("loadedmetadata",()=>{ $('#time-total').textContent=duration(audio.duration); });
+audio.addEventListener("error",()=>toast("Não foi possível reproduzir este arquivo no navegador."));
+audio.addEventListener("ended",()=>{ const next=state.queue[state.queue.indexOf(state.current?.id)+1]; if(next)play(next).catch(e=>toast(e.message)); });
+$('#play-toggle').addEventListener("click",()=>{ if (audio.paused)audio.play().catch(e=>toast(e.message));else audio.pause(); });
+$('#volume').addEventListener("input",e=>{ audio.volume=Number(e.target.value)/100; });
+$('#seek').addEventListener("input",e=>{ if(Number.isFinite(audio.duration))audio.currentTime=Number(e.target.value)/1000*audio.duration; });
+for (const [selector,delta] of [["#previous",-1],["#next",1]]) $(selector).addEventListener("click",()=>{ const id=state.queue[state.queue.indexOf(state.current?.id)+delta];if(id)play(id).catch(e=>toast(e.message)); });
+
+document.addEventListener("click",async event=>{
+  const button=event.target.closest("button,a");
+  if(!button || button.disabled)return;
+  try {
+    if(button.dataset.view){ state.search="";$('#search').value="";navigate(button.dataset.view); }
+    else if(button.dataset.play)await play(button.dataset.play);
+    else if(button.dataset.info)await showDetails(button.dataset.info);
+    else if(button.dataset.album){ state.search=button.dataset.album;$('#search').value=state.search;state.filter="todas";navigate("biblioteca"); }
+    else if(button.dataset.filter){state.filter=button.dataset.filter;state.page=0;await render();}
+    else if(button.dataset.reviewFilter){state.reviewFilter=button.dataset.reviewFilter;state.page=0;await render();}
+    else if(button.dataset.albumFilter){state.albumFilter=button.dataset.albumFilter;await render();}
+    else if(button.dataset.page!==undefined){state.page=Math.max(0,Number(button.dataset.page));await render();}
+    else if(button.dataset.restore){
+      modal(`${modalHead("Voltar ao estado anterior?","Os arquivos desta execução voltarão exatamente ao estado do backup.")}<div class="modal-body"><div class="backup-note">${icon("history")}<span>Se algum arquivo recebeu outras edições depois desta execução, a restauração será recusada para preservar essas mudanças.</span></div></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">Cancelar</button><button class="button primary" data-action="confirm-restore" data-id="${button.dataset.restore}">Restaurar arquivos</button></div>`);
+    } else {
+      const action=button.dataset.action;
+      if(action==="close-modal")$('#modal').close();
+      else if(action==="preferences")showSettings();
+      else if(action==="select-filtered"){filteredProposals().forEach(p=>state.selected.add(p.id));updateSelection();}
+      else if(action==="clear-selection"){state.selected.clear();updateSelection();}
+      else if(action==="review-apply")confirmApply();
+      else if(action==="confirm-apply"){
+        button.disabled=true;
+        await api("/api/apply",{ids:[...state.selected]});$('#modal').close();await updateState();toast("Execução iniciada. O backup vem primeiro.");
+      } else if(action==="confirm-restore"){
+        button.disabled=true;
+        await api("/api/restore",{id:button.dataset.id});$('#modal').close();await updateState();
+      } else if(action==="save-settings"){
+        const options={musicbrainz:$('#use-musicbrainz').checked,contato:$('#musicbrainz-contact').value.trim()};
+        if(options.musicbrainz&&!options.contato){toast("Informe um e-mail ou URL real de contato.");$('#musicbrainz-contact').focus();return;}
+        localStorage.setItem("acervo-options",JSON.stringify(options));$('#modal').close();toast("Preferências salvas para a próxima análise.");
+      } else if(action==="analyze")await analyze();
+    }
+  } catch(error) { button.disabled=false;toast(error.message); }
+});
+
+document.addEventListener("change",event=>{
+  if(event.target.matches(".proposal-check")){ if(event.target.checked)state.selected.add(event.target.dataset.id);else state.selected.delete(event.target.dataset.id);updateSelection(); }
+  if(event.target.id==="check-visible"){ for(const p of state.visibleProposals){if(event.target.checked)state.selected.add(p.id);else state.selected.delete(p.id);}updateSelection(); }
+});
+$('#settings').addEventListener("click",showSettings);
+$('#top-refresh').addEventListener("click",()=>analyze().catch(e=>toast(e.message)));
+let searchTimeout;
+$('#search').addEventListener("input",()=>{clearTimeout(searchTimeout);searchTimeout=setTimeout(()=>{state.search=$('#search').value;state.page=0;if(state.view==="inicio")navigate("biblioteca");else render();},220);});
+document.addEventListener("keydown",event=>{if(event.key==="/"&&!event.target.matches("input,textarea")){event.preventDefault();$('#search').focus();}});
+window.addEventListener("hashchange",()=>navigate(location.hash.slice(1)));
+
+async function poll() {
+  try {
+    const previous=state.summary?.analisado_em;
+    await updateState();
+    const job=state.summary.job;
+    if(job?.estado==="erro"&&state.lastJob!=="erro")toast(job.mensagem);
+    if(previous!==state.summary.analisado_em){state.proposals=null;state.selected.clear();state.albums=(await api("/api/albums")).albuns;await render();}
+    state.lastJob=job?.estado;
+  } catch(error){if(!$('#toast').hidden)return;toast("A interface perdeu a conexão. Verifique se o programa continua aberto.");}
+  finally {setTimeout(poll,2000);}
+}
+
+(async()=>{
+  try {
+    await updateState();
+    state.albums=(await api("/api/albums")).albuns;
+    navigate(location.hash.slice(1)||"inicio");
+    poll();
+  }catch(error){$('#content').innerHTML=empty("Não conseguimos abrir a biblioteca",escapeHTML(error.message),"folder");}
+})();
