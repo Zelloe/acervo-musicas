@@ -3,9 +3,11 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, TRCK
 
+import playlists
 from playlists import album_order, collect, matches, validate_m3u8, write_m3u8
 
 
@@ -82,6 +84,39 @@ class PlaylistTest(unittest.TestCase):
             write_m3u8(playlist, tracks[:1])
         Path(tracks[0]["arquivo"]).unlink()
         self.assertEqual(validate_m3u8(playlist)["ausentes"], ["Coleção/#Hashtag/Ação.mp3"])
+
+    def test_overwrite_is_atomic_and_failure_keeps_previous_playlist(self):
+        tracks = self.library()
+        playlist = self.lib / "lista.m3u8"
+        write_m3u8(playlist, tracks[:1])
+        previous = playlist.read_bytes()
+        with patch.object(playlists.os, "replace", side_effect=OSError("disco cheio")):
+            with self.assertRaises(OSError):
+                write_m3u8(playlist, tracks, overwrite=True)
+        self.assertEqual(playlist.read_bytes(), previous)
+        self.assertEqual([p.name for p in self.lib.glob(".acervo-playlist-*")], [])
+        write_m3u8(playlist, tracks, overwrite=True)
+        self.assertEqual(validate_m3u8(playlist)["entradas"], 3)
+
+    def test_new_playlist_without_hard_link_support(self):
+        tracks = self.library()
+        playlist = self.lib / "exfat.m3u8"
+        with patch.object(playlists.os, "link", side_effect=OSError("sem hard links")):
+            write_m3u8(playlist, tracks)
+            with self.assertRaises(FileExistsError):
+                write_m3u8(playlist, tracks[:1])
+        self.assertEqual(validate_m3u8(playlist)["entradas"], 3)
+        self.assertEqual(playlist.stat().st_nlink, 1)
+        self.assertEqual([p.name for p in self.lib.glob(".acervo-playlist-*")], [])
+
+    def test_failed_exclusive_write_leaves_nothing_behind(self):
+        tracks = self.library()
+        playlist = self.lib / "falha.m3u8"
+        with patch.object(playlists.os, "link", side_effect=OSError("sem hard links")), patch.object(playlists.os, "fsync", side_effect=[None, OSError("erro de E/S")]):
+            with self.assertRaises(OSError):
+                write_m3u8(playlist, tracks)
+        self.assertFalse(playlist.exists())
+        self.assertEqual([p.name for p in self.lib.glob(".acervo-playlist-*")], [])
 
     def test_temporary_copies_are_not_listed(self):
         self.library()
