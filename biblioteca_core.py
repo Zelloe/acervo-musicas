@@ -14,11 +14,39 @@ import tempfile
 import uuid
 
 from mutagen.flac import FLAC
-from mutagen.id3 import ID3, TALB, TCON, TXXX
+from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, TPE2, TDRC, TYER, TRCK, TPOS, TXXX
 
 
 ORIGINAL_MP3 = "BibliotecaMusical:AlbumAnterior"
 ORIGINAL_FLAC = "BIBLIOTECA_ALBUM_ANTERIOR"
+TAG_FIELDS = {
+    "titulo": ("TIT2", TIT2, "title"),
+    "artista": ("TPE1", TPE1, "artist"),
+    "artista_album": ("TPE2", TPE2, "albumartist"),
+    "album": ("TALB", TALB, "album"),
+    "genero": ("TCON", TCON, "genre"),
+    "ano": ("TDRC", TDRC, "date"),
+    "faixa": ("TRCK", TRCK, "tracknumber"),
+    "disco": ("TPOS", TPOS, "discnumber"),
+}
+
+
+def id3_field(field: str, version: int):
+    if field == "ano" and version == 3:
+        return "TYER", TYER
+    return TAG_FIELDS[field][:2]
+
+
+def metadata_values(path: Path) -> dict:
+    if path.suffix.casefold() == ".mp3":
+        tags = ID3(path, translate=False)
+        result = {}
+        for field in TAG_FIELDS:
+            key, _ = id3_field(field, tags.version[1])
+            result[field] = [str(v) for f in tags.getall(key) for v in (f.genres if field == "genero" else f.text)]
+        return result
+    audio = FLAC(path)
+    return {field: list(audio.get(spec[2], [])) for field, spec in TAG_FIELDS.items()}
 
 
 def sha256(path: Path, start: int = 0) -> str:
@@ -133,7 +161,7 @@ def previous_album(path: Path) -> list[str]:
 
 def write_validated(path: Path, changes: dict) -> dict:
     """Só deve receber uma cópia temporária. Aborta se algo não aprovado mudar."""
-    if not changes or set(changes) - {"genero", "album"}:
+    if not changes or set(changes) - TAG_FIELDS.keys():
         raise ValueError("Campos de alteração não suportados")
     for change in changes.values():
         proposed = change["proposto"]
@@ -141,6 +169,8 @@ def write_validated(path: Path, changes: dict) -> dict:
             raise ValueError("Valor proposto inválido")
     before = integrity(path)
     allowed = set()
+    album_history = previous_album(path)
+    expected_history = list(album_history)
     if before["formato"] == "MP3":
         tags = ID3(path, translate=False)
         with path.open("rb") as handle:
@@ -148,17 +178,16 @@ def write_validated(path: Path, changes: dict) -> dict:
             tail = handle.read()
         v1 = tail if len(tail) == 128 and tail[:3] == b"TAG" else b""
         for field, change in changes.items():
-            key, frame = ("TCON", TCON) if field == "genero" else ("TALB", TALB)
+            key, frame = id3_field(field, tags.version[1])
             old = [str(v) for f in tags.getall(key) for v in (f.genres if field == "genero" else f.text)]
             if old != change["atual"]:
                 raise ValueError(f"Valor atual de {field} difere do plano")
             tags.add(frame(encoding=1 if tags.version[1] == 3 else 3, text=change["proposto"]))
             allowed.add(key)
-            if field == "album":
+            if field == "album" and old:
                 companion = "TXXX:" + ORIGINAL_MP3
-                if companion in tags:
-                    raise ValueError("Tag AlbumAnterior já existe; revisão necessária")
-                tags.add(TXXX(encoding=1 if tags.version[1] == 3 else 3, desc=ORIGINAL_MP3, text=old))
+                expected_history = list(dict.fromkeys(album_history + old))
+                tags.add(TXXX(encoding=1 if tags.version[1] == 3 else 3, desc=ORIGINAL_MP3, text=expected_history))
                 allowed.add(companion)
         tags.save(path, v2_version=before["versao"][1], v1=0, v23_sep=None)
         if v1:
@@ -169,16 +198,15 @@ def write_validated(path: Path, changes: dict) -> dict:
         if audio.tags is None:
             audio.add_tags()
         for field, change in changes.items():
-            key = "genre" if field == "genero" else "album"
+            key = TAG_FIELDS[field][2]
             old = list(audio.get(key, []))
             if old != change["atual"]:
                 raise ValueError(f"Valor atual de {field} difere do plano")
             audio[key] = change["proposto"]
             allowed.add(key)
-            if field == "album":
-                if ORIGINAL_FLAC in audio:
-                    raise ValueError("Tag AlbumAnterior já existe; revisão necessária")
-                audio[ORIGINAL_FLAC] = old
+            if field == "album" and old:
+                expected_history = list(dict.fromkeys(album_history + old))
+                audio[ORIGINAL_FLAC] = expected_history
                 allowed.add(ORIGINAL_FLAC.lower())
         audio.save(path, deleteid3=False)
     after = integrity(path)
@@ -192,16 +220,16 @@ def write_validated(path: Path, changes: dict) -> dict:
     if after["formato"] == "MP3":
         saved = ID3(path, translate=False)
         for field, change in changes.items():
-            key = "TCON" if field == "genero" else "TALB"
+            key, _ = id3_field(field, saved.version[1])
             actual = [str(v) for f in saved.getall(key) for v in (f.genres if field == "genero" else f.text)]
             if actual != change["proposto"]:
                 raise ValueError(f"Não foi possível confirmar a gravação de {field}")
     else:
         saved = FLAC(path)
         for field, change in changes.items():
-            if list(saved.get("genre" if field == "genero" else "album", [])) != change["proposto"]:
+            if list(saved.get(TAG_FIELDS[field][2], [])) != change["proposto"]:
                 raise ValueError(f"Não foi possível confirmar a gravação de {field}")
-    if "album" in changes and previous_album(path) != changes["album"]["atual"]:
+    if "album" in changes and previous_album(path) != expected_history:
         raise ValueError("Informação da edição não foi preservada")
     with path.open("rb") as handle:
         os.fsync(handle.fileno())
@@ -344,6 +372,9 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path) -> dict:
 def restore(manifest_path: Path) -> dict:
     manifest_path = manifest_path.resolve(strict=True)
     manifest = json.loads(manifest_path.read_text())
+    if manifest.get("tipo") == "downloads":
+        from biblioteca_importacao import restore_import
+        return restore_import(manifest_path)
     if manifest.get("schema") != 1:
         raise ValueError("Manifesto incompatível")
     transaction = manifest_path.parent

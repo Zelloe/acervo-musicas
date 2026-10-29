@@ -16,6 +16,7 @@ from mutagen.flac import FLAC
 from mutagen.id3 import ID3
 
 from biblioteca_core import apply_plan, atomic_json, load_plan, restore, secure_file
+from biblioteca_downloads import Downloads, clean_log, tool_status
 from biblioteca_plano import BASE, create_plan
 from musicbrainz_local import MusicBrainz
 
@@ -34,9 +35,11 @@ class App:
         self.token = secrets.token_urlsafe(32)
         self.job = None
         self.tracks = []
+        self.by_id = {}
         self.plan = None
         self.plan_path = None
         self.error = None
+        self.downloads = Downloads(self.root, self.storage, self.download_progress)
         for path in sorted((self.storage / "relatorios").glob("*/plano.json"), key=lambda p: p.stat().st_mtime, reverse=True):
             try:
                 plan = load_plan(path)
@@ -61,7 +64,7 @@ class App:
             if self.job and self.job["estado"] == "executando":
                 raise ValueError("Aguarde a operação atual terminar")
             self.error = None
-            self.job = {"tipo": kind, "estado": "executando", "mensagem": "Preparando…", "progresso": None}
+            self.job = {"id": secrets.token_hex(8), "tipo": kind, "estado": "executando", "mensagem": "Preparando…", "progresso": None}
         def run():
             try:
                 result = operation()
@@ -72,6 +75,11 @@ class App:
                     self.error = str(error)
                     self.job.update(estado="erro", mensagem=str(error), progresso=None)
         threading.Thread(target=run, daemon=True).start()
+
+    def download_progress(self, message, percent):
+        with self.lock:
+            if self.job:
+                self.job.update(mensagem=message, progresso=percent)
 
     def analyze(self, online=None):
         output = self.storage / "relatorios" / datetime.now().strftime("previa_%Y%m%d_%H%M%S_%f")
@@ -97,7 +105,7 @@ class App:
             try:
                 manifest = json.loads(path.read_text())
                 if manifest["biblioteca"] == str(self.root):
-                    rows.append({"id": path.parent.name, "estado": manifest["estado"], "data": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(), "arquivos": len(manifest["arquivos"]), "erro": manifest.get("erro")})
+                    rows.append({"id": path.parent.name, "tipo": manifest.get("tipo", "metadados"), "estado": manifest["estado"], "data": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(), "arquivos": len(manifest["arquivos"]), "erro": manifest.get("erro")})
             except (OSError, ValueError, KeyError):
                 continue
         return sorted(rows, key=lambda r: r["data"], reverse=True)
@@ -163,11 +171,23 @@ class Handler(BaseHTTPRequestHandler):
         if url.path in ("/", "/index.html"):
             html = (BASE / "web/index.html").read_text().replace("__TOKEN__", self.app.token)
             self.send(200, html.encode(), "text/html; charset=utf-8")
-        elif url.path in ("/app.js", "/style.css"):
+        elif url.path in ("/app.js", "/downloads.js", "/style.css"):
             mime = "text/javascript; charset=utf-8" if url.path.endswith(".js") else "text/css; charset=utf-8"
             self.send(200, (BASE / "web" / url.path[1:]).read_bytes(), mime)
         elif url.path == "/api/state":
             self.json(self.app.snapshot())
+        elif url.path == "/api/downloads":
+            folders = sorted({str(self.app.root)} | {str(Path(t["arquivo"]).parent) for t in self.app.tracks})
+            self.json({"lotes": self.app.downloads.list(), "ferramentas": tool_status(), "pastas": folders})
+        elif url.path == "/api/downloads/batch":
+            self.json(self.app.downloads.load(query.get("id", [""])[0]))
+        elif url.path == "/api/downloads/log":
+            batch = self.app.downloads.load(query.get("id", [""])[0])
+            row_id = query.get("faixa", [""])[0]
+            if row_id and row_id not in {r["id"] for r in batch["faixas"]}:
+                raise ValueError("Faixa não encontrada")
+            path = self.app.downloads.path(batch["id"]) / (row_id + ".log" if row_id else "catalogo.log")
+            self.json({"registro": clean_log(path.read_text(errors="replace")) if path.is_file() else "Sem registro disponível."})
         elif url.path == "/api/library":
             needle = query.get("q", [""])[0].casefold()
             kind = query.get("filter", ["todas"])[0]
@@ -198,9 +218,8 @@ class Handler(BaseHTTPRequestHandler):
             self.json({"execucoes": self.app.history()})
         elif url.path == "/api/track":
             self.json(self.track(query))
-        elif url.path == "/api/cover":
-            track = self.track(query)
-            path = Path(track["arquivo"])
+        elif url.path in ("/api/cover", "/api/downloads/cover"):
+            path = self.app.downloads.file(query.get("id", [""])[0], query.get("faixa", [""])[0]) if url.path.startswith("/api/downloads/") else Path(self.track(query)["arquivo"])
             covers = ID3(path).getall("APIC") if path.suffix.casefold() == ".mp3" else FLAC(path).pictures
             if not covers:
                 self.send(404, b"")
@@ -208,8 +227,8 @@ class Handler(BaseHTTPRequestHandler):
             cover = next((c for c in covers if c.type == 3), covers[0])
             mime = cover.mime if cover.mime in ("image/jpeg", "image/png", "image/webp", "image/gif") else "application/octet-stream"
             self.send(200, cover.data, mime)
-        elif url.path == "/api/audio":
-            path = Path(self.track(query)["arquivo"])
+        elif url.path in ("/api/audio", "/api/downloads/audio"):
+            path = self.app.downloads.file(query.get("id", [""])[0], query.get("faixa", [""])[0]) if url.path.startswith("/api/downloads/") else Path(self.track(query)["arquivo"])
             size = path.stat().st_size
             start, end = 0, size - 1
             header = self.headers.get("Range")
@@ -268,6 +287,32 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/api/analyze":
                 online = MusicBrainz(self.app.state_dir / "cache/musicbrainz", data.get("contato", ""), 200) if data.get("musicbrainz") else None
                 self.app.start("analise", lambda: self.app.analyze(online))
+            elif route == "/api/downloads/prepare":
+                self.app.start("catalogo", lambda: self.app.downloads.prepare(data, list(self.app.tracks)))
+            elif route == "/api/downloads/fetch":
+                ident, ids = data.get("id", ""), data.get("faixas", [])
+                self.app.downloads.load(ident)
+                if not isinstance(ids, list) or any(not isinstance(i, str) for i in ids):
+                    raise ValueError("Seleção inválida")
+                self.app.start("download", lambda: self.app.downloads.download(ident, ids))
+            elif route == "/api/downloads/cancel":
+                if not self.app.job or self.app.job["estado"] != "executando" or self.app.job["tipo"] not in ("download", "catalogo"):
+                    raise ValueError("Não há consulta ou download em andamento")
+                self.app.downloads.runner.cancelled.set()
+                self.json({"cancelamento_solicitado": True})
+                return
+            elif route in ("/api/downloads/preview", "/api/downloads/import"):
+                ident, selections = data.get("id", ""), data.get("selecoes", [])
+                operations = self.app.downloads.operations(ident, selections)
+                if route.endswith("preview"):
+                    self.json({"operacoes": operations})
+                    return
+                def import_downloads():
+                    self.app.download_progress("Criando backups e validando os arquivos aprovados…", None)
+                    result = self.app.downloads.import_batch(ident, selections)
+                    self.app.analyze()
+                    return result
+                self.app.start("importacao", import_downloads)
             elif route == "/api/apply":
                 ids = set(data.get("ids", []))
                 if not ids or any(not isinstance(i, str) for i in ids):
