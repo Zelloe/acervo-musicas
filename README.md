@@ -52,10 +52,19 @@ python -m venv .venv
 
 Não há dependências de JavaScript nem etapa de compilação.
 
-## Baixar músicas pelo terminal
+## Baixar músicas
 
 Requer [spotDL](https://github.com/spotDL/spotify-downloader) (`pipx install spotdl`)
 e `ffmpeg`. Não precisa de conta de desenvolvedor do Spotify nem de Premium.
+Há duas formas de usar, com o mesmo comportamento.
+
+**No navegador:** abra a interface (`./iniciar.sh`) e vá em **Baixar**. Escolha
+a aba Artista, Música ou Link, confira a pasta de destino e marque as faixas. As
+que faltam já vêm marcadas; as que você já tem aparecem desmarcadas. Quando o
+destino fica dentro da coleção aberta, as músicas novas aparecem na Biblioteca
+logo depois do download, sem precisar refazer a análise.
+
+**No terminal:**
 
 ```bash
 ./baixar.sh --pasta "$HOME/Music"

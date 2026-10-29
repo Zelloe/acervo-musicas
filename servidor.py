@@ -16,11 +16,13 @@ from urllib.parse import parse_qs, urlsplit
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3
 
-from biblioteca_core import apply_plan, durable_copy, library_lock, load_plan, restore, sha256
+from biblioteca_core import apply_plan, atomic_json, durable_copy, library_lock, load_plan, restore, sha256
 from biblioteca_downloads import Downloads, clean_log, tool_status
 from biblioteca_plano import BASE, create_plan
+from diagnostico_biblioteca import read_track
 from musicbrainz_local import MusicBrainz
 from playlists import album_order, render as render_m3u8, write_m3u8
+from seletor_downloads import SeletorDownloads
 import protecoes
 
 
@@ -57,12 +59,17 @@ class App:
         self.worker = None
         self.playlist_busy = False
         self.policy_busy = False
+        self.library_revision = secrets.token_hex(8)
+        self.incremental_paths = set()
+        root_key = hashlib.sha256(str(self.root).encode()).hexdigest()[:16]
+        self.download_cache = self.state_dir / ("adicoes_" + root_key + ".json")
         self.tracks = []
         self.by_id = {}
         self.plan = None
         self.plan_path = None
         self.error = None
         self.downloads = Downloads(self.root, self.storage, self.download_progress)
+        self.seletor = SeletorDownloads(self.root, self.download_progress, self.inventory_snapshot, self.refresh_downloaded)
         for path in sorted((self.storage / "relatorios").glob("*/plano.json"), key=lambda p: p.stat().st_mtime, reverse=True):
             try:
                 plan = load_plan(path)
@@ -71,6 +78,7 @@ class App:
                     break
             except (OSError, ValueError, KeyError):
                 continue
+        self.load_download_cache()
 
     def load(self, path: Path):
         plan = load_plan(path)
@@ -81,12 +89,14 @@ class App:
             self.tracks = tracks
             self.by_id = {t["id"]: t for t in tracks}
             self.root = Path(plan["biblioteca"])
+            self.library_revision = secrets.token_hex(8)
+            self.incremental_paths.clear()
 
     def start(self, kind, operation):
         with self.lock:
             if self.playlist_busy or self.policy_busy or (self.job and self.job["estado"] == "executando"):
                 raise ValueError("Aguarde a operação atual terminar")
-            if kind in WRITING_JOBS:
+            if kind in WRITING_JOBS or kind == "download_direto":
                 protecoes.load(self.storage, self.root)
             self.error = None
             self.job = {"id": secrets.token_hex(8), "tipo": kind, "estado": "executando", "mensagem": "Preparando…", "progresso": None}
@@ -120,7 +130,61 @@ class App:
                 self.job.update(mensagem=f"{done} de {total} · {name}", progresso=round(done / total * 100) if total else 0)
         result = create_plan(self.root, output, normalize_albums=True, online=online, progress=progress, storage=self.storage)
         self.load(Path(result["plano"]))
+        try:
+            self.download_cache.unlink(missing_ok=True)
+        except OSError as error:
+            result["avisos"] = [f"Não foi possível limpar o cache de novas faixas: {error}"]
         return result
+
+    def inventory_snapshot(self):
+        with self.lock:
+            return list(self.tracks)
+
+    def load_download_cache(self):
+        try:
+            data = json.loads(self.download_cache.read_text(encoding="utf-8"))
+            if not isinstance(data, dict) or data.get("biblioteca") != str(self.root) or not isinstance(data.get("arquivos"), list) or any(not isinstance(p, str) for p in data["arquivos"]):
+                raise ValueError("Cache de novas faixas incompatível")
+            notices = self.refresh_downloaded([{"estado": "baixado", "arquivo": p} for p in data["arquivos"]], persist=False)
+            if notices:
+                self.error = " ".join(notices)
+        except FileNotFoundError:
+            pass
+        except (OSError, ValueError) as error:
+            self.error = f"Não foi possível carregar novas faixas; atualize a biblioteca: {error}"
+
+    def refresh_downloaded(self, results, persist=True):
+        updates, paths, notices = {}, set(), []
+        for row in results:
+            if row.get("estado") != "baixado":
+                continue
+            path = Path(row.get("arquivo", ""))
+            if not path.is_absolute() or not path.is_relative_to(self.root):
+                continue
+            paths.add(str(path))
+            try:
+                readable_music(self.root, str(path))
+                track = read_track(path)
+                if not track["arquivo_estavel_durante_leitura"]:
+                    raise ValueError("O arquivo mudou durante a leitura")
+                track["id"] = hashlib.sha256(str(path).encode()).hexdigest()[:24]
+                updates[track["id"]] = track
+            except Exception as error:
+                notices.append(f"Download salvo, mas a faixa não entrou no inventário: {path.name}. {error}")
+        if not paths:
+            return notices
+        with self.lock:
+            self.incremental_paths.update(paths)
+            self.tracks = [t for t in self.tracks if t["id"] not in updates] + list(updates.values())
+            self.by_id.update(updates)
+            self.library_revision = secrets.token_hex(8)
+            cached = sorted(self.incremental_paths)
+        if persist:
+            try:
+                atomic_json(self.download_cache, {"biblioteca": str(self.root), "arquivos": cached})
+            except OSError as error:
+                notices.append(f"Downloads salvos; atualize a biblioteca após reiniciar: {error}")
+        return notices
 
     def read_protections(self):
         try:
@@ -136,6 +200,8 @@ class App:
                 return []
         rows = []
         for entry in (self.plan or {}).get("arquivos", []):
+            if entry["arquivo"] in self.incremental_paths:
+                continue
             track = tracks[entry["arquivo"]]
             for change in entry["alteracoes"]:
                 if change["campo"] in protecoes.protected(policy, self.root, entry["arquivo"]):
@@ -296,10 +362,13 @@ class App:
             policy, policy_error = self.read_protections()
             proposals = self.proposals(policy) if policy is not None else []
             summary = {**(self.plan or {}).get("resumo", {}), "alteracoes_propostas": len(proposals),
+                       "lidos": len(self.tracks), "formatos": dict(Counter(t["formato"] for t in self.tracks)),
+                       "campos_ausentes": {f: sum(f in t["campos_ausentes"] for t in self.tracks) for f in protecoes.FIELDS},
+                       "com_capa": sum(bool(t["capas"]) for t in self.tracks),
                        "arquivos_com_propostas": len({p["arquivo"] for p in proposals}),
                        "propostas_por_campo": dict(Counter(p["campo"] for p in proposals))}
             revision = hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest() if policy is not None else None
-            return {"biblioteca": str(self.root), "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "erro": self.error, "erro_protecoes": policy_error, "protecoes_revisao": revision, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(proposals)}
+            return {"biblioteca": str(self.root), "biblioteca_revisao": self.library_revision, "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "erro": self.error, "erro_protecoes": policy_error, "protecoes_revisao": revision, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(proposals)}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -357,13 +426,15 @@ class Handler(BaseHTTPRequestHandler):
         if url.path in ("/", "/index.html"):
             html = (BASE / "web/index.html").read_text().replace("__TOKEN__", self.app.token)
             self.send(200, html.encode(), "text/html; charset=utf-8")
-        elif url.path in ("/app.js", "/downloads.js", "/protecoes.js", "/style.css"):
+        elif url.path in ("/app.js", "/downloads.js", "/protecoes.js", "/baixar.js", "/style.css"):
             mime = "text/javascript; charset=utf-8" if url.path.endswith(".js") else "text/css; charset=utf-8"
             self.send(200, (BASE / "web" / url.path[1:]).read_bytes(), mime)
         elif url.path == "/api/state":
             self.json(self.app.snapshot())
         elif url.path == "/api/protections":
             self.json(self.app.protection_info(query.get("album_id", [""])[0]))
+        elif url.path == "/api/baixar":
+            self.json(self.app.seletor.info(query.get("catalogo", [None])[0]))
         elif url.path == "/api/downloads":
             folders = sorted({str(self.app.root)} | {str(Path(t["arquivo"]).parent) for t in self.app.tracks})
             self.json({"lotes": self.app.downloads.list(), "ferramentas": tool_status(), "pastas": folders})
@@ -470,6 +541,15 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/api/analyze":
                 online = MusicBrainz(self.app.state_dir / "cache/musicbrainz", data.get("contato", ""), 200) if data.get("musicbrainz") else None
                 self.app.start("analise", lambda: self.app.analyze(online))
+            elif route == "/api/baixar/buscar":
+                self.app.seletor.search_options(data)
+                self.app.start("busca_direta", lambda: self.app.seletor.search(data))
+            elif route == "/api/baixar/abrir":
+                self.app.seletor.open_options(data)
+                self.app.start("busca_direta", lambda: self.app.seletor.open(data))
+            elif route == "/api/baixar/baixar":
+                self.app.seletor.download_options(data)
+                self.app.start("download_direto", lambda: self.app.seletor.download(data))
             elif route in ("/api/playlists/preview", "/api/playlists/export"):
                 self.json(self.app.playlist(data, write=route.endswith("export")))
                 return
