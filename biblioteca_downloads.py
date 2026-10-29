@@ -331,6 +331,10 @@ class Downloads:
                 self.progress(f"Baixando {index+1} de {len(ids)} · {' / '.join(row['metadados']['titulo'])}", round(index/len(ids)*100))
                 output = path / "audio" / (row_id + ".mp3")
                 log = path / (row_id + ".log")
+                # Sobras de uma tentativa interrompida seriam reaproveitadas
+                # pelas opções de não sobrescrever das ferramentas.
+                for leftover in (path / "audio").glob(row_id + ".*"):
+                    leftover.unlink()
                 if batch["ferramenta"] == "spotdl":
                     raw = dict(row["fonte"])
                     raw["genres"] = row["metadados"]["genero"]
@@ -352,7 +356,7 @@ class Downloads:
                 self.runner.run(command, path, log, timeout=600)
                 if not output.is_file():
                     raise ValueError("A ferramenta terminou sem produzir um MP3 válido; consulte o registro")
-                self.runner.run([shutil.which("ffmpeg") or "ffmpeg", "-v", "error", "-nostdin", "-i", str(output), "-map", "0:a:0", "-f", "null", "-"], path, log, timeout=180)
+                self.runner.run([shutil.which("ffmpeg") or "ffmpeg", "-v", "error", "-xerror", "-nostdin", "-i", str(output), "-map", "0:a:0", "-f", "null", "-"], path, log, timeout=180)
                 try:
                     ID3(output)
                 except ID3NoHeaderError:
