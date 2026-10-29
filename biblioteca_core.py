@@ -297,7 +297,8 @@ def durable_copy(source: Path, destination: Path) -> None:
     sync_dir(destination.parent)
 
 
-def apply_plan(plan_path: Path, approvals: Path, backup_root: Path) -> dict:
+def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Path | None = None) -> dict:
+    import protecoes
     plan = load_plan(plan_path)
     root = Path(plan["biblioteca"]).resolve(strict=True)
     selected = approved_changes(plan, approvals)
@@ -307,10 +308,13 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path) -> dict:
     if backup_root == root or root in backup_root.parents:
         raise ValueError("Backups devem ficar fora da biblioteca")
     with library_lock(root):
+        # A política atual vale mesmo para planos gerados antes da proteção.
+        policy = protecoes.load(storage or backup_root.parent, root)
         for name, entry in selected.items():
             path = secure_file(root, name)
             if sha256(path) != entry["sha256"]:
                 raise ValueError(f"Arquivo mudou desde a análise: {path}")
+            protecoes.require_unprotected(policy, root, name, entry["alteracoes"])
         total = sum(Path(name).stat().st_size for name in selected)
         largest = max(Path(name).stat().st_size for name in selected)
         backup_root.mkdir(parents=True, exist_ok=True)
@@ -369,17 +373,21 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path) -> dict:
         return {"manifesto": str(manifest_path), "arquivos_alterados": len(selected), "estado": manifest["estado"]}
 
 
-def restore(manifest_path: Path) -> dict:
+def restore(manifest_path: Path, storage: Path | None = None) -> dict:
+    import protecoes
     manifest_path = manifest_path.resolve(strict=True)
+    # Manifestos ficam em <dados>/backups/<execução>/manifesto.json.
+    storage = storage or manifest_path.parent.parent.parent
     manifest = json.loads(manifest_path.read_text())
     if manifest.get("tipo") == "downloads":
         from biblioteca_importacao import restore_import
-        return restore_import(manifest_path)
+        return restore_import(manifest_path, storage)
     if manifest.get("schema") != 1:
         raise ValueError("Manifesto incompatível")
     transaction = manifest_path.parent
     root = Path(manifest["biblioteca"]).resolve(strict=True)
     with library_lock(root):
+        policy = protecoes.load(storage, root)
         work = []
         # Recusa todo o lote antes de escrever se houver edições posteriores.
         for entry in manifest["arquivos"]:
@@ -393,6 +401,7 @@ def restore(manifest_path: Path) -> dict:
                 continue
             if current != entry["depois_sha256"]:
                 raise ValueError(f"Há edições posteriores; restauração recusada: {source}")
+            protecoes.require_same_protected(policy, root, entry["arquivo"], source, backup)
             work.append((entry, source, backup))
         for entry, source, backup in work:
             fd, name = tempfile.mkstemp(prefix=".restaurar-", suffix=source.suffix, dir=source.parent)

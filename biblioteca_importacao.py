@@ -99,7 +99,8 @@ def require_hard_links(directory: Path) -> None:
         probe.unlink(missing_ok=True)
 
 
-def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch_id: str) -> dict:
+def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch_id: str, storage: Path | None = None) -> dict:
+    import protecoes
     root = root.resolve(strict=True)
     backup_root = backup_root.resolve()
     if not operations:
@@ -109,8 +110,11 @@ def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch
     if len({op["arquivo"] for op in operations}) != len(operations):
         raise ValueError("Duas operações atingem o mesmo arquivo; revise a seleção")
     with library_lock(root):
+        policy = protecoes.load(storage or backup_root.parent, root)
         for op in operations:
             target = Path(op["arquivo"])
+            if op["acao"] != "adicionar":
+                protecoes.require_unprotected(policy, root, str(target), op.get("alteracoes") or {})
             if op["acao"] == "adicionar":
                 new_destination(root, str(target.parent), target.name)
             else:
@@ -156,6 +160,8 @@ def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch
                     write_validated(ready, op["alteracoes"])
                 else:
                     integrity(ready)
+                if backup:
+                    protecoes.require_same_protected(policy, root, str(target), backup, ready)
                 entry = {"arquivo": str(target), "acao": op["acao"], "antes_sha256": op.get("antes_sha256"), "depois_sha256": sha256(ready), "backup": str(backup.relative_to(transaction)) if backup else None, "pronto": str(ready.relative_to(transaction)), "retirada": f"retiradas/{index:06d}{target.suffix}", "alteracoes": op.get("alteracoes", {}), "estado": "preparado"}
                 manifest["arquivos"].append(entry)
                 atomic_json(manifest_path, manifest)
@@ -199,14 +205,17 @@ def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch
         return {"manifesto": str(manifest_path), "arquivos_alterados": len(operations), "estado": "concluido"}
 
 
-def restore_import(manifest_path: Path) -> dict:
+def restore_import(manifest_path: Path, storage: Path | None = None) -> dict:
+    import protecoes
     manifest_path = manifest_path.resolve(strict=True)
+    storage = storage or manifest_path.parent.parent.parent
     transaction = manifest_path.parent
     manifest = json.loads(manifest_path.read_text())
     if manifest.get("schema") != 1 or manifest.get("tipo") != "downloads":
         raise ValueError("Manifesto de importação inválido")
     root = Path(manifest["biblioteca"]).resolve(strict=True)
     with library_lock(root):
+        policy = protecoes.load(storage, root)
         work, notices = [], []
         for index, entry in enumerate(manifest["arquivos"]):
             target = Path(entry["arquivo"])
@@ -257,6 +266,7 @@ def restore_import(manifest_path: Path) -> dict:
                         notices.append(f"Mantido, foi alterado por outro programa antes da substituição: {target.name}")
                         continue
                     raise ValueError(f"Há edições posteriores: {target.name}")
+                protecoes.require_same_protected(policy, root, str(target), target, backup)
                 work.append((entry, target, backup))
         for entry, target, backup in work:
             if entry["acao"] == "adicionar":

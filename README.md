@@ -116,6 +116,36 @@ Opções da análise:
 | `--musicbrainz --contato "e-mail ou URL"` | Consultar o MusicBrainz para faixas sem regra local |
 | `--max-consultas N` | Limite de consultas ao MusicBrainz (padrão 200) |
 
+### Campos protegidos
+
+Um campo protegido nunca é sugerido nem gravado pelo Acervo, mesmo que esteja
+vazio e mesmo que uma regra, o MusicBrainz ou um download proponham outro valor:
+
+```bash
+.venv/bin/python corrigir_tags.py proteger \
+  --pasta "/caminho/para/suas/musicas" \
+  --arquivo "/caminho/para/suas/musicas/Artista/faixa.mp3" \
+  --campos genero,album
+```
+
+Campos aceitos: `titulo`, `artista`, `artista_album`, `album`, `genero`, `ano`,
+`faixa` e `disco`. Use `desproteger` com os mesmos argumentos para liberar e
+`protecoes --pasta ...` para listar.
+
+A proteção é conferida de novo no momento de gravar. Um plano ou uma importação
+preparados antes da proteção são recusados se tentarem mudar o campo. Uma
+restauração que voltaria um campo protegido a outro valor também é recusada até
+o campo ser desbloqueado, porque a restauração devolve o arquivo original
+inteiro.
+
+As proteções ficam em `<dados>/.biblioteca/protecoes/`, um arquivo por coleção,
+identificadas pelo caminho da faixa relativo à pasta da coleção. Se uma faixa
+for movida ou renomeada por outro programa, a proteção não a acompanha. Se esse
+arquivo estiver corrompido ou pertencer a outra coleção, o Acervo recusa
+qualquer gravação em vez de ignorar as proteções. Os comandos `analisar`,
+`aplicar`, `restaurar` e a interface usam a mesma pasta de dados; o padrão é o
+diretório do programa, e `--dados` escolhe outra.
+
 ### Playlists M3U8
 
 Na interface, use **Exportar M3U8** na Biblioteca (exporta todas as faixas da

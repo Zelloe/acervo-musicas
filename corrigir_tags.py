@@ -12,6 +12,9 @@ from biblioteca_plano import create_plan
 from musicbrainz_local import MusicBrainz
 
 
+PROGRAM = Path(__file__).resolve().parent
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="comando", required=True)
@@ -24,12 +27,24 @@ def main() -> int:
     analyze.add_argument("--musicbrainz", action="store_true")
     analyze.add_argument("--contato", default="")
     analyze.add_argument("--max-consultas", type=int, default=200)
+    analyze.add_argument("--dados", type=Path, default=PROGRAM, help="Pasta de dados do programa (campos protegidos)")
     apply = commands.add_parser("aplicar", help="Aplicar somente linhas com aprovar=sim")
     apply.add_argument("--plano", type=Path, required=True)
     apply.add_argument("--aprovacoes", type=Path, required=True)
-    apply.add_argument("--backups", type=Path, default=Path(__file__).resolve().parent / "backups")
+    apply.add_argument("--dados", type=Path, default=PROGRAM, help="Pasta de dados do programa (campos protegidos e backups)")
+    apply.add_argument("--backups", type=Path, help="Padrão: <dados>/backups")
     undo = commands.add_parser("restaurar", help="Restaurar arquivos exatos de uma execução")
     undo.add_argument("--manifesto", type=Path, required=True)
+    undo.add_argument("--dados", type=Path, help="Padrão: a pasta que contém backups/<execução>")
+    for command, text in (("proteger", "Proteger campos de faixas contra sugestões e gravações"), ("desproteger", "Remover a proteção de campos")):
+        lock = commands.add_parser(command, help=text)
+        lock.add_argument("--pasta", type=Path, required=True)
+        lock.add_argument("--arquivo", type=Path, action="append", required=True, help="Faixa da coleção; repita para várias")
+        lock.add_argument("--campos", required=True, help="Lista separada por vírgulas, ex.: genero,album")
+        lock.add_argument("--dados", type=Path, default=PROGRAM)
+    locks = commands.add_parser("protecoes", help="Listar campos protegidos")
+    locks.add_argument("--pasta", type=Path, required=True)
+    locks.add_argument("--dados", type=Path, default=PROGRAM)
     playlist = commands.add_parser("playlist", help="Exportar uma playlist M3U8 portátil; não modifica músicas")
     playlist.add_argument("--pasta", type=Path, help="Coleção a ler (obrigatório ao exportar)")
     playlist.add_argument("--saida", type=Path, required=True, help="Arquivo .m3u8 a criar, ou a validar com --validar")
@@ -51,11 +66,21 @@ def main() -> int:
             def progress(done, total, name):
                 if done % 100 == 0 or done == total:
                     print(f"[{done}/{total}] {name}", file=sys.stderr)
-            result = create_plan(args.pasta, args.saida, args.normalizar_albuns, args.generos, args.albuns, online, progress)
+            result = create_plan(args.pasta, args.saida, args.normalizar_albuns, args.generos, args.albuns, online, progress, args.dados.expanduser())
         elif args.comando == "aplicar":
-            result = apply_plan(args.plano.expanduser().resolve(), args.aprovacoes.expanduser().resolve(), args.backups)
+            data = args.dados.expanduser()
+            result = apply_plan(args.plano.expanduser().resolve(), args.aprovacoes.expanduser().resolve(), args.backups or data / "backups", data)
         elif args.comando == "restaurar":
-            result = restore(args.manifesto.expanduser())
+            result = restore(args.manifesto.expanduser(), args.dados.expanduser() if args.dados else None)
+        elif args.comando in ("proteger", "desproteger"):
+            import protecoes
+            change = protecoes.protect if args.comando == "proteger" else protecoes.unprotect
+            files = [str(p.expanduser().resolve()) for p in args.arquivo]
+            result = change(args.dados.expanduser(), args.pasta.expanduser().resolve(strict=True), files, [c.strip() for c in args.campos.split(",") if c.strip()])
+        elif args.comando == "protecoes":
+            import protecoes
+            root = args.pasta.expanduser().resolve(strict=True)
+            result = {"politica": str(protecoes.policy_path(args.dados.expanduser(), root)), "faixas": protecoes.listing(protecoes.load(args.dados.expanduser(), root))}
         elif args.comando == "playlist":
             from playlists import album_order, collect, matches, validate_m3u8, write_m3u8
             if args.validar:

@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 
 from biblioteca_core import atomic_json, integrity, previous_album, sha256
+import protecoes
 from diagnostico_biblioteca import album_base, normalized, read_track, signature, write_csv, TEMP_PREFIXES, VERSION
 
 
@@ -23,8 +24,9 @@ def rules(path: Path) -> list[dict]:
         return list(csv.DictReader(handle))
 
 
-def propose(track: dict, genres: list[dict], albums: list[dict], online=None) -> tuple[list[dict], list[str]]:
+def propose(track: dict, genres: list[dict], albums: list[dict], online=None, protected: frozenset = frozenset()) -> tuple[list[dict], list[str]]:
     changes, review = [], []
+    review.extend(f"Campo protegido: {field}" for field in sorted(protected & {"genero", "album"}))
     artists = track["artista_album"] or track["artista"]
     # Uma string com '/' é um crédito inteiro; não se divide AC/DC nem convidados.
     artist = artists[0] if len(artists) == 1 else ""
@@ -32,7 +34,8 @@ def propose(track: dict, genres: list[dict], albums: list[dict], online=None) ->
     specific = [r for r in genre_rules if r.get("album")]
     matches = specific or genre_rules
     existing_genre = any(v.strip() for v in track["genero"])
-    if not existing_genre:
+    # Proteção vale também para campo vazio e evita até a consulta externa.
+    if not existing_genre and "genero" not in protected:
         options = {r["genero"] for r in matches if r.get("genero", "").strip()}
         if len(options) == 1:
             rule = matches[0]
@@ -46,7 +49,7 @@ def propose(track: dict, genres: list[dict], albums: list[dict], online=None) ->
         else:
             review.append("Gênero sem regra ou regras conflitantes")
 
-    for rule in albums:
+    for rule in albums if "album" not in protected else []:
         if track["artista"] != [rule["artista"]] or track["album"] != [rule["album_atual"]]:
             continue
         if track["album"] == [rule["album_padrao"]]:
@@ -67,8 +70,9 @@ def propose(track: dict, genres: list[dict], albums: list[dict], online=None) ->
     return changes, review
 
 
-def create_plan(root: Path, output: Path, normalize_albums: bool = False, genre_path: Path | None = None, album_path: Path | None = None, online=None, progress=None) -> dict:
+def create_plan(root: Path, output: Path, normalize_albums: bool = False, genre_path: Path | None = None, album_path: Path | None = None, online=None, progress=None, storage: Path | None = None) -> dict:
     root = root.expanduser().resolve(strict=True)
+    policy = protecoes.load(storage, root) if storage else protecoes.empty(root)
     output = output.expanduser().resolve()
     if not root.is_dir() or output == root or root in output.parents:
         raise ValueError("A biblioteca deve ser uma pasta e os relatórios devem ficar fora dela")
@@ -104,7 +108,7 @@ def create_plan(root: Path, output: Path, normalize_albums: bool = False, genre_
                 raise ValueError("Arquivo mudou durante a análise")
             track["id"] = hashlib.sha256(str(path).encode()).hexdigest()[:24]
             tracks.append(track)
-            changes, review = propose(track, genres, albums, online)
+            changes, review = propose(track, genres, albums, online, protecoes.protected(policy, root, str(path)))
             if changes:
                 # Verifica suporte antes de oferecer aprovação de gravação.
                 integrity(path)
