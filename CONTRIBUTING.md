@@ -22,7 +22,7 @@ mesmo que deixe o programa mais rápido ou mais simples.
 
 ## Ambiente
 
-Requisitos: Python 3.11 ou superior e `ffmpeg` (usado pelos testes para gerar
+Requisitos: Python 3.10 ou superior e `ffmpeg` (usado pelos testes para gerar
 áudio temporário).
 
 ```bash

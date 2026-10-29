@@ -38,19 +38,25 @@ exclui músicas.
 
 Requisitos:
 
-- Python 3.11 ou superior.
-- [Mutagen](https://mutagen.readthedocs.io/) (instalado pelo `requirements.txt`).
-- Opcional, para downloads: `ffmpeg` e [spotDL](https://github.com/spotDL/spotify-downloader)
-  ou [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+- Linux (testado em Arch/EndeavourOS e no fluxo do Ubuntu/Mint).
+- Python 3.10 ou superior, com o módulo `venv`. No Ubuntu/Mint:
+  `sudo apt install python3 python3-venv`.
+- Opcional, para baixar músicas: `ffmpeg` (`sudo apt install ffmpeg`) e
+  [spotDL](https://github.com/spotDL/spotify-downloader) (`pipx install spotdl`).
 
 ```bash
 git clone https://github.com/Zelloe/acervo-musicas.git
 cd acervo-musicas
-python -m venv .venv
-.venv/bin/pip install -r requirements.txt
+./iniciar.sh
 ```
 
-Não há dependências de JavaScript nem etapa de compilação.
+Na primeira execução, `iniciar.sh` e `baixar.sh` criam a `.venv` e instalam as
+dependências sozinhos (precisa de internet). Não há dependências de JavaScript
+nem etapa de compilação.
+
+Sem `--pasta`, o Acervo usa a pasta de músicas do sistema, a mesma que o
+gerenciador de arquivos mostra (por exemplo `~/Música` no Linux em português ou
+`~/Music` em inglês). Se ela não existir, o programa avisa e pede `--pasta`.
 
 ## Baixar músicas
 
