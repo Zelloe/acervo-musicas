@@ -31,8 +31,8 @@ exclui músicas.
   sobrescrever edições feitas depois por outro programa.
 - **Interface local:** biblioteca com busca e filtros, reprodução, revisão de
   propostas, álbuns, histórico e restauração. Roda só em `127.0.0.1`.
-- **Downloads (em teste):** preparar faixas faltantes de um álbum com spotDL ou
-  yt-dlp, numa área separada da coleção, para revisar antes de importar.
+- **Downloads:** escolher artista, álbum, edição e faixas e baixar com spotDL
+  direto numa pasta, pelo navegador ou pelo terminal.
 
 ## Instalação
 
@@ -254,9 +254,12 @@ Artistas homônimos ou sem correspondência suficiente ficam pendentes.
 Nomes, tags e duração são evidências parciais. O Acervo ainda não faz
 identificação pelo áudio (impressão digital acústica).
 
-## Downloads
+## Downloads avançados
 
-O fluxo de downloads separa o download da entrada na coleção:
+O menu **Baixar** usa o fluxo direto descrito em [Baixar músicas](#baixar-músicas).
+Para quem prefere revisar antes de qualquer arquivo entrar na coleção, há um
+fluxo avançado em **Preferências → Downloads avançados**, que separa o download
+da entrada na coleção:
 
 1. Informar um link ou busca e ver o catálogo da fonte.
 2. Comparar com os arquivos locais e escolher as faixas.
