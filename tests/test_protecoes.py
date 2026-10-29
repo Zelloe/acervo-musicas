@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from mutagen.id3 import ID3, TCON, TIT2, TPE1
 
@@ -96,6 +97,28 @@ class ProtectionTest(unittest.TestCase):
         path.write_text(json.dumps({"schema": 1, "biblioteca": "/outra/colecao", "faixas": {}}))
         with self.assertRaisesRegex(ValueError, "outra biblioteca"):
             protecoes.load(self.data, self.lib)
+
+    def test_unreadable_or_odd_policy_files_fail_closed(self):
+        self.protect("genero")
+        path = protecoes.policy_path(self.data, self.lib)
+        for bad in ({"schema": 1, "biblioteca": str(self.lib.resolve()), "faixas": {"acdc.mp3": {"campos": [{"x": 1}]}}},
+                    {"schema": 1, "biblioteca": str(self.lib.resolve()), "faixas": {"acdc.mp3": ["genero"]}},
+                    {"schema": 1, "biblioteca": str(self.lib.resolve()), "faixas": {"../fora.mp3": {"campos": ["genero"]}}}):
+            path.write_text(json.dumps(bad))
+            with self.assertRaisesRegex(ValueError, "incompatível"):
+                protecoes.load(self.data, self.lib)
+        path.unlink()
+        path.symlink_to(self.base / "inexistente.json")
+        with self.assertRaisesRegex(ValueError, "arquivo comum"):
+            protecoes.load(self.data, self.lib)
+        path.unlink()
+        path.mkdir()
+        with self.assertRaisesRegex(ValueError, "arquivo comum"):
+            protecoes.load(self.data, self.lib)
+        path.rmdir()
+        with patch.object(Path, "lstat", side_effect=PermissionError("negado")):
+            with self.assertRaisesRegex(ValueError, "Não foi possível ler"):
+                protecoes.load(self.data, self.lib)
 
     def test_each_library_has_its_own_policy(self):
         other = self.base / "outra"

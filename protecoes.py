@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import stat
 
 from biblioteca_core import TAG_FIELDS, atomic_json, library_lock, metadata_values
 
@@ -27,8 +28,15 @@ def empty(root: Path) -> dict:
 def load(storage: Path, root: Path) -> dict:
     """Não pega o lock: deve ser chamada por quem já está dentro de library_lock."""
     path = policy_path(storage, root)
-    if not path.exists():
+    # Falha fechada: só a ausência comprovada do arquivo vale como política vazia.
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
         return empty(root)
+    except OSError as error:
+        raise ValueError(f"Não foi possível ler os campos protegidos; nenhuma gravação será feita: {path}") from error
+    if not stat.S_ISREG(info.st_mode):
+        raise ValueError(f"O arquivo de campos protegidos deve ser um arquivo comum, não um link: {path}")
     try:
         policy = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
@@ -38,7 +46,8 @@ def load(storage: Path, root: Path) -> dict:
     if policy.get("biblioteca") != str(root.resolve()):
         raise ValueError(f"O arquivo de campos protegidos pertence a outra biblioteca: {path}")
     for relative, entry in policy["faixas"].items():
-        if not isinstance(entry, dict) or not isinstance(entry.get("campos"), list) or set(entry["campos"]) - set(FIELDS) or Path(relative).is_absolute() or ".." in Path(relative).parts:
+        fields = entry.get("campos") if isinstance(entry, dict) else None
+        if not isinstance(fields, list) or not all(isinstance(c, str) and c in FIELDS for c in fields) or Path(relative).is_absolute() or ".." in Path(relative).parts:
             raise ValueError(f"Arquivo de campos protegidos incompatível; nenhuma gravação será feita: {path}")
     return policy
 
