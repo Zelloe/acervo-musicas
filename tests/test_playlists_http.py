@@ -17,7 +17,7 @@ from urllib.request import Request, urlopen
 
 from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, TRCK
 
-from biblioteca_core import sha256
+from biblioteca_core import library_lock, sha256
 from biblioteca_plano import create_plan
 from playlists import validate_m3u8
 from servidor import App, Handler
@@ -139,6 +139,7 @@ class PlaylistHTTPTest(unittest.TestCase):
         self.assertIn("Canção diferente", path.read_text())
         backup = Path(result["backup"])
         self.assertFalse(backup.is_relative_to(self.lib))
+        self.assertIn("Minha seleção", backup.name)
         self.assertEqual(backup.read_text(), "editada por outro programa\n")
         preview = self.preview()
         original = path.read_bytes()
@@ -200,6 +201,10 @@ class PlaylistHTTPTest(unittest.TestCase):
         self.server.app.job = {"estado": "executando", "tipo": "importacao"}
         self.export(status=400)
         self.server.app.job = None
+        with library_lock(self.lib):
+            result = self.export(status=400)
+        self.assertIn("ocupada", result["erro"])
+        self.assertFalse(self.server.app.playlist_busy)
         (self.lib / "Ação 01.mp3").unlink()
         self.export(status=400)
         self.assertFalse((self.lib / "Playlists").exists())
