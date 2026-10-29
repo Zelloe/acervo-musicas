@@ -36,7 +36,7 @@ FIELDS = {
     "genero": ("TCON", "genre"),
 }
 # Cópias temporárias que o Acervo cria ao lado do original durante gravações.
-TEMP_PREFIXES = (".acervo-import-", ".acervo-undo-", ".biblioteca-", ".restaurar-")
+TEMP_PREFIXES = (".acervo-import-", ".acervo-undo-", ".acervo-baixando-", ".biblioteca-", ".restaurar-")
 REQUIRED = ("titulo", "artista", "artista_album", "album", "ano", "faixa", "disco", "genero")
 VERSION = re.compile(
     r"\b(live|ao vivo|demo|remix|alternate|alternative mix|mix(?:es)?|session|bonus|"
