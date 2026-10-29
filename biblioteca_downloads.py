@@ -1,5 +1,7 @@
 """Catálogo, download em área de revisão e importação explícita de músicas."""
 
+from __future__ import annotations
+
 from collections import Counter
 from datetime import datetime, timezone
 import json
