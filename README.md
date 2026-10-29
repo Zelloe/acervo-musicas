@@ -116,6 +116,32 @@ Opções da análise:
 | `--musicbrainz --contato "e-mail ou URL"` | Consultar o MusicBrainz para faixas sem regra local |
 | `--max-consultas N` | Limite de consultas ao MusicBrainz (padrão 200) |
 
+### Playlists M3U8
+
+Exportar uma seleção como playlist portátil (só lê a coleção):
+
+```bash
+.venv/bin/python corrigir_tags.py playlist \
+  --pasta "/caminho/para/suas/musicas" \
+  --genero "Progressive Rock" \
+  --nome "Progressivo" \
+  --saida "/caminho/para/suas/musicas/Playlists/Progressivo.m3u8"
+```
+
+Os filtros `--genero`, `--artista` e `--album` comparam o valor inteiro, sem
+diferenciar maiúsculas. Sem filtros, a playlist inclui a coleção toda, ordenada
+por artista do álbum, álbum, disco e faixa.
+
+O arquivo é UTF-8, sem BOM, e os caminhos são relativos à pasta da playlist.
+Se a playlist ficar dentro da pasta da coleção e as duas forem copiadas juntas
+para outro disco, os caminhos continuam válidos. Uma playlist existente não é
+substituída sem `--sobrescrever`. Para conferir se todos os caminhos ainda
+resolvem:
+
+```bash
+.venv/bin/python corrigir_tags.py playlist --validar --saida Progressivo.m3u8
+```
+
 ## Como as gravações são protegidas
 
 Cada arquivo é editado numa cópia temporária. Antes de substituir o original no
