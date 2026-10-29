@@ -118,10 +118,13 @@ class IndiceBiblioteca:
         } for t in tracks])
         artists, albums = OrderedDict(), OrderedDict()
         for track in tracks:
+            names = {}
             for name in list(track.get("artista") or []) + list(track.get("artista_album") or []):
                 if name.strip():
-                    entry = artists.setdefault(normalizar(name), {"nome": name, "faixas": 0})
-                    entry["faixas"] += 1
+                    names.setdefault(normalizar(name), name)
+            for key, name in names.items():  # artista e artista do álbum iguais contam uma vez
+                entry = artists.setdefault(key, {"nome": name, "faixas": 0})
+                entry["faixas"] += 1
             artist = _join(track.get("artista_album")) or _join(track.get("artista"))
             album = _join(track.get("album"))
             if album:
@@ -174,19 +177,28 @@ class BuscaGlobal:
 
     @staticmethod
     def _read(process, lines):
-        for line in process.stdout:
-            lines.put(line)
+        try:
+            for line in process.stdout:
+                lines.put(line)
+        except (OSError, ValueError):
+            pass  # fechar() encerrou o processo e seus canais
         lines.put(None)
 
     def _call(self, command: str, *args: str) -> object:
         self._start()
+        # Cópias locais: fechar() pode ser chamado por outra thread durante a espera.
+        process, lines = self.process, self.lines
         self.counter += 1
-        self.process.stdin.write(json.dumps({"id": self.counter, "cmd": command, "args": list(args)}) + "\n")
-        self.process.stdin.flush()
+        try:
+            process.stdin.write(json.dumps({"id": self.counter, "cmd": command, "args": list(args)}) + "\n")
+            process.stdin.flush()
+        except (OSError, ValueError):
+            self.fechar()
+            raise RuntimeError("A busca global foi encerrada inesperadamente") from None
         deadline = time.monotonic() + self.timeout
         while True:
             try:
-                line = self.lines.get(timeout=max(0.0, deadline - time.monotonic()))
+                line = lines.get(timeout=max(0.0, deadline - time.monotonic()))
             except queue.Empty:
                 self.fechar()  # um processo travado não pode responder à próxima consulta
                 raise RuntimeError("A busca global demorou demais; tente de novo") from None
@@ -218,7 +230,18 @@ class BuscaGlobal:
             return result
 
     def fechar(self):
+        """Encerra o processo; uma consulta em andamento termina com RuntimeError."""
         process, self.process = self.process, None
-        if process and process.poll() is None:
+        if not process:
+            return
+        if process.poll() is None:
             process.kill()
+        try:
             process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+        for stream in (process.stdin, process.stdout):
+            try:
+                stream.close()
+            except (OSError, ValueError):
+                pass
