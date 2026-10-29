@@ -24,7 +24,7 @@ function searchMessage(message) {
 function showSearchSuggestions(data) {
   const global=searchState.scope==="global";
   const groups=global ? [
-    ["Artistas",(data.artistas||[]).map(a=>({type:"global-artist",label:a.nome,detail:"Ver álbuns para baixar",name:"music"}))],
+    ["Artistas",(data.artistas||[]).map(a=>({type:"global-artist",photo:a.foto,label:a.nome,detail:"Ver álbuns para baixar",name:"music"}))],
     ["Sugestões de busca",(data.termos||[]).map(text=>({type:"global-term",label:text,detail:"Buscar músicas no catálogo global",name:"search"}))]
   ] : [
     ["Artistas",(data.artistas||[]).map(a=>({type:"artist",label:a.nome,detail:`${number(a.faixas)} faixas na biblioteca`,name:"music"}))],
@@ -35,7 +35,7 @@ function showSearchSuggestions(data) {
   searchState.active=-1;
   const html=groups.filter(([,items])=>items.length).map(([title,items])=>`<div class="search-group-title" role="presentation">${title}</div>${items.map(item=>{
     const index=searchState.items.push(item)-1;
-    return `<button type="button" role="option" aria-selected="false" tabindex="-1" id="search-option-${index}" data-search-option="${index}">${icon(item.name)}<span><strong>${escapeHTML(item.label)}</strong><small>${escapeHTML(item.detail)}</small></span>${icon("arrow")}</button>`;
+    return `<button type="button" role="option" aria-selected="false" tabindex="-1" id="search-option-${index}" data-search-option="${index}">${item.type==="global-artist"?remotePhoto(item.photo,true):icon(item.name)}<span><strong>${escapeHTML(item.label)}</strong><small>${escapeHTML(item.detail)}</small></span>${icon("arrow")}</button>`;
   }).join("")}`).join("");
   if(!html){searchMessage(global?"Sem sugestões. Pressione Enter para buscar músicas.":"Nenhuma sugestão. Pressione Enter para ver os resultados.");return;}
   searchPanel.innerHTML=html;
@@ -86,6 +86,7 @@ async function searchLibrary(query, artist="", albumId="", label=query) {
   state.searchAlbum=albumId;
   state.searchLabel=label;
   state.filter="todas";
+  state.versionFilter="todas";
   searchInput.value=label;
   await navigate("biblioteca");
 }

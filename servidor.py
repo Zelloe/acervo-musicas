@@ -25,6 +25,7 @@ from busca import BuscaGlobal, IndiceBiblioteca, normalizar
 from playlists import album_order, render as render_m3u8, write_m3u8
 from seletor_downloads import SeletorDownloads
 import protecoes
+from versoes import classificar
 
 
 WRITING_JOBS = {"importacao", "aplicacao", "restauracao"}
@@ -32,6 +33,21 @@ WRITING_JOBS = {"importacao", "aplicacao", "restauracao"}
 
 def album_key(track):
     return (tuple(track["artista_album"] or track["artista"]), tuple(track["album"]))
+
+
+def track_version(track):
+    return classificar(" / ".join(track.get("titulo", [])), " / ".join(track.get("album", [])))
+
+
+def version_matches(version, choice):
+    marks = set(version["marcas"])
+    if choice == "todas":
+        return True
+    if choice == "demo-remix":
+        return bool(marks & {"demo", "remix"})
+    if choice == "estudio":
+        return version["tipo"] == "estudio" and "coletanea" not in marks
+    return choice in marks
 
 
 def readable_music(root, value):
@@ -292,10 +308,12 @@ class App:
                 raise RuntimeError(str(error)) from error
         return self.library_index().sugerir(needle)
 
-    def library(self, needle="", kind="todas", tracks=None, artist="", album_id=""):
+    def library(self, needle="", kind="todas", tracks=None, artist="", album_id="", version="todas"):
         needle = self.search_query(needle)
         if kind not in ("todas", "sem-genero", "flac", "versoes"):
             raise ValueError("Filtro de biblioteca inválido")
+        if version not in ("todas", "estudio", "ao_vivo", "acustico", "demo-remix", "coletanea"):
+            raise ValueError("Filtro de versão inválido")
         if not isinstance(artist, str) or len(artist) > 200 or not isinstance(album_id, str):
             raise ValueError("Filtro de artista ou álbum inválido")
         with self.lock:
@@ -316,7 +334,9 @@ class App:
         elif kind == "flac":
             rows = [t for t in rows if t["formato"] == "FLAC"]
         elif kind == "versoes":
-            rows = [t for t in rows if t["marcadores_versao"]]
+            rows = [t for t in rows if set(track_version(t)["marcas"]) - {"estudio"}]
+        if version != "todas":
+            rows = [t for t in rows if version_matches(track_version(t), version)]
         return rows
 
     def playlist(self, data, write=False):
@@ -346,7 +366,7 @@ class App:
         album_id = data.get("album_id", "")
         if not isinstance(album_id, str):
             raise ValueError("Álbum inválido")
-        rows = self.library(data.get("q", ""), data.get("filter", "todas"), tracks, data.get("artista", ""), album_id)
+        rows = self.library(data.get("q", ""), data.get("filter", "todas"), tracks, data.get("artista", ""), album_id, data.get("versao", "todas"))
         if album_id:
             track = by_id.get(album_id)
             if track is None:
@@ -437,7 +457,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; media-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; connect-src 'self'")
+        self.send_header("Content-Security-Policy", "default-src 'self'; img-src 'self' data: https://*.googleusercontent.com https://i.scdn.co https://mosaic.scdn.co https://*.spotifycdn.com; media-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; connect-src 'self'")
         for key, value in (extra or {}).items():
             self.send_header(key, value)
         self.end_headers()
@@ -473,7 +493,7 @@ class Handler(BaseHTTPRequestHandler):
         if url.path in ("/", "/index.html"):
             html = (BASE / "web/index.html").read_text().replace("__TOKEN__", self.app.token)
             self.send(200, html.encode(), "text/html; charset=utf-8")
-        elif url.path in ("/app.js", "/downloads.js", "/protecoes.js", "/baixar.js", "/busca.js", "/style.css"):
+        elif url.path in ("/app.js", "/downloads.js", "/protecoes.js", "/baixar.js", "/busca.js", "/versoes.js", "/style.css"):
             mime = "text/javascript; charset=utf-8" if url.path.endswith(".js") else "text/css; charset=utf-8"
             self.send(200, (BASE / "web" / url.path[1:]).read_bytes(), mime)
         elif url.path == "/api/state":
@@ -499,10 +519,10 @@ class Handler(BaseHTTPRequestHandler):
         elif url.path in ("/api/library", "/api/busca"):
             self.app.search_query(query.get("q", [""])[0], query.get("escopo", ["biblioteca"])[0])
             rows = self.app.library(query.get("q", [""])[0], query.get("filter", ["todas"])[0],
-                                    artist=query.get("artista", [""])[0], album_id=query.get("album_id", [""])[0])
+                                    artist=query.get("artista", [""])[0], album_id=query.get("album_id", [""])[0], version=query.get("versao", ["todas"])[0])
             offset = max(0, int(query.get("offset", [0])[0]))
             limit = min(100, max(1, int(query.get("limit", [50])[0])))
-            self.json({"total": len(rows), "musicas": [{k: t[k] for k in ("id", "titulo", "artista", "album", "genero", "ano", "faixa", "formato", "duracao_segundos", "bitrate_bps", "campos_ausentes", "capas")} for t in rows[offset:offset + limit]]})
+            self.json({"total": len(rows), "musicas": [{**{k: t[k] for k in ("id", "titulo", "artista", "album", "genero", "ano", "faixa", "formato", "duracao_segundos", "bitrate_bps", "campos_ausentes", "capas")}, "versao": track_version(t)} for t in rows[offset:offset + limit]]})
         elif url.path == "/api/albums":
             groups = defaultdict(list)
             for track in self.app.tracks:
