@@ -35,6 +35,8 @@ FIELDS = {
     "disco": ("TPOS", "discnumber"),
     "genero": ("TCON", "genre"),
 }
+# Cópias temporárias que o Acervo cria ao lado do original durante gravações.
+TEMP_PREFIXES = (".acervo-import-", ".acervo-undo-", ".biblioteca-", ".restaurar-")
 REQUIRED = ("titulo", "artista", "artista_album", "album", "ano", "faixa", "disco", "genero")
 VERSION = re.compile(
     r"\b(live|ao vivo|demo|remix|alternate|alternative mix|mix(?:es)?|session|bonus|"
@@ -159,7 +161,9 @@ def scan(root: Path, output: Path) -> dict:
             path = Path(folder) / name
             if path.suffix.casefold() not in (".mp3", ".flac"):
                 continue
-            if path.is_symlink():
+            if name.startswith(TEMP_PREFIXES):
+                skipped.append({"arquivo": str(path), "motivo": "cópia temporária do Acervo"})
+            elif path.is_symlink():
                 skipped.append({"arquivo": str(path), "motivo": "arquivo simbólico"})
             else:
                 files.append(path)

@@ -48,6 +48,10 @@ def preserve_original_tags(original: Path, candidate: Path) -> None:
     stream_hash = compressed_mp3_hash(candidate)
     fresh = ID3(candidate, translate=False)
     tags = deepcopy(ID3(original, translate=False))
+    # TLEN descreve a duração do áudio; vale a do download, não a do original.
+    tags.delall("TLEN")
+    for frame in fresh.getall("TLEN"):
+        tags.add(deepcopy(frame))
     if not tags.getall("APIC"):
         for frame in fresh.getall("APIC"):
             tags.add(deepcopy(frame))
@@ -63,7 +67,7 @@ def preserve_original_tags(original: Path, candidate: Path) -> None:
         raise ValueError("O fluxo de áudio do download mudou ao preservar as tags")
     if before["versao"] != after["versao"] or before["desconhecidos"] != after["desconhecidos"]:
         raise ValueError("Não foi possível preservar a estrutura ID3 original")
-    if any(after["tags"].get(k) != v for k, v in before["tags"].items()):
+    if any(after["tags"].get(k) != v for k, v in before["tags"].items() if not k.startswith("TLEN")):
         raise ValueError("Não foi possível preservar todas as tags originais")
 
 
@@ -147,11 +151,13 @@ def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch
                 fd, name = tempfile.mkstemp(prefix=".acervo-import-", suffix=target.suffix, dir=target.parent)
                 os.close(fd)
                 temp = Path(name)
+                # Registrado antes da cópia para que a restauração encontre sobras de uma interrupção.
+                entry["temporario"] = str(temp)
+                atomic_json(manifest_path, manifest)
                 try:
                     durable_copy(transaction / entry["pronto"], temp)
                     if sha256(temp) != entry["depois_sha256"]:
                         raise ValueError("A cópia preparada mudou")
-                    entry["temporario"] = str(temp)
                     entry["estado"] = "pronto_para_substituir"
                     atomic_json(manifest_path, manifest)
                     if entry["acao"] == "adicionar":
@@ -184,22 +190,36 @@ def restore_import(manifest_path: Path) -> dict:
         raise ValueError("Manifesto de importação inválido")
     root = Path(manifest["biblioteca"]).resolve(strict=True)
     with library_lock(root):
-        work = []
-        for entry in manifest["arquivos"]:
+        work, notices = [], []
+        for index, entry in enumerate(manifest["arquivos"]):
             target = Path(entry["arquivo"])
             target.relative_to(root)
             if target.resolve() != target or target.is_symlink():
                 raise ValueError("Destino da restauração inválido")
-            # Recupera a janela entre link() e unlink() em uma interrupção do processo.
             temp = Path(entry.get("temporario", "/inexistente"))
-            if temp.parent == target.parent and temp.name.startswith(".acervo-import-") and temp.is_file() and target.is_file():
-                if temp.stat().st_ino == target.stat().st_ino and sha256(temp) == entry["depois_sha256"]:
+            if temp.parent == target.parent and temp.name.startswith(".acervo-import-") and temp.is_file() and not temp.is_symlink():
+                if target.is_file() and temp.stat().st_ino == target.stat().st_ino:
+                    # Janela entre link() e unlink() em uma interrupção do processo.
                     temp.unlink()
+                else:
+                    # Cópia interrompida: sai da coleção, mas fica guardada na transação.
+                    leftover = transaction / "retiradas" / f"temporario-{index:06d}{temp.suffix}"
+                    if not leftover.exists():
+                        durable_copy(temp, leftover)
+                    temp.unlink()
+                    sync_dir(target.parent)
+            # Entradas nunca publicadas não deixaram nada na coleção para desfazer.
+            if entry.get("estado") == "preparado":
+                continue
+            pending = entry.get("estado") == "pronto_para_substituir"
             if entry["acao"] == "adicionar":
                 if not target.exists():
                     continue
                 secure_file(root, str(target))
                 if sha256(target) != entry["depois_sha256"]:
+                    if pending:
+                        notices.append(f"Mantido, não foi publicado por esta importação: {target.name}")
+                        continue
                     raise ValueError(f"A faixa adicionada recebeu edições posteriores: {target.name}")
                 archive = (transaction / entry["retirada"]).resolve()
                 archive.relative_to(transaction)
@@ -216,6 +236,9 @@ def restore_import(manifest_path: Path) -> dict:
                 if current == entry["antes_sha256"]:
                     continue
                 if current != entry["depois_sha256"]:
+                    if pending:
+                        notices.append(f"Mantido, foi alterado por outro programa antes da substituição: {target.name}")
+                        continue
                     raise ValueError(f"Há edições posteriores: {target.name}")
                 work.append((entry, target, backup))
         for entry, target, backup in work:
@@ -244,4 +267,4 @@ def restore_import(manifest_path: Path) -> dict:
             atomic_json(manifest_path, manifest)
         manifest["estado"] = "restaurado"
         atomic_json(manifest_path, manifest)
-    return {"manifesto": str(manifest_path), "arquivos_restaurados": len(work), "estado": "restaurado"}
+    return {"manifesto": str(manifest_path), "arquivos_restaurados": len(work), "estado": "restaurado", "avisos": notices}

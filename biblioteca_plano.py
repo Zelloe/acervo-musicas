@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 
 from biblioteca_core import atomic_json, integrity, previous_album, sha256
-from diagnostico_biblioteca import album_base, normalized, read_track, signature, write_csv, VERSION
+from diagnostico_biblioteca import album_base, normalized, read_track, signature, write_csv, TEMP_PREFIXES, VERSION
 
 
 BASE = Path(__file__).resolve().parent
@@ -88,7 +88,7 @@ def create_plan(root: Path, output: Path, normalize_albums: bool = False, genre_
             path = Path(folder) / name
             if path.suffix.casefold() not in (".mp3", ".flac"):
                 continue
-            if path.is_symlink():
+            if name.startswith(TEMP_PREFIXES) or path.is_symlink():
                 ignored.append(str(path))
             else:
                 files.append(path)
