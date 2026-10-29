@@ -12,6 +12,7 @@
   <script src="/protecoes.js" defer></script>
   <script src="/baixar.js" defer></script>
   <script src="/app.js" defer></script>
+  <script src="/busca.js" defer></script>
 </head>
 <body>
   <svg class="svg-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -63,7 +64,11 @@
 
   <main class="shell">
     <header class="topbar">
-      <div class="search-box"><svg><use href="#i-search"/></svg><input id="search" type="search" placeholder="Buscar músicas, artistas ou álbuns" aria-label="Buscar músicas, artistas ou álbuns"><kbd>/</kbd></div>
+      <div class="search-area" id="search-area">
+        <div class="search-scopes" role="group" aria-label="Onde pesquisar"><button type="button" data-search-scope="biblioteca" aria-pressed="true">Sua biblioteca</button><button type="button" data-search-scope="global" aria-pressed="false">Global</button></div>
+        <form id="search-form" role="search" autocomplete="off"><div class="search-box"><svg><use href="#i-search"/></svg><input id="search" type="search" maxlength="200" placeholder="Buscar músicas, artistas ou álbuns" aria-label="Buscar músicas, artistas ou álbuns" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-suggestions"><kbd>/</kbd><button class="search-submit icon-button" type="submit" aria-label="Pesquisar"><svg><use href="#i-arrow"/></svg></button></div></form>
+        <div id="search-suggestions" class="search-suggestions" role="listbox" aria-label="Sugestões de pesquisa" hidden></div>
+      </div>
       <div class="topbar-actions"><span class="local-badge"><i class="status-dot"></i>Biblioteca local</span><button class="icon-button mobile-settings" id="top-settings" data-action="preferences" title="Preferências" aria-label="Preferências"><svg><use href="#i-settings"/></svg></button><button class="icon-button" id="top-refresh" title="Analisar biblioteca novamente" aria-label="Analisar biblioteca novamente"><svg><use href="#i-refresh"/></svg></button><span class="avatar" title="Acervo">A</span></div>
     </header>
     <div class="job-banner" id="job-banner" hidden><span class="spinner"></span><span id="job-label">Analisando biblioteca…</span><span id="job-percent"></span><div class="job-track"><div id="job-progress"></div></div></div>

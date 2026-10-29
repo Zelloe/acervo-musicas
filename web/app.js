@@ -7,7 +7,7 @@ const join = (values) => (values || []).join(" / ");
 const number = (value) => new Intl.NumberFormat("pt-BR").format(value || 0);
 const duration = (value) => { const seconds = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`; };
 const cover = (id) => `/api/cover?id=${encodeURIComponent(id)}`;
-const state = {view:"inicio", summary:null, albums:[], proposals:null, pending:[], selected:new Set(), page:0, filter:"todas", reviewFilter:"todas", albumFilter:"todas", search:"", queue:[], current:null, request:0, lastJob:null};
+const state = {view:"inicio", summary:null, albums:[], proposals:null, pending:[], selected:new Set(), page:0, filter:"todas", reviewFilter:"todas", albumFilter:"todas", search:"", searchArtist:"", searchAlbum:"", searchLabel:"", queue:[], current:null, request:0, lastJob:null};
 const token = $('meta[name="library-token"]').content;
 const playlistState = {draft:null, pending:null, exists:false};
 let toastTimeout;
@@ -83,10 +83,12 @@ async function renderHome() {
 }
 
 async function renderLibrary() {
-  const query = new URLSearchParams({q:state.search, filter:state.filter, offset:state.page*50, limit:50});
-  const result = await api(`/api/library?${query}`);
+  const query = new URLSearchParams({q:state.search, artista:state.searchArtist, album_id:state.searchAlbum, filter:state.filter, offset:state.page*50, limit:50});
+  const result = await api(`/api/busca?${query}`);
   state.queue = result.musicas.map(t=>t.id);
-  return `${heading("SEU SOM, SEU ACERVO","Todas as suas músicas",`${number(result.total)} faixas · ${number(state.summary.total_artistas)} créditos de artista`, `<button class="button ghost" data-action="export-playlist" ${state.summary.job?.estado==="executando"?"disabled":""}>${icon("download")} Exportar M3U8</button><button class="button ghost" data-action="analyze">${icon("refresh")} Atualizar biblioteca</button>`)}<div class="table-toolbar"><div class="tabs">${[["todas","Todas as faixas"],["sem-genero","Sem gênero"],["flac","FLAC"],["versoes","Versões e extras"]].map(([key,label])=>`<button class="tab ${state.filter===key?"active":""}" data-filter="${key}">${label}</button>`).join("")}</div><span class="table-note">${icon("shield")} Seus arquivos originais</span></div>${result.musicas.length ? trackTable(result.musicas,state.page*50) : empty("Nenhuma faixa por aqui", "Tente outro termo de busca ou mude os filtros.", "search")}<div class="table-footer"><span>${result.total ? `${number(state.page*50+1)}–${number(Math.min((state.page+1)*50,result.total))} de ${number(result.total)} faixas` : "0 faixas"}</span><div class="pagination"><button class="button small ghost" data-page="${state.page-1}" ${state.page===0?"disabled":""}>Anterior</button><button class="button small ghost" data-page="${state.page+1}" ${(state.page+1)*50>=result.total?"disabled":""}>Próxima</button></div></div>`;
+  const searching = !!(state.search || state.searchArtist || state.searchAlbum);
+  const description = searching ? `${number(result.total)} faixas para “${escapeHTML(state.searchLabel || state.search)}” · resultados por relevância` : `${number(result.total)} faixas · ${number(state.summary.total_artistas)} créditos de artista`;
+  return `${heading("SEU SOM, SEU ACERVO",searching?"Resultados da busca":"Todas as suas músicas",description, `<button class="button ghost" data-action="export-playlist" ${state.summary.job?.estado==="executando"?"disabled":""}>${icon("download")} Exportar M3U8</button><button class="button ghost" data-action="analyze">${icon("refresh")} Atualizar biblioteca</button>`)}<div class="table-toolbar"><div class="tabs">${[["todas","Todas as faixas"],["sem-genero","Sem gênero"],["flac","FLAC"],["versoes","Versões e extras"]].map(([key,label])=>`<button class="tab ${state.filter===key?"active":""}" data-filter="${key}">${label}</button>`).join("")}</div><span class="table-note">${icon("shield")} Seus arquivos originais</span></div>${result.musicas.length ? trackTable(result.musicas,state.page*50) : empty("Nenhuma faixa por aqui", "Tente outro termo de busca ou mude os filtros.", "search")}<div class="table-footer"><span>${result.total ? `${number(state.page*50+1)}–${number(Math.min((state.page+1)*50,result.total))} de ${number(result.total)} faixas` : "0 faixas"}</span><div class="pagination"><button class="button small ghost" data-page="${state.page-1}" ${state.page===0?"disabled":""}>Anterior</button><button class="button small ghost" data-page="${state.page+1}" ${(state.page+1)*50>=result.total?"disabled":""}>Próxima</button></div></div>`;
 }
 
 function filteredProposals() {
@@ -168,7 +170,7 @@ function navigate(view) {
   state.page=0;
   history.replaceState(null,"",`#${view}`);
   window.scrollTo({top:0});
-  render();
+  return render();
 }
 
 function modal(content) { $('#modal-content').innerHTML=content; setWriteControls(); if (!$('#modal').open) $('#modal').showModal(); }
@@ -177,7 +179,7 @@ function bytes(value) { return value >= 1073741824 ? `${(value/1073741824).toFix
 
 function showPlaylist(albumId="", previousName) {
   const album = state.albums.find(a=>a.track_id===albumId);
-  playlistState.draft = albumId ? {album_id:albumId} : {q:state.search, filter:state.filter};
+  playlistState.draft = albumId ? {album_id:albumId} : {q:state.search, filter:state.filter, artista:state.searchArtist, album_id:state.searchAlbum};
   playlistState.pending = null;
   const name = (previousName ?? (album?.album || state.search || "Minha seleção")).replace(/[\\/:*?"<>|\x00-\x1f\x7f]/g,"_").slice(0,90);
   const scope = album ? `Álbum: ${album.album} · ${album.artista}` : `Todas as faixas da busca e do filtro atuais, incluindo as outras páginas${state.search?` · busca: ${state.search}`:""}.`;
@@ -263,11 +265,11 @@ document.addEventListener("click",async event=>{
   const button=event.target.closest("button,a");
   if(!button || button.disabled)return;
   try {
-    if(button.dataset.view){ if($('#modal').open)$('#modal').close();state.search="";$('#search').value="";navigate(button.dataset.view); }
+    if(button.dataset.view){ if($('#modal').open)$('#modal').close();state.search="";state.searchArtist="";state.searchAlbum="";state.searchLabel="";$('#search').value="";navigate(button.dataset.view); }
     else if(button.dataset.play)await play(button.dataset.play);
     else if(button.dataset.info)await showDetails(button.dataset.info);
     else if(button.dataset.playlistAlbum)showPlaylist(button.dataset.playlistAlbum);
-    else if(button.dataset.album){ state.search=button.dataset.album;$('#search').value=state.search;state.filter="todas";navigate("biblioteca"); }
+    else if(button.dataset.album){ state.search=button.dataset.album;state.searchArtist="";state.searchAlbum="";state.searchLabel="";$('#search').value=state.search;state.filter="todas";navigate("biblioteca"); }
     else if(button.dataset.filter){state.filter=button.dataset.filter;state.page=0;await render();}
     else if(button.dataset.reviewFilter){state.reviewFilter=button.dataset.reviewFilter;state.page=0;await render();}
     else if(button.dataset.albumFilter){state.albumFilter=button.dataset.albumFilter;await render();}
@@ -314,8 +316,6 @@ document.addEventListener("change",event=>{
 });
 $('#settings').addEventListener("click",showSettings);
 $('#top-refresh').addEventListener("click",()=>analyze().catch(e=>toast(e.message)));
-let searchTimeout;
-$('#search').addEventListener("input",()=>{clearTimeout(searchTimeout);searchTimeout=setTimeout(()=>{state.search=$('#search').value;state.page=0;if(state.view==="inicio")navigate("biblioteca");else render();},220);});
 document.addEventListener("keydown",event=>{if(event.key==="/"&&!event.target.matches("input,textarea")){event.preventDefault();$('#search').focus();}});
 window.addEventListener("hashchange",()=>navigate(location.hash.slice(1)));
 

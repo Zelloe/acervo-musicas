@@ -21,6 +21,7 @@ from biblioteca_downloads import Downloads, clean_log, tool_status
 from biblioteca_plano import BASE, create_plan
 from diagnostico_biblioteca import read_track
 from musicbrainz_local import MusicBrainz
+from busca import BuscaGlobal, IndiceBiblioteca, normalizar
 from playlists import album_order, render as render_m3u8, write_m3u8
 from seletor_downloads import SeletorDownloads
 import protecoes
@@ -65,6 +66,9 @@ class App:
         self.download_cache = self.state_dir / ("adicoes_" + root_key + ".json")
         self.tracks = []
         self.by_id = {}
+        self.search_tracks = None
+        self.search_index = None
+        self.busca_global = BuscaGlobal()
         self.plan = None
         self.plan_path = None
         self.error = None
@@ -260,12 +264,53 @@ class App:
             with self.lock:
                 self.policy_busy = False
 
-    def library(self, needle="", kind="todas", tracks=None):
-        if not isinstance(needle, str) or kind not in ("todas", "sem-genero", "flac", "versoes"):
+    @staticmethod
+    def search_query(needle, scope="biblioteca"):
+        if not isinstance(needle, str) or len(needle) > 200 or any(ord(c) < 32 for c in needle):
+            raise ValueError("Use até 200 caracteres na busca")
+        if scope not in ("biblioteca", "global"):
+            raise ValueError("Escolha buscar na biblioteca ou no catálogo global")
+        return needle.strip()
+
+    def library_index(self, tracks=None):
+        with self.lock:
+            if tracks is not None and tracks is not self.tracks:
+                return IndiceBiblioteca(tracks)
+            if self.search_tracks is not self.tracks:
+                self.search_index = IndiceBiblioteca(self.tracks)
+                self.search_tracks = self.tracks
+            return self.search_index
+
+    def suggestions(self, needle, scope="biblioteca"):
+        needle = self.search_query(needle, scope)
+        if scope == "global":
+            if len(normalizar(needle)) < 2:
+                return {"termos": [], "artistas": []}
+            try:
+                return self.busca_global.sugerir(needle)
+            except (ValueError, OSError) as error:
+                raise RuntimeError(str(error)) from error
+        return self.library_index().sugerir(needle)
+
+    def library(self, needle="", kind="todas", tracks=None, artist="", album_id=""):
+        needle = self.search_query(needle)
+        if kind not in ("todas", "sem-genero", "flac", "versoes"):
             raise ValueError("Filtro de biblioteca inválido")
-        rows = self.tracks if tracks is None else tracks
+        if not isinstance(artist, str) or len(artist) > 200 or not isinstance(album_id, str):
+            raise ValueError("Filtro de artista ou álbum inválido")
+        with self.lock:
+            rows = self.tracks if tracks is None else tracks
+            index = self.library_index(rows)
+        if album_id:
+            selected = next((t for t in rows if t["id"] == album_id), None)
+            if selected is None:
+                raise ValueError("Álbum não encontrado; atualize a biblioteca")
+            rows = [t for t in rows if album_key(t) == album_key(selected)]
+        if artist:
+            rows = [t for t in rows if normalizar(artist) in {normalizar(a) for a in t["artista"] + t["artista_album"]}]
         if needle:
-            rows = [t for t in rows if needle.casefold() in " ".join(t["titulo"] + t["artista"] + t["album"]).casefold()]
+            by_id = {t["id"]: t for t in rows}
+            rows = [by_id[r["id"]] for r in index.buscar(needle, limite=len(index.tracks)) if r["id"] in by_id]
         if kind == "sem-genero":
             rows = [t for t in rows if "genero" in t["campos_ausentes"]]
         elif kind == "flac":
@@ -301,7 +346,7 @@ class App:
         album_id = data.get("album_id", "")
         if not isinstance(album_id, str):
             raise ValueError("Álbum inválido")
-        rows = self.library(data.get("q", ""), data.get("filter", "todas"), tracks)
+        rows = self.library(data.get("q", ""), data.get("filter", "todas"), tracks, data.get("artista", ""), album_id)
         if album_id:
             track = by_id.get(album_id)
             if track is None:
@@ -419,6 +464,8 @@ class Handler(BaseHTTPRequestHandler):
             pass
         except (ValueError, OSError, KeyError) as error:
             self.json({"erro": str(error)}, 400)
+        except RuntimeError as error:
+            self.json({"erro": str(error)}, 503)
 
     def get_route(self):
         url = urlsplit(self.path)
@@ -426,7 +473,7 @@ class Handler(BaseHTTPRequestHandler):
         if url.path in ("/", "/index.html"):
             html = (BASE / "web/index.html").read_text().replace("__TOKEN__", self.app.token)
             self.send(200, html.encode(), "text/html; charset=utf-8")
-        elif url.path in ("/app.js", "/downloads.js", "/protecoes.js", "/baixar.js", "/style.css"):
+        elif url.path in ("/app.js", "/downloads.js", "/protecoes.js", "/baixar.js", "/busca.js", "/style.css"):
             mime = "text/javascript; charset=utf-8" if url.path.endswith(".js") else "text/css; charset=utf-8"
             self.send(200, (BASE / "web" / url.path[1:]).read_bytes(), mime)
         elif url.path == "/api/state":
@@ -447,8 +494,12 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("Faixa não encontrada")
             path = self.app.downloads.path(batch["id"]) / (row_id + ".log" if row_id else "catalogo.log")
             self.json({"registro": clean_log(path.read_text(errors="replace")) if path.is_file() else "Sem registro disponível."})
-        elif url.path == "/api/library":
-            rows = self.app.library(query.get("q", [""])[0], query.get("filter", ["todas"])[0])
+        elif url.path == "/api/sugestoes" or (url.path == "/api/busca" and query.get("escopo", ["biblioteca"])[0] == "global"):
+            self.json(self.app.suggestions(query.get("q", [""])[0], query.get("escopo", ["biblioteca"])[0]))
+        elif url.path in ("/api/library", "/api/busca"):
+            self.app.search_query(query.get("q", [""])[0], query.get("escopo", ["biblioteca"])[0])
+            rows = self.app.library(query.get("q", [""])[0], query.get("filter", ["todas"])[0],
+                                    artist=query.get("artista", [""])[0], album_id=query.get("album_id", [""])[0])
             offset = max(0, int(query.get("offset", [0])[0]))
             limit = min(100, max(1, int(query.get("limit", [50])[0])))
             self.json({"total": len(rows), "musicas": [{k: t[k] for k in ("id", "titulo", "artista", "album", "genero", "ano", "faixa", "formato", "duracao_segundos", "bitrate_bps", "campos_ausentes", "capas")} for t in rows[offset:offset + limit]]})
@@ -652,3 +703,4 @@ def serve(root: Path, port: int = 8765, storage: Path | None = None, open_browse
         print("\nInterface encerrada.")
     finally:
         server.server_close()
+        app.busca_global.fechar()

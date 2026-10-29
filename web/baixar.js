@@ -3,6 +3,19 @@
 const simpleDownloadState = {mode:"artista",query:"",folder:"",bitrate:"320k",catalogId:null,seenCatalog:null,seenJob:null,selected:new Set(),parents:[]};
 const simpleModeLabels = {artista:["Artista","Ex.: Faith No More"],musica:["Música ou artista","Ex.: Pink Floyd Time"],link:["Link do Spotify","Link de música, álbum ou playlist"]};
 
+async function searchFromGlobal(mode, query) {
+  if(state.summary?.job?.estado==="executando")throw new Error("Aguarde a operação atual terminar para iniciar outra busca.");
+  simpleFormValues($('#simple-download-form'));
+  if(!simpleDownloadState.folder)simpleDownloadState.folder=(await api("/api/baixar")).pasta;
+  await api("/api/baixar/buscar",{tipo:mode,consulta:query,pasta:simpleDownloadState.folder});
+  simpleDownloadState.mode=mode;
+  simpleDownloadState.query=query;
+  simpleDownloadState.parents=[];
+  state.search="";state.searchArtist="";state.searchAlbum="";state.searchLabel="";
+  await updateState();
+  await navigate("downloads");
+}
+
 function simpleFormValues(form) {
   if(!form)return;
   simpleDownloadState.query=form.elements.consulta.value;
