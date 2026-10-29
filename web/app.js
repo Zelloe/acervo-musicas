@@ -44,8 +44,13 @@ async function updateState() {
   $('#job-label').textContent = info.job?.mensagem || "";
   $('#job-percent').textContent = info.job?.progresso === null || info.job?.progresso === undefined ? "" : `${info.job.progresso}%`;
   $('#job-progress').style.width = `${info.job?.progresso || 0}%`;
-  $('#top-refresh').disabled = busy;
-  document.querySelectorAll('[data-action="analyze"], [data-action="confirm-apply"], [data-action="confirm-restore"], [data-action="fetch-downloads"], [data-action="review-import"], [data-action="confirm-import"], [data-action="export-playlist"], [data-action="confirm-playlist"], [data-playlist-album], #playlist-form [type="submit"], #download-form [type="submit"]').forEach(el => { el.disabled = busy; });
+  setWriteControls();
+}
+
+function setWriteControls() {
+  const blocked = state.summary?.job?.estado === "executando" || !!state.summary?.erro_protecoes;
+  $('#top-refresh').disabled = blocked;
+  document.querySelectorAll('[data-action="analyze"], [data-action="confirm-apply"], [data-action="confirm-restore"], [data-action="fetch-downloads"], [data-action="review-import"], [data-action="confirm-import"], [data-action="export-playlist"], [data-action="confirm-playlist"], [data-playlist-album], [data-track-protection], [data-protection-album], [data-action="protect-album"], [data-action="unprotect-album"], #playlist-form [type="submit"], #download-form [type="submit"]').forEach(el => { el.disabled = blocked; });
 }
 
 function featuredAlbums() {
@@ -53,7 +58,7 @@ function featuredAlbums() {
 }
 
 function albumCard(album) {
-  return `<article class="album-card"><div class="album-image"><img src="${cover(album.track_id)}" alt="Capa de ${escapeHTML(album.album)}" loading="lazy"><button class="album-play" data-play="${album.track_id}" aria-label="Ouvir ${escapeHTML(album.album)}">${icon("play")}</button></div><button class="album-title" data-album="${escapeHTML(album.album)}" title="${escapeHTML(album.album)}">${escapeHTML(album.album)}</button><span class="album-artist">${escapeHTML(album.artista)}</span><span class="album-meta">${escapeHTML(album.ano.slice(0,4) || "Sem ano")} · ${album.faixas} ${album.faixas === 1 ? "faixa" : "faixas"}</span><button class="text-button" data-playlist-album="${album.track_id}" aria-label="Exportar M3U8 de ${escapeHTML(album.album)} por ${escapeHTML(album.artista)}" ${state.summary.job?.estado==="executando"?"disabled":""}>${icon("download")} Exportar M3U8</button></article>`;
+  return `<article class="album-card"><div class="album-image"><img src="${cover(album.track_id)}" alt="Capa de ${escapeHTML(album.album)}" loading="lazy"><button class="album-play" data-play="${album.track_id}" aria-label="Ouvir ${escapeHTML(album.album)}">${icon("play")}</button></div><button class="album-title" data-album="${escapeHTML(album.album)}" title="${escapeHTML(album.album)}">${escapeHTML(album.album)}</button><span class="album-artist">${escapeHTML(album.artista)}</span><span class="album-meta">${escapeHTML(album.ano.slice(0,4) || "Sem ano")} · ${album.faixas} ${album.faixas === 1 ? "faixa" : "faixas"}</span><button class="text-button" data-playlist-album="${album.track_id}" aria-label="Exportar M3U8 de ${escapeHTML(album.album)} por ${escapeHTML(album.artista)}" ${state.summary.job?.estado==="executando"?"disabled":""}>${icon("download")} Exportar M3U8</button><button class="text-button" data-protection-album="${album.track_id}" aria-label="Proteger campos de ${escapeHTML(album.album)} por ${escapeHTML(album.artista)}" ${state.summary.job?.estado==="executando"?"disabled":""}>${icon("lock")} Proteger campos</button></article>`;
 }
 
 function statCard(label, value, name, description, amber = false) {
@@ -150,7 +155,9 @@ async function render() {
     let html = await ({inicio:renderHome,biblioteca:renderLibrary,downloads:renderDownloads,revisao:renderReview,albuns:renderAlbums,historico:renderHistory}[state.view] || renderHome)();
     if (request !== state.request) return;
     if (state.summary.erro) html = `<div class="error-box">${escapeHTML(state.summary.erro)}</div>`+html;
+    if (state.summary.erro_protecoes) html = `<div class="error-box"><strong>Campos protegidos indisponíveis.</strong> ${escapeHTML(state.summary.erro_protecoes)} As alterações ficam bloqueadas até corrigir esse arquivo.</div>`+html;
     $('#content').innerHTML=html;
+    setWriteControls();
     updateSelection();
   } catch(error) { toast(error.message); }
 }
@@ -164,7 +171,7 @@ function navigate(view) {
   render();
 }
 
-function modal(content) { $('#modal-content').innerHTML=content; if (!$('#modal').open) $('#modal').showModal(); }
+function modal(content) { $('#modal-content').innerHTML=content; setWriteControls(); if (!$('#modal').open) $('#modal').showModal(); }
 function modalHead(title,text) { return `<div class="modal-head"><div><h2>${title}</h2><p>${text}</p></div><button class="icon-button" data-action="close-modal" aria-label="Fechar">${icon("close")}</button></div>`; }
 function bytes(value) { return value >= 1073741824 ? `${(value/1073741824).toFixed(2).replace(".",",")} GB` : `${(value/1048576).toFixed(1).replace(".",",")} MB`; }
 
@@ -202,13 +209,13 @@ function confirmApply() {
 
 async function showDetails(id) {
   const track = await api(`/api/track?id=${encodeURIComponent(id)}`);
-  const pairs = [["Artista",join(track.artista)],["Álbum",join(track.album)],["Gênero",join(track.genero)||"Não definido"],["Ano",join(track.ano)||"Não definido"],["Faixa / disco",`${join(track.faixa)||"—"} / ${join(track.disco)||"—"}`],["Áudio",`${track.formato} · ${duration(track.duracao_segundos)} · ${Math.round((track.bitrate_bps||0)/1000)} kbps`],["Artista do álbum",join(track.artista_album)||"Não definido"],["Capas",`${track.capas.length} imagens preservadas`]];
-  modal(`${modalHead("Os detalhes da faixa", "Metadados lidos do seu arquivo.")}<div class="detail-hero"><img src="${cover(id)}" alt="Capa do álbum"><div><h3>${escapeHTML(join(track.titulo))}</h3><p>${escapeHTML(join(track.artista))}</p><button class="button small primary" data-play="${id}">${icon("play")} Ouvir</button></div></div><div class="modal-body"><dl class="details-list">${pairs.map(([k,v])=>`<div><dt>${k}</dt><dd>${escapeHTML(v)}</dd></div>`).join("")}</dl></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">Fechar</button></div>`);
+  const pairs = [["titulo","Título",join(track.titulo)],["artista","Artista",join(track.artista)],["artista_album","Artista do álbum",join(track.artista_album)],["album","Álbum",join(track.album)],["genero","Gênero",join(track.genero)],["ano","Ano",join(track.ano)],["faixa","Faixa",join(track.faixa)],["disco","Disco",join(track.disco)],[null,"Áudio",`${track.formato} · ${duration(track.duracao_segundos)} · ${Math.round((track.bitrate_bps||0)/1000)} kbps`],[null,"Capas",`${track.capas.length} imagens preservadas`],[null,"Arquivo",track.arquivo]];
+  modal(`${modalHead("Os detalhes da faixa", "Metadados lidos do seu arquivo. Proteja campos para preservar suas escolhas.")}<div class="detail-hero"><img src="${cover(id)}" alt="Capa do álbum"><div><h3>${escapeHTML(join(track.titulo))}</h3><p>${escapeHTML(join(track.artista))}</p><button class="button small primary" data-play="${id}">${icon("play")} Ouvir</button></div></div><div class="modal-body">${track.erro_protecoes?`<div class="error-box">${escapeHTML(track.erro_protecoes)}</div>`:""}<dl class="details-list">${pairs.map(([field,k,v])=>`<div><dt>${k}</dt><dd>${escapeHTML(v||"Não definido")}${field?protectionControl(track,field):""}</dd></div>`).join("")}</dl></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">Fechar</button></div>`);
 }
 
 function showSettings() {
   const options=settings();
-  modal(`${modalHead("Do seu jeito.","Preferências para a próxima análise da coleção.")}<div class="modal-body"><div class="form-row"><label><input type="checkbox" class="check" id="use-musicbrainz" ${options.musicbrainz?"checked":""}> Consultar MusicBrainz para gêneros sem regra local</label><p>Consulta nomes de artista e álbum. As sugestões sempre passam pela sua aprovação. Nenhum arquivo de áudio é enviado.</p><input id="musicbrainz-contact" class="field" type="text" placeholder="Seu e-mail ou URL de contato" aria-label="Contato do cliente MusicBrainz" value="${escapeHTML(options.contato)}"></div><div class="form-row"><label>${icon("folder")} Biblioteca atual</label><p>${escapeHTML(state.summary.biblioteca)}</p></div><div class="form-row"><label>${icon("tag")} Regras de gênero editáveis</label><p>As propostas locais ficam em generos_artistas.csv. Gêneros que já existem nos arquivos são preservados.</p></div></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">Cancelar</button><button class="button primary" data-action="save-settings">Salvar preferências</button></div>`);
+  modal(`${modalHead("Do seu jeito.","Preferências para a próxima análise da coleção.")}<div class="modal-body"><div class="form-row"><label><input type="checkbox" class="check" id="use-musicbrainz" ${options.musicbrainz?"checked":""}> Consultar MusicBrainz para gêneros sem regra local</label><p>Consulta nomes de artista e álbum. As sugestões sempre passam pela sua aprovação. Nenhum arquivo de áudio é enviado.</p><input id="musicbrainz-contact" class="field" type="text" placeholder="Seu e-mail ou URL de contato" aria-label="Contato do cliente MusicBrainz" value="${escapeHTML(options.contato)}"></div><div class="form-row"><label>${icon("folder")} Biblioteca atual</label><p>${escapeHTML(state.summary.biblioteca)}</p></div><div class="form-row"><label>${icon("tag")} Regras de gênero editáveis</label><p>As propostas locais ficam em generos_artistas.csv. Gêneros que já existem nos arquivos são preservados.</p></div><div class="form-row"><label>${icon("lock")} Escolhas preservadas</label><p><button class="text-button" data-action="protection-list">Ver campos protegidos e desbloquear</button></p></div></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">Cancelar</button><button class="button primary" data-action="save-settings">Salvar preferências</button></div>`);
 }
 
 async function analyze() {
@@ -315,6 +322,8 @@ window.addEventListener("hashchange",()=>navigate(location.hash.slice(1)));
 async function poll() {
   try {
     const previous=state.summary?.analisado_em;
+    const previousPolicy=state.summary?.protecoes_revisao;
+    const previousPolicyError=state.summary?.erro_protecoes;
     await updateState();
     const job=state.summary.job;
     const jobKey=job?`${job.id}:${job.estado}`:"";
@@ -323,7 +332,7 @@ async function poll() {
       if(job?.tipo==="catalogo"&&job.resultado?.lote)await openDownloadBatch(job.resultado.lote);
       else await render();
     }
-    if(previous!==state.summary.analisado_em){state.proposals=null;state.selected.clear();state.albums=(await api("/api/albums")).albuns;await render();}
+    if(previous!==state.summary.analisado_em || previousPolicy!==state.summary.protecoes_revisao || previousPolicyError!==state.summary.erro_protecoes){state.proposals=null;state.selected.clear();state.albums=(await api("/api/albums")).albuns;await render();}
     state.lastJob=jobKey;
   } catch(error){if(!$('#toast').hidden)return;toast("A interface perdeu a conexão. Verifique se o programa continua aberto.");}
   finally {setTimeout(poll,2000);}

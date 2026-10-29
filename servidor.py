@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 import csv
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import hashlib
 import json
 import mimetypes
 from pathlib import Path
@@ -15,14 +16,29 @@ from urllib.parse import parse_qs, urlsplit
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3
 
-from biblioteca_core import apply_plan, atomic_json, durable_copy, library_lock, load_plan, restore, secure_file, sha256
+from biblioteca_core import apply_plan, durable_copy, library_lock, load_plan, restore, sha256
 from biblioteca_downloads import Downloads, clean_log, tool_status
 from biblioteca_plano import BASE, create_plan
 from musicbrainz_local import MusicBrainz
 from playlists import album_order, render as render_m3u8, write_m3u8
+import protecoes
 
 
 WRITING_JOBS = {"importacao", "aplicacao", "restauracao"}
+
+
+def album_key(track):
+    return (tuple(track["artista_album"] or track["artista"]), tuple(track["album"]))
+
+
+def readable_music(root, value):
+    path = Path(value)
+    if not path.is_absolute() or path.is_symlink() or path.resolve() != path:
+        raise ValueError("Caminho de música inválido ou simbólico")
+    path.relative_to(root)
+    if not path.is_file() or path.suffix.casefold() not in (".mp3", ".flac"):
+        raise ValueError("Arquivo ausente ou inválido; atualize a biblioteca")
+    return path
 
 
 class App:
@@ -40,6 +56,7 @@ class App:
         self.job = None
         self.worker = None
         self.playlist_busy = False
+        self.policy_busy = False
         self.tracks = []
         self.by_id = {}
         self.plan = None
@@ -67,8 +84,10 @@ class App:
 
     def start(self, kind, operation):
         with self.lock:
-            if self.playlist_busy or (self.job and self.job["estado"] == "executando"):
+            if self.playlist_busy or self.policy_busy or (self.job and self.job["estado"] == "executando"):
                 raise ValueError("Aguarde a operação atual terminar")
+            if kind in WRITING_JOBS:
+                protecoes.load(self.storage, self.root)
             self.error = None
             self.job = {"id": secrets.token_hex(8), "tipo": kind, "estado": "executando", "mensagem": "Preparando…", "progresso": None}
         def run():
@@ -99,18 +118,81 @@ class App:
         def progress(done, total, name):
             with self.lock:
                 self.job.update(mensagem=f"{done} de {total} · {name}", progresso=round(done / total * 100) if total else 0)
-        result = create_plan(self.root, output, normalize_albums=True, online=online, progress=progress)
+        result = create_plan(self.root, output, normalize_albums=True, online=online, progress=progress, storage=self.storage)
         self.load(Path(result["plano"]))
         return result
 
-    def proposals(self):
+    def read_protections(self):
+        try:
+            return protecoes.load(self.storage, self.root), None
+        except ValueError as error:
+            return None, str(error)
+
+    def proposals(self, policy=None):
         tracks = {t["arquivo"]: t for t in self.tracks}
+        if policy is None:
+            policy, error = self.read_protections()
+            if error:
+                return []
         rows = []
         for entry in (self.plan or {}).get("arquivos", []):
             track = tracks[entry["arquivo"]]
             for change in entry["alteracoes"]:
+                if change["campo"] in protecoes.protected(policy, self.root, entry["arquivo"]):
+                    continue
                 rows.append({**change, "arquivo": entry["arquivo"], "track_id": track["id"], "titulo": " / ".join(track["titulo"]), "artista": " / ".join(track["artista"]), "album": " / ".join(track["album"]), "tamanho_bytes": entry["tamanho_bytes"]})
         return rows
+
+    def protection_info(self, album_id=""):
+        policy, error = self.read_protections()
+        if error:
+            return {"campos": list(protecoes.FIELDS), "protecoes": [], "erro_protecoes": error}
+        with self.lock:
+            tracks = list(self.tracks)
+            by_id = dict(self.by_id)
+        by_file = {t["arquivo"]: t for t in tracks}
+        rows = []
+        for row in protecoes.listing(policy):
+            track = by_file.get(row["arquivo"], {})
+            rows.append({**row, "id": track.get("id"), "titulo": track.get("titulo", []), "artista": track.get("artista", [])})
+        result = {"campos": list(protecoes.FIELDS), "protecoes": rows}
+        if album_id:
+            track = by_id.get(album_id)
+            if track is None:
+                raise ValueError("Álbum não encontrado; atualize a biblioteca")
+            members = [t for t in tracks if album_key(t) == album_key(track)]
+            result["album"] = {"id": album_id, "titulo": track["album"], "artista": track["artista_album"] or track["artista"],
+                               "faixas": len(members), "campos": {f: sum(f in protecoes.protected(policy, self.root, t["arquivo"]) for t in members) for f in protecoes.FIELDS}}
+        return result
+
+    def change_protections(self, data):
+        if "arquivos" in data or "arquivo" in data:
+            raise ValueError("Selecione faixas pelos identificadores da biblioteca")
+        fields, enabled = data.get("campos"), data.get("proteger")
+        if not isinstance(enabled, bool) or not isinstance(fields, list) or not fields or any(not isinstance(f, str) or f not in protecoes.FIELDS for f in fields):
+            raise ValueError("Escolha campos válidos e se deseja protegê-los ou desbloqueá-los")
+        ids, album_id = data.get("ids", []), data.get("album_id", "")
+        if not isinstance(ids, list) or len(ids) > 10000 or any(not isinstance(i, str) for i in ids) or not isinstance(album_id, str) or bool(ids) == bool(album_id):
+            raise ValueError("Selecione faixas ou um álbum da biblioteca")
+        with self.lock:
+            if self.playlist_busy or self.policy_busy or (self.job and self.job["estado"] == "executando"):
+                raise ValueError("Aguarde a operação atual terminar")
+            if album_id:
+                track = self.by_id.get(album_id)
+                if track is None:
+                    raise ValueError("Álbum não encontrado; atualize a biblioteca")
+                chosen = [t for t in self.tracks if album_key(t) == album_key(track)]
+            else:
+                if len(ids) != len(set(ids)) or any(i not in self.by_id for i in ids):
+                    raise ValueError("Seleção de faixas inválida; atualize a biblioteca")
+                chosen = [self.by_id[i] for i in ids]
+            self.policy_busy = True
+        try:
+            operation = protecoes.protect if enabled else protecoes.unprotect
+            return operation(self.storage, self.root, [t["arquivo"] for t in chosen], fields)
+        finally:
+            with self.lock:
+                self.policy_busy = False
 
     def library(self, needle="", kind="todas", tracks=None):
         if not isinstance(needle, str) or kind not in ("todas", "sem-genero", "flac", "versoes"):
@@ -128,7 +210,7 @@ class App:
 
     def playlist(self, data, write=False):
         with self.lock:
-            if self.playlist_busy or (self.job and self.job["estado"] == "executando"):
+            if self.playlist_busy or self.policy_busy or (self.job and self.job["estado"] == "executando"):
                 raise ValueError("Aguarde a operação atual terminar")
             self.playlist_busy = True
             tracks, by_id = list(self.tracks), dict(self.by_id)
@@ -158,17 +240,12 @@ class App:
             track = by_id.get(album_id)
             if track is None:
                 raise ValueError("Álbum não encontrado; atualize a biblioteca")
-            def group(t):
-                return (tuple(t["artista_album"] or t["artista"]), tuple(t["album"]))
-            rows = [t for t in rows if group(t) == group(track)]
+            rows = [t for t in rows if album_key(t) == album_key(track)]
         rows = sorted(rows, key=album_order)
         if not rows:
             raise ValueError("Nenhuma música selecionada para a playlist")
         for track in rows:
-            music = Path(track["arquivo"])
-            music.relative_to(self.root)
-            if music.is_symlink() or music.resolve() != music or not music.is_file():
-                raise ValueError("Arquivo ausente ou simbólico; atualize a biblioteca")
+            readable_music(self.root, track["arquivo"])
         folder = self.root / "Playlists"
         path = folder / (name + ".m3u8")
         if folder.resolve() != folder or path.is_symlink() or path.resolve() != path:
@@ -216,8 +293,13 @@ class App:
 
     def snapshot(self):
         with self.lock:
-            summary = (self.plan or {}).get("resumo", {})
-            return {"biblioteca": str(self.root), "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "erro": self.error, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(self.proposals())}
+            policy, policy_error = self.read_protections()
+            proposals = self.proposals(policy) if policy is not None else []
+            summary = {**(self.plan or {}).get("resumo", {}), "alteracoes_propostas": len(proposals),
+                       "arquivos_com_propostas": len({p["arquivo"] for p in proposals}),
+                       "propostas_por_campo": dict(Counter(p["campo"] for p in proposals))}
+            revision = hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest() if policy is not None else None
+            return {"biblioteca": str(self.root), "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "erro": self.error, "erro_protecoes": policy_error, "protecoes_revisao": revision, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(proposals)}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -255,7 +337,7 @@ class Handler(BaseHTTPRequestHandler):
             track = getattr(self.app, "by_id", {}).get(query.get("id", [""])[0])
             if track is None:
                 raise ValueError("Música não encontrada")
-            secure_file(self.app.root, track["arquivo"])
+            readable_music(self.app.root, track["arquivo"])
             return track
 
     def do_GET(self):
@@ -275,11 +357,13 @@ class Handler(BaseHTTPRequestHandler):
         if url.path in ("/", "/index.html"):
             html = (BASE / "web/index.html").read_text().replace("__TOKEN__", self.app.token)
             self.send(200, html.encode(), "text/html; charset=utf-8")
-        elif url.path in ("/app.js", "/downloads.js", "/style.css"):
+        elif url.path in ("/app.js", "/downloads.js", "/protecoes.js", "/style.css"):
             mime = "text/javascript; charset=utf-8" if url.path.endswith(".js") else "text/css; charset=utf-8"
             self.send(200, (BASE / "web" / url.path[1:]).read_bytes(), mime)
         elif url.path == "/api/state":
             self.json(self.app.snapshot())
+        elif url.path == "/api/protections":
+            self.json(self.app.protection_info(query.get("album_id", [""])[0]))
         elif url.path == "/api/downloads":
             folders = sorted({str(self.app.root)} | {str(Path(t["arquivo"]).parent) for t in self.app.tracks})
             self.json({"lotes": self.app.downloads.list(), "ferramentas": tool_status(), "pastas": folders})
@@ -307,11 +391,16 @@ class Handler(BaseHTTPRequestHandler):
             self.json({"alteracoes": self.app.proposals()})
         elif url.path == "/api/unidentified":
             suggested = {p["arquivo"] for p in self.app.proposals() if p["campo"] == "genero"}
-            self.json({"musicas": [t for t in self.app.tracks if "genero" in t["campos_ausentes"] and t["arquivo"] not in suggested]})
+            policy, error = self.app.read_protections()
+            rows = [t for t in self.app.tracks if "genero" in t["campos_ausentes"] and t["arquivo"] not in suggested and "genero" not in protecoes.protected(policy, self.app.root, t["arquivo"])] if policy is not None else []
+            self.json({"musicas": rows, "erro_protecoes": error})
         elif url.path == "/api/history":
             self.json({"execucoes": self.app.history()})
         elif url.path == "/api/track":
-            self.json(self.track(query))
+            track = self.track(query)
+            policy, error = self.app.read_protections()
+            fields = sorted(protecoes.protected(policy, self.app.root, track["arquivo"])) if policy is not None else None
+            self.json({**track, "campos_protegidos": fields, "erro_protecoes": error})
         elif url.path in ("/api/cover", "/api/downloads/cover"):
             path = self.app.downloads.file(query.get("id", [""])[0], query.get("faixa", [""])[0]) if url.path.startswith("/api/downloads/") else Path(self.track(query)["arquivo"])
             covers = ID3(path).getall("APIC") if path.suffix.casefold() == ".mp3" else FLAC(path).pictures
@@ -384,6 +473,9 @@ class Handler(BaseHTTPRequestHandler):
             elif route in ("/api/playlists/preview", "/api/playlists/export"):
                 self.json(self.app.playlist(data, write=route.endswith("export")))
                 return
+            elif route == "/api/protections":
+                self.json(self.app.change_protections(data))
+                return
             elif route == "/api/downloads/prepare":
                 self.app.start("catalogo", lambda: self.app.downloads.prepare(data, list(self.app.tracks)))
             elif route == "/api/downloads/fetch":
@@ -434,7 +526,7 @@ class Handler(BaseHTTPRequestHandler):
                         writer.writeheader()
                         writer.writerows(rows)
                     self.app.job["mensagem"] = "Criando backups completos e validando as tags…"
-                    result = apply_plan(plan_path, path, self.app.storage / "backups")
+                    result = apply_plan(plan_path, path, self.app.storage / "backups", storage=self.app.storage)
                     self.app.analyze()
                     return result
                 self.app.start("aplicacao", apply)
@@ -444,7 +536,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("Execução não encontrada")
                 def undo():
                     self.app.job["mensagem"] = "Validando backups e restaurando os arquivos…"
-                    result = restore(self.app.storage / "backups" / ident / "manifesto.json")
+                    result = restore(self.app.storage / "backups" / ident / "manifesto.json", storage=self.app.storage)
                     self.app.analyze()
                     return result
                 self.app.start("restauracao", undo)

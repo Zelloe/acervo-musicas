@@ -4,6 +4,11 @@ As 15 funcionalidades abaixo fazem parte do escopo planejado do projeto.
 As caixas indicam a entrega completa e validada de cada item; recursos que já
 tenham suporte parcial devem ser aproveitados e ampliados.
 
+**Prioridade atual (29/10/2026):** após concluir os itens 6 e 13, pausar novos
+itens deste roadmap. O usuário priorizou um seletor simples de músicas com
+spotDL, no terminal e no navegador, salvando diretamente na pasta escolhida.
+A organização de metadados existentes continua disponível.
+
 ## Regras para todas as etapas
 
 - Manter a biblioteca nos caminhos atuais, sem criar pastas por gênero ou álbum.
@@ -46,10 +51,16 @@ tenham suporte parcial devem ser aproveitados e ampliados.
   as evidências da identificação. Diferenciar regras locais, escolhas manuais
   e dados externos; explicar a confiança sem inventar precisão numérica.
 
-- [ ] **6. Campos protegidos**
+- [x] **6. Campos protegidos**
   Permitir proteger campos de uma faixa ou de um conjunto de faixas, como
   gênero e edição do álbum. Persistir a escolha e respeitá-la em análises,
   enriquecimentos e substituições, até o usuário desbloquear o campo.
+  Disponível na CLI, nos detalhes da faixa e em lote para as faixas atuais de
+  um álbum. A política local é separada por biblioteca e revalidada ao gravar
+  ou restaurar, inclusive para planos antigos. Campos vazios também podem ser
+  protegidos. Não há reassociação automática quando um arquivo muda de caminho.
+  Testes Python/HTTP e Chromium em desktop/celular validam persistência,
+  desbloqueio e leitura da biblioteca mesmo com a política ilegível.
 
 - [ ] **7. Gêneros personalizados**
   Oferecer edição de regras por artista, álbum e faixa, com múltiplos gêneros.
