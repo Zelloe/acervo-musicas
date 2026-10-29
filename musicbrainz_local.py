@@ -107,15 +107,16 @@ class MusicBrainz:
         ident = artist["id"]
         groups = self.get("release-group", query=f"releasegroup:{literal(album_base(album))} AND arid:{ident}", limit=25)
         exact = [g for g in groups.get("release-groups", []) if normalized(g.get("title", "")) == normalized(album_base(album)) and int(g.get("score", 0)) >= 95 and any(c.get("artist", {}).get("id") == ident for c in g.get("artist-credit", []) if isinstance(c, dict))]
-        if len(exact) == 1:
-            group = self.get("release-group/" + exact[0]["id"], inc="genres")
-            genre = self.choose_genre(group)
-            if genre:
-                return {"genero": genre, "fonte": "https://musicbrainz.org/release-group/" + group["id"], "criterio": "Gênero do Release Group; gravação local não identificada"}
+        if len(exact) != 1:
+            return {"revisao": "Álbum MusicBrainz ausente ou ambíguo; o nome do artista sozinho não confirma sua identidade"}
+        group = self.get("release-group/" + exact[0]["id"], inc="genres")
+        genre = self.choose_genre(group)
+        if genre:
+            return {"genero": genre, "fonte": "https://musicbrainz.org/release-group/" + group["id"], "criterio": "Gênero do Release Group; gravação local não identificada"}
         artist_data = self.get("artist/" + ident, inc="genres")
         genre = self.choose_genre(artist_data)
         if genre:
-            return {"genero": genre, "fonte": "https://musicbrainz.org/artist/" + ident, "criterio": "Gênero do artista; álbum ausente/ambíguo ou sem gênero"}
+            return {"genero": genre, "fonte": "https://musicbrainz.org/artist/" + ident, "criterio": "Gênero do artista após correspondência de álbum sem gênero; gravação local não identificada"}
         return {"revisao": "MusicBrainz sem gênero votado para este artista/álbum"}
 
     def recordings(self, artist: str, title: str, seconds: float) -> list[dict]:
