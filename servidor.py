@@ -135,6 +135,8 @@ class App:
         try:
             with library_lock(self.root):
                 return self._playlist(data, tracks, by_id, write)
+        except BlockingIOError as error:
+            raise ValueError("A biblioteca está ocupada por outra gravação; aguarde e tente novamente") from error
         finally:
             with self.lock:
                 self.playlist_busy = False
@@ -194,7 +196,8 @@ class App:
             if backup_folder.resolve() != backup_folder:
                 raise ValueError("A pasta de backup de playlists não pode ser simbólica")
             backup_folder.mkdir(parents=True, exist_ok=True)
-            backup = backup_folder / (datetime.now().strftime("%Y%m%d_%H%M%S_") + secrets.token_hex(8) + ".m3u8")
+            short_name = name.encode("utf-8")[:120].decode("utf-8", errors="ignore")
+            backup = backup_folder / (datetime.now().strftime("%Y%m%d_%H%M%S_") + short_name + "_" + secrets.token_hex(8) + ".m3u8")
             durable_copy(path, backup)
             if sha256(backup) != previous or sha256(path) != previous:
                 raise ValueError("A playlist mudou durante o backup; revise novamente")
