@@ -21,6 +21,7 @@ from mutagen.id3 import ID3, ID3NoHeaderError
 
 from biblioteca_core import atomic_json, metadata_values, secure_file, sha256, write_validated
 from biblioteca_importacao import import_reviewed, new_destination
+import protecoes
 from biblioteca_plano import BASE, propose, rules
 from diagnostico_biblioteca import album_base, normalized, read_track
 
@@ -97,9 +98,11 @@ def safe_filename(artist: str, title: str) -> str:
     return (text.encode("utf-8")[:190].decode("utf-8", errors="ignore").rstrip(" .") or "Faixa") + ".mp3"
 
 
-def changes_for(current: dict, desired: dict, replace: bool, force_genre: bool, mp3_version: int | None = None) -> dict:
+def changes_for(current: dict, desired: dict, replace: bool, force_genre: bool, mp3_version: int | None = None, protected: frozenset = frozenset()) -> dict:
     changes = {}
     for field, values in desired.items():
+        if field in protected:
+            continue
         old = current.get(field, [])
         if field == "ano" and mp3_version == 3:
             values = [v[:4] for v in values]
@@ -237,6 +240,7 @@ class Downloads:
         if provider not in ("spotdl", "yt-dlp"):
             raise ValueError("Ferramenta de download inválida")
         query = validate_query(options.get("consulta", ""), provider)
+        policy = protecoes.load(self.storage, self.root)
         mode = options.get("modo", "faltantes")
         if mode not in ("faltantes", "completo", "metadados"):
             raise ValueError("Modo de download inválido")
@@ -282,8 +286,10 @@ class Downloads:
                 if len(matches)>1:
                     row["avisos"].append("Mais de uma versão local: escolha o alvo na revisão")
                 for local in matches:
-                    local["alteracoes"] = changes_for(local["metadados"], metadata, False, options["forcar_genero"], local["versao_id3"])
-                    local["alteracoes_substituicao"] = changes_for(local["metadados"], metadata, True, options["forcar_genero"], local["versao_id3"])
+                    locked = protecoes.protected(policy, self.root, local["arquivo"])
+                    local["campos_protegidos"] = sorted(locked, key=protecoes.FIELDS.index)
+                    local["alteracoes"] = changes_for(local["metadados"], metadata, False, options["forcar_genero"], local["versao_id3"], locked)
+                    local["alteracoes_substituicao"] = changes_for(local["metadados"], metadata, True, options["forcar_genero"], local["versao_id3"], locked)
                     if not local["duracao_compativel"]:
                         row["avisos"].append("A duração difere da referência: confira a versão antes de substituir")
                 batch["faixas"].append(row)
