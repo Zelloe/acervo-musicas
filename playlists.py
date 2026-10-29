@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import re
+import tempfile
 
 from diagnostico_biblioteca import TEMP_PREFIXES, read_track
 
@@ -69,16 +70,59 @@ def render(playlist: Path, tracks: list[dict], name: str | None = None) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _sync_dir(directory: Path) -> None:
+    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _publish_exclusive(temp: Path, playlist: Path, data: bytes) -> None:
+    """Publica sem nunca substituir um arquivo que tenha surgido no caminho."""
+    try:
+        os.link(temp, playlist)  # atômico e exclusivo
+        return
+    except FileExistsError:
+        raise
+    except OSError:
+        pass  # exFAT/FAT e alguns compartilhamentos não têm hard links
+    fd = os.open(playlist, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except BaseException:
+        playlist.unlink(missing_ok=True)
+        raise
+
+
 def write_m3u8(playlist: Path, tracks: list[dict], name: str | None = None, overwrite: bool = False) -> dict:
     if playlist.suffix.casefold() != ".m3u8":
         raise ValueError("A playlist deve ter a extensão .m3u8")
     if not tracks:
         raise ValueError("Nenhuma música selecionada para a playlist")
-    content = render(playlist, tracks, name)
+    data = render(playlist, tracks, name).encode("utf-8")
     playlist.parent.mkdir(parents=True, exist_ok=True)
-    # "x" nunca substitui uma playlist existente sem pedido explícito.
-    with playlist.open("w" if overwrite else "x", encoding="utf-8", newline="\n") as handle:
-        handle.write(content)
+    if not overwrite and os.path.lexists(playlist):
+        raise FileExistsError(f"A playlist já existe: {playlist}")
+    fd, name_tmp = tempfile.mkstemp(prefix=".acervo-playlist-", suffix=".tmp", dir=playlist.parent)
+    temp = Path(name_tmp)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if overwrite:
+            os.replace(temp, playlist)  # atômico: a anterior fica inteira até a troca
+        else:
+            _publish_exclusive(temp, playlist, data)
+        _sync_dir(playlist.parent)
+    finally:
+        temp.unlink(missing_ok=True)
+    if playlist.read_bytes() != data:
+        raise ValueError(f"A playlist gravada não confere com a prévia: {playlist}")
     return {"playlist": str(playlist), "faixas": len(tracks), **validate_m3u8(playlist)}
 
 
