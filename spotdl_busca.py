@@ -30,6 +30,14 @@ def client():
     return SpotifyClient()
 
 
+def picture(images, prefer: int = 300) -> str:
+    """URL da imagem mais próxima do tamanho pedido (capas e fotos)."""
+    images = [i for i in images or [] if isinstance(i, dict) and i.get("url")]
+    if not images:
+        return ""
+    return min(images, key=lambda i: abs((i.get("width") or prefer) - prefer))["url"]
+
+
 def same(a: str, b: str) -> bool:
     return a.strip().casefold() == b.strip().casefold()
 
@@ -45,7 +53,7 @@ def albums(artist: str) -> list[dict]:
         key = title.casefold()
         if key not in seen:
             seen.add(key)
-            found.append({"titulo": title, "artista": artist, "ano": item.get("year") or "", "tipo": item.get("type") or ""})
+            found.append({"titulo": title, "artista": artist, "ano": item.get("year") or "", "tipo": item.get("type") or "", "capa": picture(item.get("thumbnails"))})
     return found
 
 
@@ -58,7 +66,7 @@ def editions(artist: str, album: str) -> list[dict]:
             continue
         if not any(same(a["name"], artist) for a in item["artists"]):
             continue
-        found.setdefault(item["id"], {"titulo": item["name"], "artista": ", ".join(a["name"] for a in item["artists"]), "tipo": item.get("album_type") or "", "url": item["external_urls"]["spotify"]})
+        found.setdefault(item["id"], {"titulo": item["name"], "artista": ", ".join(a["name"] for a in item["artists"]), "tipo": item.get("album_type") or "", "url": item["external_urls"]["spotify"], "capa": picture(item.get("images"))})
     # A edição com o nome exato aparece primeiro; deluxe/remaster depois.
     return sorted(found.values(), key=lambda e: (not same(e["titulo"], album), len(e["titulo"])))
 
@@ -71,7 +79,8 @@ def songs(text: str) -> list[dict]:
             "titulo": track["name"], "artista": ", ".join(a["name"] for a in track["artists"]),
             "album": track["album"]["name"], "ano": "" if year == "0000" else year,
             "duracao": round(track.get("duration_ms", 0) / 1000), "numero": track.get("track_number"),
-            "url": track["external_urls"]["spotify"],
+            "url": track["external_urls"]["spotify"], "tipo_album": track["album"].get("album_type") or "",
+            "capa": picture(track["album"].get("images")),
         })
     return result
 
@@ -86,7 +95,7 @@ def tracks(url: str) -> list[dict]:
         "titulo": s.name, "artista": s.artist, "artistas": s.artists, "album": s.album_name,
         "artista_album": s.album_artist, "ano": str(s.year or ""), "data": s.date or "",
         "numero": s.track_number, "total": s.tracks_count, "disco": s.disc_number,
-        "duracao": s.duration, "url": s.url, "capa": s.cover_url or "",
+        "duracao": s.duration, "url": s.url, "capa": s.cover_url or "", "tipo_album": s.album_type or "",
     } for s in found]
 
 
@@ -98,7 +107,7 @@ def suggestions(text: str) -> dict:
         name = item.get("artist") or ""
         if name and name.casefold() not in seen and not any(word in name.casefold() for word in NOISE):
             seen.add(name.casefold())
-            artists.append({"nome": name})
+            artists.append({"nome": name, "foto": picture(item.get("thumbnails"), 120)})
     return {"termos": terms, "artistas": artists[:4]}
 
 

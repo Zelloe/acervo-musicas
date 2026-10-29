@@ -224,6 +224,9 @@ class BuscaGlobal:
                 self.cache.move_to_end(key)
                 return self.cache[key]
             result = self._call("sugestoes", consulta.strip()[:200])
+            from baixador import foto_segura
+            for artist in result.get("artistas", []):
+                artist["foto"] = foto_segura(artist.get("foto"))
             self.cache[key] = result
             while len(self.cache) > self.cache_size:
                 self.cache.popitem(last=False)

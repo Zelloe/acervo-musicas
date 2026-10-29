@@ -17,6 +17,7 @@ from mutagen.id3 import ID3, ID3NoHeaderError, TCON
 
 from biblioteca_plano import BASE, rules
 from diagnostico_biblioteca import TEMP_PREFIXES, album_base, normalized
+from versoes import classificar
 
 ADAPTER = BASE / "spotdl_busca.py"
 TEMPLATE = "{artist} - {title}.{output-ext}"
@@ -60,23 +61,40 @@ def _text(value: str, name: str) -> str:
     return value.strip()
 
 
+# Só imagens dos CDNs de capas; nada de URLs arbitrárias vindas da busca.
+PHOTO_HOSTS = re.compile(r"https://(?:[a-z0-9-]+\.googleusercontent\.com|i\.scdn\.co|mosaic\.scdn\.co|image-cdn-[a-z0-9-]+\.spotifycdn\.com)/[^\s\"'<>]+")
+
+
+def foto_segura(url) -> str:
+    return url if isinstance(url, str) and PHOTO_HOSTS.fullmatch(url) else ""
+
+
+def _enrich(items: list[dict], title_key: str | None, album_key: str, kind_key: str) -> list[dict]:
+    for item in items:
+        item["versao"] = classificar(item.get(title_key, "") if title_key else "", item.get(album_key, ""), item.get(kind_key, ""))
+        for key in ("capa", "foto"):
+            if key in item:
+                item[key] = foto_segura(item[key])
+    return items
+
+
 def buscar_albuns(artista: str) -> list[dict]:
-    return _adapter("albuns", _text(artista, "o nome do artista"))
+    return _enrich(_adapter("albuns", _text(artista, "o nome do artista")), None, "titulo", "tipo")
 
 
 def edicoes(artista: str, album: str) -> list[dict]:
-    return _adapter("edicoes", _text(artista, "o nome do artista"), _text(album, "o nome do álbum"))
+    return _enrich(_adapter("edicoes", _text(artista, "o nome do artista"), _text(album, "o nome do álbum")), None, "titulo", "tipo")
 
 
 def buscar_musicas(texto: str) -> list[dict]:
-    return _adapter("musicas", _text(texto, "o que procurar"))
+    return _enrich(_adapter("musicas", _text(texto, "o que procurar")), "titulo", "album", "tipo_album")
 
 
 def faixas(url: str) -> list[dict]:
     url = _text(url, "um link do Spotify")
     if not re.fullmatch(r"https://open\.spotify\.com/(?:intl-[a-z-]+/)?(track|album|playlist)/[A-Za-z0-9]+(?:\?\S*)?", url):
         raise ValueError("Use um link do Spotify de música, álbum ou playlist")
-    return _adapter("faixas", url, timeout=300)
+    return _enrich(_adapter("faixas", url, timeout=300), "titulo", "album", "tipo_album")
 
 
 def _key(artist: str, title: str) -> str:
