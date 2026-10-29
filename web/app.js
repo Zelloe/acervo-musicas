@@ -44,22 +44,11 @@ async function updateState() {
   $('#job-percent').textContent = info.job?.progresso === null || info.job?.progresso === undefined ? "" : `${info.job.progresso}%`;
   $('#job-progress').style.width = `${info.job?.progresso || 0}%`;
   $('#top-refresh').disabled = busy;
-  document.querySelectorAll('[data-action="analyze"], [data-action="confirm-apply"], [data-action="confirm-restore"]').forEach(el => { el.disabled = busy; });
+  document.querySelectorAll('[data-action="analyze"], [data-action="confirm-apply"], [data-action="confirm-restore"], [data-action="fetch-downloads"], [data-action="review-import"], [data-action="confirm-import"], #download-form [type="submit"]').forEach(el => { el.disabled = busy; });
 }
 
 function featuredAlbums() {
-  const patterns = [/Back In Black/i, /Justice.*Remastered\)/i, /Nevermind/i, /Dark Side/i, /Larks.*Tongues/i, /^Dirt/i];
-  const used = new Set();
-  const albums = [];
-  for (const pattern of patterns) {
-    const found = state.albums.find(a => pattern.test(a.album) && !used.has(a.track_id));
-    if (found) { albums.push(found); used.add(found.track_id); }
-  }
-  for (const album of state.albums) {
-    if (albums.length >= 6) break;
-    if (!used.has(album.track_id)) { albums.push(album); used.add(album.track_id); }
-  }
-  return albums;
+  return [...state.albums].sort((a,b)=>b.faixas-a.faixas || a.album.localeCompare(b.album)).slice(0,6);
 }
 
 function albumCard(album) {
@@ -157,7 +146,7 @@ async function render() {
   const request = ++state.request;
   document.querySelectorAll('.nav-item').forEach(el=>{ el.classList.toggle("active",el.dataset.view===state.view); el.setAttribute("aria-current",el.dataset.view===state.view?"page":"false"); });
   try {
-    let html = await ({inicio:renderHome,biblioteca:renderLibrary,revisao:renderReview,albuns:renderAlbums,historico:renderHistory}[state.view] || renderHome)();
+    let html = await ({inicio:renderHome,biblioteca:renderLibrary,downloads:renderDownloads,revisao:renderReview,albuns:renderAlbums,historico:renderHistory}[state.view] || renderHome)();
     if (request !== state.request) return;
     if (state.summary.erro) html = `<div class="error-box">${escapeHTML(state.summary.erro)}</div>`+html;
     $('#content').innerHTML=html;
@@ -166,7 +155,7 @@ async function render() {
 }
 
 function navigate(view) {
-  if (!["inicio","biblioteca","revisao","albuns","historico"].includes(view)) view="inicio";
+  if (!["inicio","biblioteca","downloads","revisao","albuns","historico"].includes(view)) view="inicio";
   state.view=view;
   state.page=0;
   history.replaceState(null,"",`#${view}`);
@@ -290,9 +279,14 @@ async function poll() {
     const previous=state.summary?.analisado_em;
     await updateState();
     const job=state.summary.job;
-    if(job?.estado==="erro"&&state.lastJob!=="erro")toast(job.mensagem);
+    const jobKey=job?`${job.id}:${job.estado}`:"";
+    if(job?.estado==="erro"&&state.lastJob!==jobKey)toast(job.mensagem);
+    if(state.view==="downloads"&&state.lastJob!==jobKey&&job?.estado!=="executando"){
+      if(job?.tipo==="catalogo"&&job.resultado?.lote)await openDownloadBatch(job.resultado.lote);
+      else await render();
+    }
     if(previous!==state.summary.analisado_em){state.proposals=null;state.selected.clear();state.albums=(await api("/api/albums")).albuns;await render();}
-    state.lastJob=job?.estado;
+    state.lastJob=jobKey;
   } catch(error){if(!$('#toast').hidden)return;toast("A interface perdeu a conexão. Verifique se o programa continua aberto.");}
   finally {setTimeout(poll,2000);}
 }
