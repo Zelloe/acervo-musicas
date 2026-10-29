@@ -9,6 +9,7 @@ import re
 import sys
 
 import baixador
+from pastas import exigir_pasta, pasta_musicas_padrao
 
 
 def parse_selection(text: str, items: list[dict]) -> list[int]:
@@ -152,11 +153,12 @@ class Menu:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pasta", type=Path, default=Path.home() / "Music", help="Onde salvar (padrão: ~/Music)")
+    parser.add_argument("--pasta", type=Path, default=pasta_musicas_padrao(), help="Onde salvar (padrão: a pasta de músicas do sistema, ex.: ~/Música)")
     args = parser.parse_args()
-    folder = args.pasta.expanduser().resolve()
-    if not folder.is_dir():
-        print(f"A pasta não existe: {folder}", file=sys.stderr)
+    try:
+        folder = exigir_pasta(args.pasta)
+    except ValueError as error:
+        print(error, file=sys.stderr)
         return 1
     try:
         baixador.spotdl_executable()
