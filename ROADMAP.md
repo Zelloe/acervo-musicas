@@ -83,10 +83,16 @@ tenham suporte parcial devem ser aproveitados e ampliados.
   Explicar o motivo de cada sugestão. Usar histórico de reprodução somente
   quando disponível e habilitado, sem confundir falta de dados com pouca escuta.
 
-- [ ] **13. Playlists portáteis**
+- [x] **13. Playlists portáteis**
   Exportar seleções e coleções em M3U8 com caminhos relativos à playlist,
   codificação UTF-8 e nomes com acentos. Validar a resolução dos caminhos
   depois de transportar a playlist junto com a coleção correspondente.
+  Disponível pela CLI e pelo botão **Exportar M3U8** da Biblioteca/Álbuns.
+  A interface mostra prévia, salva em `Playlists/` e exige confirmação para
+  substituir uma playlist, guardando antes uma cópia verificável fora da coleção.
+  Validado com acentos, múltiplas páginas, álbuns homônimos, cópia para outro
+  disco e navegação em desktop/celular. A restauração da playlist anterior é
+  manual, pelo caminho do backup exibido após a substituição.
 
 - [ ] **14. Sistema de extensões**
   Definir interfaces documentadas para fontes de metadados, ferramentas de

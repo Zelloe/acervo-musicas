@@ -118,7 +118,19 @@ Opções da análise:
 
 ### Playlists M3U8
 
-Exportar uma seleção como playlist portátil (só lê a coleção):
+Na interface, use **Exportar M3U8** na Biblioteca (exporta todas as faixas da
+busca e do filtro atuais, inclusive as das outras páginas) ou no cartão de um
+álbum. Antes de salvar, uma prévia mostra o destino e as primeiras faixas. A
+playlist fica na pasta `Playlists/` da coleção, que é o único lugar onde a
+interface cria um arquivo novo dentro da coleção; as músicas não são alteradas.
+
+Para substituir uma playlist que já existe, é preciso marcar essa opção na
+prévia. Antes da troca, a versão anterior é copiada e conferida em
+`backups/playlists/`, fora da coleção, e o caminho dessa cópia aparece na
+confirmação. Para voltar à versão anterior, copie esse arquivo de volta para
+`Playlists/`.
+
+Pela linha de comando, a exportação só lê a coleção:
 
 ```bash
 .venv/bin/python corrigir_tags.py playlist \

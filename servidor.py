@@ -15,10 +15,11 @@ from urllib.parse import parse_qs, urlsplit
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3
 
-from biblioteca_core import apply_plan, atomic_json, load_plan, restore, secure_file
+from biblioteca_core import apply_plan, atomic_json, durable_copy, library_lock, load_plan, restore, secure_file, sha256
 from biblioteca_downloads import Downloads, clean_log, tool_status
 from biblioteca_plano import BASE, create_plan
 from musicbrainz_local import MusicBrainz
+from playlists import album_order, render as render_m3u8, write_m3u8
 
 
 WRITING_JOBS = {"importacao", "aplicacao", "restauracao"}
@@ -38,6 +39,7 @@ class App:
         self.token = secrets.token_urlsafe(32)
         self.job = None
         self.worker = None
+        self.playlist_busy = False
         self.tracks = []
         self.by_id = {}
         self.plan = None
@@ -65,7 +67,7 @@ class App:
 
     def start(self, kind, operation):
         with self.lock:
-            if self.job and self.job["estado"] == "executando":
+            if self.playlist_busy or (self.job and self.job["estado"] == "executando"):
                 raise ValueError("Aguarde a operação atual terminar")
             self.error = None
             self.job = {"id": secrets.token_hex(8), "tipo": kind, "estado": "executando", "mensagem": "Preparando…", "progresso": None}
@@ -109,6 +111,94 @@ class App:
             for change in entry["alteracoes"]:
                 rows.append({**change, "arquivo": entry["arquivo"], "track_id": track["id"], "titulo": " / ".join(track["titulo"]), "artista": " / ".join(track["artista"]), "album": " / ".join(track["album"]), "tamanho_bytes": entry["tamanho_bytes"]})
         return rows
+
+    def library(self, needle="", kind="todas", tracks=None):
+        if not isinstance(needle, str) or kind not in ("todas", "sem-genero", "flac", "versoes"):
+            raise ValueError("Filtro de biblioteca inválido")
+        rows = self.tracks if tracks is None else tracks
+        if needle:
+            rows = [t for t in rows if needle.casefold() in " ".join(t["titulo"] + t["artista"] + t["album"]).casefold()]
+        if kind == "sem-genero":
+            rows = [t for t in rows if "genero" in t["campos_ausentes"]]
+        elif kind == "flac":
+            rows = [t for t in rows if t["formato"] == "FLAC"]
+        elif kind == "versoes":
+            rows = [t for t in rows if t["marcadores_versao"]]
+        return rows
+
+    def playlist(self, data, write=False):
+        with self.lock:
+            if self.playlist_busy or (self.job and self.job["estado"] == "executando"):
+                raise ValueError("Aguarde a operação atual terminar")
+            self.playlist_busy = True
+            tracks, by_id = list(self.tracks), dict(self.by_id)
+        try:
+            with library_lock(self.root):
+                return self._playlist(data, tracks, by_id, write)
+        finally:
+            with self.lock:
+                self.playlist_busy = False
+
+    def _playlist(self, data, tracks, by_id, write):
+        name = data.get("nome", "")
+        if not isinstance(name, str):
+            raise ValueError("Informe um nome para a playlist")
+        name = name.strip()
+        if name.casefold().endswith(".m3u8"):
+            name = name[:-5].strip()
+        if not name or name in (".", "..") or re.search(r'[\\/:*?"<>|\x00-\x1f\x7f]', name) or len(name.encode("utf-8")) > 240:
+            raise ValueError("Use um nome simples, sem barras, caracteres especiais ou quebras de linha")
+        album_id = data.get("album_id", "")
+        if not isinstance(album_id, str):
+            raise ValueError("Álbum inválido")
+        rows = self.library(data.get("q", ""), data.get("filter", "todas"), tracks)
+        if album_id:
+            track = by_id.get(album_id)
+            if track is None:
+                raise ValueError("Álbum não encontrado; atualize a biblioteca")
+            def group(t):
+                return (tuple(t["artista_album"] or t["artista"]), tuple(t["album"]))
+            rows = [t for t in rows if group(t) == group(track)]
+        rows = sorted(rows, key=album_order)
+        if not rows:
+            raise ValueError("Nenhuma música selecionada para a playlist")
+        for track in rows:
+            music = Path(track["arquivo"])
+            music.relative_to(self.root)
+            if music.is_symlink() or music.resolve() != music or not music.is_file():
+                raise ValueError("Arquivo ausente ou simbólico; atualize a biblioteca")
+        folder = self.root / "Playlists"
+        path = folder / (name + ".m3u8")
+        if folder.resolve() != folder or path.is_symlink() or path.resolve() != path:
+            raise ValueError("A pasta Playlists e a playlist não podem ser links simbólicos")
+        if path.exists() and (not path.is_file() or path.stat().st_nlink != 1):
+            raise ValueError("A playlist existente deve ser um arquivo comum, sem hard links")
+        # Validate all paths before creating even the Playlists directory.
+        render_m3u8(path, rows, name)
+        exists = path.exists()
+        previous = sha256(path) if exists else None
+        preview = {"playlist": str(path), "faixas": len(rows), "existe": exists, "anterior_sha256": previous,
+                   "amostra": [{"titulo": t["titulo"], "artista": t["artista"]} for t in rows[:10]]}
+        if not write:
+            return preview
+        overwrite = data.get("sobrescrever", False)
+        if not isinstance(overwrite, bool):
+            raise ValueError("A substituição da playlist exige uma escolha explícita")
+        if exists and not overwrite:
+            raise ValueError("A playlist já existe. Escolha outro nome ou aprove a substituição")
+        if overwrite and (not exists or data.get("anterior_sha256") != previous):
+            raise ValueError("A playlist mudou desde a prévia; revise novamente")
+        backup = None
+        if overwrite:
+            backup_folder = self.storage / "backups/playlists"
+            if backup_folder.resolve() != backup_folder:
+                raise ValueError("A pasta de backup de playlists não pode ser simbólica")
+            backup_folder.mkdir(parents=True, exist_ok=True)
+            backup = backup_folder / (datetime.now().strftime("%Y%m%d_%H%M%S_") + secrets.token_hex(8) + ".m3u8")
+            durable_copy(path, backup)
+            if sha256(backup) != previous or sha256(path) != previous:
+                raise ValueError("A playlist mudou durante o backup; revise novamente")
+        return {**write_m3u8(path, rows, name, overwrite=overwrite), "backup": str(backup) if backup else None}
 
     def history(self):
         rows = []
@@ -200,17 +290,7 @@ class Handler(BaseHTTPRequestHandler):
             path = self.app.downloads.path(batch["id"]) / (row_id + ".log" if row_id else "catalogo.log")
             self.json({"registro": clean_log(path.read_text(errors="replace")) if path.is_file() else "Sem registro disponível."})
         elif url.path == "/api/library":
-            needle = query.get("q", [""])[0].casefold()
-            kind = query.get("filter", ["todas"])[0]
-            rows = self.app.tracks
-            if needle:
-                rows = [t for t in rows if needle in " ".join(t["titulo"] + t["artista"] + t["album"]).casefold()]
-            if kind == "sem-genero":
-                rows = [t for t in rows if "genero" in t["campos_ausentes"]]
-            elif kind == "flac":
-                rows = [t for t in rows if t["formato"] == "FLAC"]
-            elif kind == "versoes":
-                rows = [t for t in rows if t["marcadores_versao"]]
+            rows = self.app.library(query.get("q", [""])[0], query.get("filter", ["todas"])[0])
             offset = max(0, int(query.get("offset", [0])[0]))
             limit = min(100, max(1, int(query.get("limit", [50])[0])))
             self.json({"total": len(rows), "musicas": [{k: t[k] for k in ("id", "titulo", "artista", "album", "genero", "ano", "faixa", "formato", "duracao_segundos", "bitrate_bps", "campos_ausentes", "capas")} for t in rows[offset:offset + limit]]})
@@ -298,6 +378,9 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/api/analyze":
                 online = MusicBrainz(self.app.state_dir / "cache/musicbrainz", data.get("contato", ""), 200) if data.get("musicbrainz") else None
                 self.app.start("analise", lambda: self.app.analyze(online))
+            elif route in ("/api/playlists/preview", "/api/playlists/export"):
+                self.json(self.app.playlist(data, write=route.endswith("export")))
+                return
             elif route == "/api/downloads/prepare":
                 self.app.start("catalogo", lambda: self.app.downloads.prepare(data, list(self.app.tracks)))
             elif route == "/api/downloads/fetch":
