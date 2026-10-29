@@ -2,6 +2,7 @@ from pathlib import Path
 import sys
 import tempfile
 import textwrap
+import time
 import unittest
 
 from busca import BuscaGlobal, IndiceBiblioteca, normalizar
@@ -62,6 +63,10 @@ class LibrarySearchTest(unittest.TestCase):
         self.assertIn("1", [s["id"] for s in suggestions["musicas"]])
         self.assertEqual(self.index.sugerir("   "), {"artistas": [], "albuns": [], "musicas": []})
 
+    def test_artist_and_album_artist_count_once(self):
+        index = IndiceBiblioteca([track("1", "Song", "Kyuss", "Wretch", album_artist="Kyuss")])
+        self.assertEqual(index.sugerir("kyuss")["artistas"], [{"nome": "Kyuss", "faixas": 1}])
+
     def test_large_library_stays_fast(self):
         import time
         many = [track(str(i), f"Song {i}", f"Band {i % 300}", f"Album {i % 900}", "Rock") for i in range(3000)]
@@ -115,6 +120,29 @@ class GlobalSearchTest(unittest.TestCase):
             self.search.sugerir("lento")
         self.assertIsNone(self.search.process)
         self.assertEqual(self.search.sugerir("depois")["chamadas"], 1)  # um processo novo
+
+    def test_close_during_pending_query(self):
+        import threading
+        self.search.timeout = 10.0
+        process = (self.search.sugerir("aquece"), self.search.process)[1]
+        errors = []
+        worker = threading.Thread(target=lambda: errors.append(self._capture(lambda: self.search.sugerir("lento"))))
+        worker.start()
+        time.sleep(0.3)
+        started = time.monotonic()
+        self.search.fechar()
+        worker.join(5)
+        self.assertFalse(worker.is_alive())
+        self.assertLess(time.monotonic() - started, 3)
+        self.assertIsInstance(errors[0], RuntimeError)
+        self.assertTrue(process.stdin.closed and process.stdout.closed)
+
+    @staticmethod
+    def _capture(call):
+        try:
+            call()
+        except Exception as error:
+            return error
 
 
 if __name__ == "__main__":
