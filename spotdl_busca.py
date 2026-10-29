@@ -1,7 +1,8 @@
 """Adaptador executado no Python do spotDL: buscas para escolher o que baixar.
 
 Uso: python spotdl_busca.py <comando> <saida.json> [argumentos...]
-Comandos: albuns <artista> | edicoes <artista> <album> | musicas <texto> | faixas <url>
+Comandos: albuns <artista> | edicoes <artista> <album> | musicas <texto> | faixas <url> | sugestoes <texto>
+Ou: python spotdl_busca.py servir  (fica aberto; uma consulta JSON por linha em stdin)
 Não usa a API oficial do Spotify nem baixa áudio.
 """
 
@@ -10,6 +11,17 @@ from pathlib import Path
 import sys
 
 NOISE = ("karaoke", "in the style of", "tribute", "made famous", "instrumental covers", "as made famous")
+
+
+_ytmusic = None
+
+
+def ytmusic():
+    global _ytmusic
+    if _ytmusic is None:
+        from ytmusicapi import YTMusic
+        _ytmusic = YTMusic()
+    return _ytmusic
 
 
 def client():
@@ -24,9 +36,8 @@ def same(a: str, b: str) -> bool:
 
 def albums(artist: str) -> list[dict]:
     # A busca de álbuns sem API oficial volta vazia no Spotify; o YouTube Music lista bem.
-    from ytmusicapi import YTMusic
     found, seen = [], set()
-    for item in YTMusic().search(artist, filter="albums", limit=40):
+    for item in ytmusic().search(artist, filter="albums", limit=40):
         names = [a.get("name", "") for a in item.get("artists") or []]
         title = item.get("title") or ""
         if not any(same(n, artist) for n in names) or any(word in title.casefold() for word in NOISE):
@@ -79,12 +90,43 @@ def tracks(url: str) -> list[dict]:
     } for s in found]
 
 
+def suggestions(text: str) -> dict:
+    """Rápido o bastante para enquanto se digita: só o YouTube Music."""
+    terms = [t for t in ytmusic().get_search_suggestions(text) if isinstance(t, str)][:6]
+    artists, seen = [], set()
+    for item in ytmusic().search(text, filter="artists", limit=6):
+        name = item.get("artist") or ""
+        if name and name.casefold() not in seen and not any(word in name.casefold() for word in NOISE):
+            seen.add(name.casefold())
+            artists.append({"nome": name})
+    return {"termos": terms, "artistas": artists[:4]}
+
+
+HANDLERS = {"albuns": albums, "edicoes": editions, "musicas": songs, "faixas": tracks, "sugestoes": suggestions}
+
+
+def serve():
+    # Avisos de bibliotecas não podem se misturar às respostas JSON.
+    out, sys.stdout = sys.stdout, sys.stderr
+    for line in sys.stdin:
+        request = None
+        try:
+            request = json.loads(line)
+            handler = HANDLERS[request["cmd"]]
+            answer = {"id": request.get("id"), "ok": True, "dados": handler(*request.get("args", []))}
+        except Exception as error:
+            answer = {"id": request.get("id") if isinstance(request, dict) else None, "ok": False, "erro": f"{type(error).__name__}: {error}"[:300]}
+        out.write(json.dumps(answer, ensure_ascii=False) + "\n")
+        out.flush()
+
+
 def main():
+    if sys.argv[1:] == ["servir"]:
+        return serve()
     command, output, *args = sys.argv[1:]
-    handlers = {"albuns": albums, "edicoes": editions, "musicas": songs, "faixas": tracks}
-    if command not in handlers:
+    if command not in HANDLERS:
         raise SystemExit(f"Comando desconhecido: {command}")
-    Path(output).write_text(json.dumps(handlers[command](*args), ensure_ascii=False, indent=2), encoding="utf-8")
+    Path(output).write_text(json.dumps(HANDLERS[command](*args), ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":
