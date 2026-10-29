@@ -52,6 +52,39 @@ python -m venv .venv
 
 Não há dependências de JavaScript nem etapa de compilação.
 
+## Baixar músicas pelo terminal
+
+Requer [spotDL](https://github.com/spotDL/spotify-downloader) (`pipx install spotdl`)
+e `ffmpeg`. Não precisa de conta de desenvolvedor do Spotify nem de Premium.
+
+```bash
+./baixar.sh --pasta "$HOME/Music"
+```
+
+O menu oferece três caminhos:
+
+1. **Procurar artista:** mostra os álbuns com o ano; você escolhe o álbum, a
+   edição (normal, deluxe…) quando houver mais de uma, e as faixas.
+2. **Procurar música:** lista as versões encontradas com o álbum de cada uma.
+3. **Colar link do Spotify:** de música, álbum ou playlist.
+
+Na lista de faixas, as que você já tem na pasta aparecem como `[já tenho]`.
+Responda com `enter` para baixar só as que faltam, `todas`, ou números como
+`1-3,5`.
+
+Cada faixa vira `Artista - Título.mp3` direto na pasta escolhida, com título,
+artista, álbum, ano, número da faixa e capa vindos do spotDL. Como o spotDL sem
+API oficial não informa gênero, o gênero é preenchido pelas regras de
+`generos_artistas.csv` quando houver uma regra única para o artista ou álbum.
+
+O spotDL trabalha numa pasta temporária fora da coleção. O arquivo só aparece no
+destino depois de o download terminar com sucesso e o áudio ser validado com
+ffmpeg. Um arquivo que já exista com o mesmo nome nunca é substituído.
+
+O spotDL usa os metadados do Spotify e busca o áudio no YouTube; `320k` é a
+taxa de saída, não a qualidade da fonte. Baixe apenas o que você tem o direito
+de baixar no seu país.
+
 ## Uso pela interface
 
 ```bash
