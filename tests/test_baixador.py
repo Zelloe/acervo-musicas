@@ -136,6 +136,31 @@ class DownloadTest(unittest.TestCase):
         self.assertEqual(Path(result["arquivo"]).stat().st_nlink, 1)
         self.assertEqual(self.listing(), ["ACDC - Back In Black.mp3"])
 
+    def test_errors_keep_partial_results(self):
+        other = {**self.item, "titulo": "Hells Bells", "url": "https://open.spotify.com/track/def456"}
+        third = {**self.item, "titulo": "Shoot to Thrill", "url": "https://open.spotify.com/track/ghi789"}
+        names = iter(["ACDC - Back In Black.mp3", "ACDC - Hells Bells.mp3", "ACDC - Shoot to Thrill.mp3"])
+        real_publish = baixador._publish
+        calls = []
+
+        def publish(source, final):
+            calls.append(final.name)
+            if len(calls) == 2:
+                raise ValueError("falha de validação simulada")
+            if len(calls) == 3:
+                raise OSError(28, "No space left on device")
+            return real_publish(source, final)
+
+        fourth = {**self.item, "titulo": "Hells Bells (Live)", "url": "https://open.spotify.com/track/jkl012"}
+        def run(command, cwd, **kwargs):
+            name = next(names)
+            self.item = next(i for i in (self.item, other, third) if command[2] == i["url"])
+            return self.fake_spotdl(name)(command, cwd)
+        with patch.object(baixador, "spotdl_executable", return_value="spotdl"), patch.object(baixador, "_publish", side_effect=publish), patch.object(baixador.subprocess, "run", side_effect=self.wrap(run)):
+            results = baixador.baixar([self.item, other, third, fourth], self.folder)
+        self.assertEqual([r["estado"] for r in results], ["baixado", "erro", "erro", "nao_baixado"])
+        self.assertEqual(self.listing(), ["ACDC - Back In Black.mp3"])
+
     def test_index_marks_existing_tracks(self):
         self.download([self.item])
         index = baixador.indice_local(self.folder)

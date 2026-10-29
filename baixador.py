@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 from pathlib import Path
@@ -174,11 +175,43 @@ def _publish(source: Path, final: Path) -> None:
         temp.unlink(missing_ok=True)
 
 
+def _baixar_uma(item: dict, pasta: Path, executable: str, regras: list[dict], bitrate: str) -> dict:
+    url = item.get("url", "")
+    if not re.fullmatch(r"https://open\.spotify\.com/track/[A-Za-z0-9]+", url.split("?")[0]):
+        return {**item, "estado": "erro", "mensagem": "Link de faixa inválido"}
+    with tempfile.TemporaryDirectory(prefix="acervo-download-") as work:
+        work = Path(work)
+        # Template relativo com cwd na pasta: o spotDL sanitiza caminhos absolutos.
+        command = [executable, "download", url, "--output", TEMPLATE, "--format", "mp3", "--bitrate", bitrate,
+                   "--overwrite", "skip", "--threads", "1", "--simple-tui", "--print-errors"]
+        try:
+            process = subprocess.run(command, cwd=work, capture_output=True, text=True, timeout=600)
+        except subprocess.TimeoutExpired:
+            return {**item, "estado": "erro", "mensagem": "Tempo esgotado"}
+        produced = [p for p in work.iterdir() if p.suffix.casefold() == ".mp3" and p.is_file() and not p.is_symlink()]
+        lines = [line for line in (process.stdout + process.stderr).splitlines() if line.strip()]
+        if process.returncode or len(produced) != 1:
+            reason = lines[-1][:300] if lines else f"spotDL terminou com código {process.returncode}"
+            return {**item, "estado": "erro", "mensagem": reason if process.returncode or not produced else "O spotDL gerou mais de um arquivo"}
+        audio = produced[0]
+        if not _valid_audio(audio):
+            return {**item, "estado": "erro", "mensagem": "O áudio baixado está corrompido ou incompleto"}
+        genre = genero_por_regra(item.get("artista_album") or item.get("artista", ""), item.get("album", ""), regras)
+        filled = _fill_genre(audio, genre)
+        final = pasta / audio.name
+        try:
+            _publish(audio, final)
+        except FileExistsError:
+            return {**item, "estado": "ja_existia", "arquivo": str(final), "mensagem": "Já existe um arquivo com esse nome na pasta"}
+        return {**item, "estado": "baixado", "arquivo": str(final), "genero_preenchido": genre if filled else ""}
+
+
 def baixar(lista: list[dict], pasta: Path, progresso=None, bitrate: str = "320k") -> list[dict]:
     """Baixa cada faixa direto em `pasta`, sem nunca substituir um arquivo existente.
 
     O spotDL trabalha numa pasta temporária fora da coleção; o arquivo só aparece
     no destino depois de o spotDL terminar com sucesso e o áudio ser validado.
+    Erros ficam registrados por faixa e o resultado parcial é sempre devolvido.
     """
     pasta = Path(pasta).expanduser()
     if not pasta.is_dir():
@@ -192,39 +225,13 @@ def baixar(lista: list[dict], pasta: Path, progresso=None, bitrate: str = "320k"
     for index, item in enumerate(lista):
         label = f"{item.get('artista', '')} - {item.get('titulo', '')}"
         progresso(f"Baixando {index + 1} de {len(lista)} · {label}", round(index / len(lista) * 100))
-        url = item.get("url", "")
-        if not re.fullmatch(r"https://open\.spotify\.com/track/[A-Za-z0-9]+", url.split("?")[0]):
-            results.append({**item, "estado": "erro", "mensagem": "Link de faixa inválido"})
-            continue
-        with tempfile.TemporaryDirectory(prefix="acervo-download-") as work:
-            work = Path(work)
-            # Template relativo com cwd na pasta: o spotDL sanitiza caminhos absolutos.
-            command = [executable, "download", url, "--output", TEMPLATE, "--format", "mp3", "--bitrate", bitrate,
-                       "--overwrite", "skip", "--threads", "1", "--simple-tui", "--print-errors"]
-            try:
-                process = subprocess.run(command, cwd=work, capture_output=True, text=True, timeout=600)
-            except subprocess.TimeoutExpired:
-                results.append({**item, "estado": "erro", "mensagem": "Tempo esgotado"})
-                continue
-            produced = [p for p in work.iterdir() if p.suffix.casefold() == ".mp3" and p.is_file() and not p.is_symlink()]
-            output = (process.stdout + process.stderr).strip()
-            lines = [line for line in output.splitlines() if line.strip()]
-            if process.returncode or len(produced) != 1:
-                reason = lines[-1][:300] if lines else f"spotDL terminou com código {process.returncode}"
-                results.append({**item, "estado": "erro", "mensagem": reason if process.returncode or not produced else "O spotDL gerou mais de um arquivo"})
-                continue
-            audio = produced[0]
-            if not _valid_audio(audio):
-                results.append({**item, "estado": "erro", "mensagem": "O áudio baixado está corrompido ou incompleto"})
-                continue
-            genre = genero_por_regra(item.get("artista_album") or item.get("artista", ""), item.get("album", ""), regras)
-            filled = _fill_genre(audio, genre)
-            final = pasta / audio.name
-            try:
-                _publish(audio, final)
-            except FileExistsError:
-                results.append({**item, "estado": "ja_existia", "arquivo": str(final), "mensagem": "Já existe um arquivo com esse nome na pasta"})
-                continue
-            results.append({**item, "estado": "baixado", "arquivo": str(final), "genero_preenchido": genre if filled else ""})
+        try:
+            results.append(_baixar_uma(item, pasta, executable, regras, bitrate))
+        except Exception as error:
+            results.append({**item, "estado": "erro", "mensagem": f"{type(error).__name__}: {error}"[:300]})
+            # Sem ffmpeg ou sem espaço/escrita no destino, as próximas falhariam igual.
+            if isinstance(error, RuntimeError) or (isinstance(error, OSError) and error.errno in (errno.ENOSPC, errno.EROFS, errno.EDQUOT, errno.EACCES)):
+                results.extend({**rest, "estado": "nao_baixado", "mensagem": "Interrompido após o erro anterior"} for rest in lista[index + 1:])
+                break
     progresso("Downloads concluídos", 100)
     return results
