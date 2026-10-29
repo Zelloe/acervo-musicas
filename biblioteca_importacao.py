@@ -84,6 +84,21 @@ def new_destination(root: Path, folder: str, name: str) -> Path:
     return path
 
 
+def require_hard_links(directory: Path) -> None:
+    """Adições são publicadas com link(), que nunca sobrescreve um destino."""
+    fd, name = tempfile.mkstemp(prefix=".acervo-import-", dir=directory)
+    os.close(fd)
+    probe = Path(name)
+    linked = probe.with_name(probe.name + "-link")
+    try:
+        os.link(probe, linked)
+    except OSError as error:
+        raise ValueError(f"O sistema de arquivos de {directory} não aceita hard links (comum em exFAT/FAT32); adicionar faixas novas ali ainda não é suportado") from error
+    finally:
+        linked.unlink(missing_ok=True)
+        probe.unlink(missing_ok=True)
+
+
 def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch_id: str) -> dict:
     root = root.resolve(strict=True)
     backup_root = backup_root.resolve()
@@ -106,6 +121,8 @@ def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch
                 source = Path(op["origem"])
                 if not source.is_file() or source.is_symlink() or sha256(source) != op["origem_sha256"]:
                     raise ValueError("O download mudou desde a prévia")
+        for directory in {Path(op["arquivo"]).parent for op in operations if op["acao"] == "adicionar"}:
+            require_hard_links(directory)
         backup_root.mkdir(parents=True, exist_ok=True)
         required = sum(Path(op["arquivo"]).stat().st_size for op in operations if op["acao"] != "adicionar")
         required += sum(Path(op["origem"] if op["acao"] != "metadados" else op["arquivo"]).stat().st_size for op in operations)

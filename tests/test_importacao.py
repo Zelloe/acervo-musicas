@@ -87,7 +87,11 @@ class ImportTest(unittest.TestCase):
         added = self.lib / "Banda - Nova.mp3"
         ops = [self.replace_op(replaced, source), self.add_op(added, source)]
 
+        real_link = biblioteca_importacao.os.link
+
         def foreign_file_appears(src, dst):
+            if Path(dst) != added:
+                return real_link(src, dst)
             Path(dst).write_bytes(b"outro programa")
             raise FileExistsError(dst)
 
@@ -125,10 +129,29 @@ class ImportTest(unittest.TestCase):
         self.assertEqual(first.read_bytes(), first_bytes)
         self.assertEqual(second.read_bytes(), second_bytes)
 
+    def test_add_refused_up_front_without_hard_links(self):
+        replaced = self.mp3(self.lib, "faixa.mp3", "original.mp3", "Original", "100")
+        original = replaced.read_bytes()
+        source = self.mp3(self.staging, "nova.mp3", "download.mp3", "Nova", "200")
+        ops = [self.replace_op(replaced, source), self.add_op(self.lib / "Banda - Nova.mp3", source)]
+        with patch.object(biblioteca_importacao.os, "link", side_effect=OSError("exFAT")):
+            with self.assertRaisesRegex(ValueError, "hard links"):
+                import_reviewed(self.lib, self.backups, ops, "lote")
+        self.assertEqual(replaced.read_bytes(), original)
+        self.assertEqual(sorted(p.name for p in self.lib.iterdir()), ["faixa.mp3"])
+        self.assertFalse(self.backups.exists())
+
     def test_leftover_temporary_copy_is_moved_out_and_ignored(self):
         source = self.mp3(self.staging, "nova.mp3", "download.mp3", "Nova", "200")
         target = self.lib / "Banda - Nova.mp3"
-        with patch.object(biblioteca_importacao.os, "link", side_effect=OSError("sem hard links")):
+        real_link = biblioteca_importacao.os.link
+
+        def fails_on_publish(src, dst):
+            if Path(dst) == target:
+                raise OSError("falha ao publicar")
+            return real_link(src, dst)
+
+        with patch.object(biblioteca_importacao.os, "link", side_effect=fails_on_publish):
             with self.assertRaises(RuntimeError) as caught:
                 import_reviewed(self.lib, self.backups, [self.add_op(target, source)], "lote")
         manifest_path = self.manifest(caught.exception)
