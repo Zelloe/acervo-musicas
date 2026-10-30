@@ -14,8 +14,10 @@ deletes your music.
 > **Project status:** under active development. See the [ROADMAP](ROADMAP.md)
 > (in Portuguese).
 >
-> The interface and the command line are currently in Portuguese; commands and
-> options keep their Portuguese names (for example `--pasta` means "folder").
+> The web interface is available in English and Portuguese (switch at the top;
+> it follows your browser language by default). Some error messages from the
+> server and the command line are still in Portuguese, and commands and options
+> keep their Portuguese names (for example `--pasta` means "folder").
 
 ## What it does
 
