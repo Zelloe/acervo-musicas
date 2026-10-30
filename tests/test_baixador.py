@@ -86,7 +86,7 @@ class DownloadTest(unittest.TestCase):
 
     def download(self, items, **fake):
         with patch.object(baixador, "spotdl_executable", return_value="spotdl"), patch.object(baixador.subprocess, "run", side_effect=self.wrap(self.fake_spotdl(**fake))):
-            return baixador.baixar(items, self.folder)
+            return baixador.baixar(items, self.folder, letras=False)
 
     def wrap(self, fake):
         real = subprocess.run
@@ -157,7 +157,7 @@ class DownloadTest(unittest.TestCase):
             self.item = next(i for i in (self.item, other, third) if command[2] == i["url"])
             return self.fake_spotdl(name)(command, cwd)
         with patch.object(baixador, "spotdl_executable", return_value="spotdl"), patch.object(baixador, "_publish", side_effect=publish), patch.object(baixador.subprocess, "run", side_effect=self.wrap(run)):
-            results = baixador.baixar([self.item, other, third, fourth], self.folder)
+            results = baixador.baixar([self.item, other, third, fourth], self.folder, letras=False)
         self.assertEqual([r["estado"] for r in results], ["baixado", "erro", "erro", "nao_baixado"])
         self.assertEqual(self.listing(), ["ACDC - Back In Black.mp3"])
 
@@ -169,7 +169,7 @@ class DownloadTest(unittest.TestCase):
 
     def test_bad_link_is_reported_without_running(self):
         with patch.object(baixador, "spotdl_executable", return_value="spotdl"), patch.object(baixador.subprocess, "run") as run:
-            result = baixador.baixar([{**self.item, "url": "https://open.spotify.com/album/x"}], self.folder)
+            result = baixador.baixar([{**self.item, "url": "https://open.spotify.com/album/x"}], self.folder, letras=False)
         run.assert_not_called()
         self.assertEqual(result[0]["estado"], "erro")
 
