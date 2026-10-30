@@ -177,6 +177,25 @@ class EmbeddedLyricsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             gravar_letra(library, storage, str(self.dir / "fora.mp3"), "x")
 
+    def test_write_refuses_track_changed_since_preview(self):
+        from biblioteca_core import sha256
+        library, storage = self.dir / "musicas", self.dir / "dados"
+        library.mkdir()
+        track = library / "faixa.mp3"
+        shutil.copy(self.mp3, track)
+        seen = sha256(track)
+        tags = ID3()
+        tags.add(TIT2(encoding=3, text=["Editada por outro programa"]))
+        tags.save(track)
+        edited = track.read_bytes()
+        with self.assertRaisesRegex(ValueError, "mudou desde a prévia"):
+            gravar_letra(library, storage, str(track), "Letra", anterior_sha256=seen)
+        self.assertEqual(track.read_bytes(), edited)
+        with self.assertRaisesRegex(ValueError, "Hash"):
+            gravar_letra(library, storage, str(track), "Letra", anterior_sha256="../x")
+        gravar_letra(library, storage, str(track), "Letra", anterior_sha256=sha256(track))
+        self.assertEqual(letra_atual(track), ["Letra"])
+
     def test_download_embeds_lyrics_and_survives_lyrics_failure(self):
         item = {"titulo": "Back In Black", "artista": "AC/DC", "album": "Back In Black", "duracao": 255, "url": "https://open.spotify.com/track/abc123"}
         real = subprocess.run

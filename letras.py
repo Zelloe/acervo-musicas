@@ -206,8 +206,12 @@ def letra_atual(path: Path) -> list[str]:
     return list(FLAC(path).get("lyrics", []))
 
 
-def gravar_letra(root: Path, storage: Path, arquivo: str, texto: str) -> dict:
-    """Grava a letra numa faixa da coleção com backup, conferência e desfazer pelo Histórico."""
+def gravar_letra(root: Path, storage: Path, arquivo: str, texto: str, anterior_sha256: str | None = None) -> dict:
+    """Grava a letra numa faixa da coleção com backup, conferência e desfazer pelo Histórico.
+
+    Com anterior_sha256 (o hash visto na prévia), a gravação é recusada se a
+    faixa mudou desde então; a conferência acontece sob o library_lock.
+    """
     from biblioteca_core import secure_file, sha256
     from biblioteca_importacao import import_reviewed
 
@@ -221,8 +225,9 @@ def gravar_letra(root: Path, storage: Path, arquivo: str, texto: str) -> dict:
     current = letra_atual(path)
     if current == [texto]:
         raise ValueError("A faixa já tem exatamente essa letra")
-    operation = {"acao": "metadados", "arquivo": str(path), "antes_sha256": sha256(path),
+    if anterior_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", str(anterior_sha256)):
+        raise ValueError("Hash da prévia inválido")
+    operation = {"acao": "metadados", "arquivo": str(path), "antes_sha256": anterior_sha256 or sha256(path),
                  "alteracoes": {"letra": {"atual": current, "proposto": [texto]}}}
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     return import_reviewed(root, Path(storage) / "backups", [operation], f"letra-{stamp}", Path(storage))
-
