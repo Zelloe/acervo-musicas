@@ -12,6 +12,9 @@ O Acervo não cria pastas por gênero ou álbum, não renomeia, não move e não
 exclui músicas.
 
 > **Estado do projeto:** em desenvolvimento ativo. Veja o [ROADMAP](ROADMAP.md).
+>
+> A interface está em português e em inglês (seletor no topo; por padrão segue
+> o idioma do navegador).
 
 ## O que ele faz
 
