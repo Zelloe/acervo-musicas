@@ -1,9 +1,10 @@
 "use strict";
 
 const lyricsState={track:null,serial:0,controller:null,lines:[],active:-1,cache:new Map(),returnFocus:null,result:null,editor:false,draft:"",pending:null,seenJob:null};
-const lyricLabel=message=>typeof t==="function"?t(message):message;
+const lyricLabel=message=>typeof tr==="function"?tr(message):message;
 
 function lyricsStatus(message, retry=false) {
+  lyricsState.statusMessage=message;lyricsState.retry=retry;
   $('#lyrics-status').innerHTML=`${escapeHTML(lyricLabel(message))}${retry?` <button class="text-button" data-action="retry-lyrics">${escapeHTML(lyricLabel("Tentar novamente"))}</button>`:""}`;
 }
 
@@ -56,8 +57,8 @@ async function loadLyrics(track) {
   lyricsState.editor=false;lyricsState.result=null;lyricsState.draft="";
   $('#lyrics-edit').disabled=false;
   lyricsState.lines=[];lyricsState.active=-1;
-  $('#lyrics-heading').textContent=join(track.titulo);
-  $('#lyrics-artist').textContent=join(track.artista);
+  $('#lyrics-heading').dataset.i18nUser="true";$('#lyrics-heading').textContent=join(track.titulo);
+  $('#lyrics-artist').dataset.i18nUser="true";$('#lyrics-artist').textContent=join(track.artista);
   $('#lyrics-body').textContent="";$('#lyrics-source').textContent="";
   $('#lyrics-follow').parentElement.hidden=true;
   lyricsStatus("Buscando letra…");
@@ -139,6 +140,15 @@ function updateLyricsLine() {
   document.querySelectorAll('[data-lyric-line]').forEach(line=>{const active=Number(line.dataset.lyricLine)===index;line.classList.toggle("current",active);if(active)line.setAttribute("aria-current","true");else line.removeAttribute("aria-current");});
   const current=$(`[data-lyric-line="${index}"]`);
   if(current&&$('#lyrics-follow').checked){const body=$('#lyrics-body');body.scrollTo({top:Math.max(0,current.offsetTop-body.clientHeight/2+current.clientHeight/2),behavior:"auto"});}
+}
+
+function refreshLyricsLanguage() {
+  if($('#lyrics-panel').hidden)return;
+  if(lyricsState.editor){
+    lyricsState.draft=$('#lyrics-editor')?.value||lyricsState.draft;
+    lyricsState.editor=false;editLyrics();
+  }else if(lyricsState.result){displayLyrics(lyricsState.result);}
+  else if(lyricsState.statusMessage){lyricsStatus(lyricsState.statusMessage,lyricsState.retry);}
 }
 
 document.addEventListener("DOMContentLoaded",()=>{

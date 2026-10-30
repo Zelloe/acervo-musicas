@@ -4,7 +4,7 @@ const simpleDownloadState = {mode:"artista",query:"",folder:"",bitrate:"320k",ca
 const simpleModeLabels = {artista:["Artista","Ex.: Faith No More"],musica:["Música ou artista","Ex.: Pink Floyd Time"],link:["Link do Spotify","Link de música, álbum ou playlist"]};
 
 async function searchFromGlobal(mode, query) {
-  if(state.summary?.job?.estado==="executando")throw new Error("Aguarde a operação atual terminar para iniciar outra busca.");
+  if(state.summary?.job?.estado==="executando")throw new Error(tr("Aguarde a operação atual terminar para iniciar outra busca."));
   simpleFormValues($('#simple-download-form'));
   if(!simpleDownloadState.folder)simpleDownloadState.folder=(await api("/api/baixar")).pasta;
   await api("/api/baixar/buscar",{tipo:mode,consulta:query,pasta:simpleDownloadState.folder});
@@ -35,7 +35,7 @@ function updateSimpleSelection() {
   const visible=simpleVisibleSelection().length;
   const hidden=simpleDownloadState.selected.size-visible;
   const label=$('#simple-selection-count');
-  if(label)label.textContent=`${number(visible)} selecionadas neste filtro${hidden?` · ${number(hidden)} marcadas em outros filtros`:""}`;
+  if(label)label.textContent=`${number(visible)} ${tr("selecionadas neste filtro")}${hidden?` · ${number(hidden)} ${tr("marcadas em outros filtros")}`:""}`;
   const count=$('#simple-download-count');
   if(count)count.textContent=number(visible);
 }
@@ -48,7 +48,7 @@ function applySimpleVersionFilter() {
   catalog.querySelectorAll('[data-simple-version]').forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.simpleVersion===simpleDownloadState.versionFilter)));
   const visible=rows.filter(row=>!row.hidden).length;
   const count=$('#simple-visible-count');
-  if(count)count.textContent=`${number(visible)} de ${number(rows.length)} resultados`;
+  if(count)count.textContent=`${number(visible)} ${tr("de")} ${number(rows.length)} ${tr("resultados")}`;
   const empty=$('#simple-empty-filter');
   if(empty)empty.hidden=visible>0;
   updateSimpleSelection();
@@ -70,7 +70,7 @@ function simpleDownloadResults(rows) {
   if(!rows?.length)return "";
   const counts={baixado:0,ja_existia:0,erro:0,nao_baixado:0};
   for(const row of rows)counts[row.estado]=(counts[row.estado]||0)+1;
-  return `<section class="download-panel"><div class="section-heading"><div><h2>Resultado dos downloads</h2><p>${number(counts.baixado)} baixadas · ${number(counts.ja_existia)} já existiam · ${number(counts.erro)} com erro${counts.nao_baixado?` · ${number(counts.nao_baixado)} não baixadas`:""}</p></div></div><ul class="simple-result-list">${rows.map(row=>`<li><strong>${escapeHTML(row.artista)} — ${escapeHTML(row.titulo)}</strong><span class="${["erro","nao_baixado"].includes(row.estado)?"download-warning":"source"}">${escapeHTML(row.estado==="baixado"?"Salva em "+row.arquivo:row.estado==="nao_baixado"?"Não baixada. "+(row.mensagem||"Lote interrompido."):row.mensagem||"Já existe na pasta")}</span>${row.genero_preenchido?`<span class="source">Gênero: ${escapeHTML(row.genero_preenchido)}</span>`:""}</li>`).join("")}</ul></section>`;
+  return `<section class="download-panel"><div class="section-heading"><div><h2>${tr("Resultado dos downloads")}</h2><p>${number(counts.baixado)} ${tr("baixadas ·")} ${number(counts.ja_existia)} ${tr("já existiam ·")} ${number(counts.erro)} ${tr("com erro")}${counts.nao_baixado?` · ${number(counts.nao_baixado)} ${tr("não baixadas")}`:""}</p></div></div><ul class="simple-result-list">${rows.map(row=>`<li><strong>${escapeHTML(row.artista)} — ${escapeHTML(row.titulo)}</strong><span class="${["erro","nao_baixado"].includes(row.estado)?"download-warning":"source"}">${escapeHTML(row.estado==="baixado"?"Salva em "+row.arquivo:row.estado==="nao_baixado"?tr("Não baixada.")+" "+(row.mensagem||tr("Lote interrompido.")):row.mensagem||tr("Já existe na pasta"))}</span>${row.genero_preenchido?`<span class="source">${tr("Gênero:")} ${escapeHTML(row.genero_preenchido)}</span>`:""}</li>`).join("")}</ul></section>`;
 }
 
 async function renderSimpleDownloads() {
@@ -81,7 +81,7 @@ async function renderSimpleDownloads() {
   const catalog=info.catalogo;
   const busy=state.summary.job?.estado==="executando";
   const mode=simpleDownloadState.mode;
-  const [label,placeholder]=simpleModeLabels[mode];
+  const [label,placeholder]=simpleModeLabels[mode].map(tr);
   let results="";
   if(catalog){
     simpleDownloadState.catalogId=catalog.id;
@@ -89,17 +89,17 @@ async function renderSimpleDownloads() {
       simpleDownloadState.seenCatalog=catalog.id;
       simpleDownloadState.selected=new Set(catalog.itens.filter(row=>catalog.tipo==="faixas"&&!row.ja_tenho).map(row=>row.id));
     }
-    const headingText={albuns:"Escolha um álbum",edicoes:"Escolha a edição",faixas:"Marque as faixas"}[catalog.tipo];
-    const back=simpleDownloadState.parents.length?'<button class="button small ghost" data-action="simple-back">Voltar</button>':"";
+    const headingText={albuns:tr("Escolha um álbum"),edicoes:tr("Escolha a edição"),faixas:tr("Marque as faixas")}[catalog.tipo];
+    const back=simpleDownloadState.parents.length?`<button class="button small ghost" data-action="simple-back">${tr("Voltar")}</button>`:"";
     const body=catalog.tipo==="faixas"?`
-      <div class="simple-selection-tools"><span id="simple-selection-count"></span><div class="download-actions"><button class="text-button" data-action="simple-select-new">Selecionar novas visíveis</button><button class="text-button" data-action="simple-select-all">Selecionar visíveis</button><button class="text-button" data-action="simple-clear">Limpar seleção</button></div></div>
-      <p class="download-hint">Correspondências por artista e título na pasta consultada: <span class="simple-path">${escapeHTML(catalog.pasta)}</span></p>
-      <div class="simple-track-list">${catalog.itens.map(row=>`<label class="simple-track version-filtered" ${simpleVersionAttributes(row)} data-existing="${!!row.ja_tenho}"><input class="check simple-track-check" type="checkbox" value="${row.id}" ${simpleDownloadState.selected.has(row.id)?"checked":""} ${busy?"disabled":""}>${catalogPhoto(row.capa)}<span class="simple-track-copy"><strong>${escapeHTML(row.titulo)}</strong><small>${escapeHTML(row.artista)} · ${escapeHTML(row.album)}${row.ano?` · ${escapeHTML(row.ano)}`:""}</small>${recordingBadges(row.versao)}</span><span class="simple-track-time">${duration(row.duracao)}</span>${row.ja_tenho?'<span class="chip neutral">Nome encontrado na pasta</span>':""}</label>`).join("")}</div>
-      <div class="download-actions simple-save-row"><span class="simple-path">Salvar diretamente em <strong id="simple-save-folder">${escapeHTML(simpleDownloadState.folder)}</strong></span><button class="button primary" data-action="simple-download" ${busy?"disabled":""}>${icon("download")} Baixar selecionadas (<span id="simple-download-count">0</span>)</button></div>`:
-      `<div class="simple-choice-list">${catalog.itens.map(row=>`<button class="simple-choice version-filtered" ${simpleVersionAttributes(row)} data-simple-open="${row.id}" ${busy?"disabled":""}>${catalogPhoto(row.capa)}<span><strong>${escapeHTML(row.titulo)}</strong><small>${escapeHTML(row.ano||"")}${row.faixas_total?` · ${number(row.faixas_total)} faixas`:""}</small>${recordingBadges(row.versao)}</span>${icon("arrow")}</button>`).join("")}</div>`;
-    results=`<section class="download-panel" id="simple-catalog"><div class="section-heading"><div><h2>${headingText}</h2><p>${escapeHTML(catalog.titulo)}</p></div>${back}</div>${recordingChips(simpleDownloadState.versionFilter,"data-simple-version")}<p id="simple-visible-count" class="download-hint"></p><div id="simple-empty-filter" hidden>${empty("Nenhuma versão neste filtro","Escolha Todos ou outro tipo de gravação.","search")}</div>${catalog.itens.length?body:empty("Nenhum resultado","Tente outra busca ou cole um link do Spotify.","search")}<p class="download-hint">Tipo estimado pelos nomes da faixa e do álbum; confira a edição quando não houver indicação.</p></section>`;
+      <div class="simple-selection-tools"><span id="simple-selection-count"></span><div class="download-actions"><button class="text-button" data-action="simple-select-new">${tr("Selecionar novas visíveis")}</button><button class="text-button" data-action="simple-select-all">${tr("Selecionar visíveis")}</button><button class="text-button" data-action="simple-clear">${tr("Limpar seleção")}</button></div></div>
+      <p class="download-hint">${tr("Correspondências por artista e título na pasta consultada:")} <span class="simple-path">${escapeHTML(catalog.pasta)}</span></p>
+      <div class="simple-track-list">${catalog.itens.map(row=>`<label class="simple-track version-filtered" ${simpleVersionAttributes(row)} data-existing="${!!row.ja_tenho}"><input class="check simple-track-check" type="checkbox" value="${row.id}" ${simpleDownloadState.selected.has(row.id)?"checked":""} ${busy?"disabled":""}>${catalogPhoto(row.capa)}<span class="simple-track-copy"><strong>${escapeHTML(row.titulo)}</strong><small>${escapeHTML(row.artista)} · ${escapeHTML(row.album)}${row.ano?` · ${escapeHTML(row.ano)}`:""}</small>${recordingBadges(row.versao)}</span><span class="simple-track-time">${duration(row.duracao)}</span>${row.ja_tenho?`<span class="chip neutral">${tr("Nome encontrado na pasta")}</span>`:""}</label>`).join("")}</div>
+      <div class="download-actions simple-save-row"><span class="simple-path">${tr("Salvar diretamente em")} <strong id="simple-save-folder">${escapeHTML(simpleDownloadState.folder)}</strong></span><button class="button primary" data-action="simple-download" ${busy?"disabled":""}>${icon("download")} ${tr("Baixar selecionadas (")}<span id="simple-download-count">0</span>)</button></div>`:
+      `<div class="simple-choice-list">${catalog.itens.map(row=>`<button class="simple-choice version-filtered" ${simpleVersionAttributes(row)} data-simple-open="${row.id}" ${busy?"disabled":""}>${catalogPhoto(row.capa)}<span><strong>${escapeHTML(row.titulo)}</strong><small>${escapeHTML(row.ano||"")}${row.faixas_total?` · ${number(row.faixas_total)} ${tr("faixas")}`:""}</small>${recordingBadges(row.versao)}</span>${icon("arrow")}</button>`).join("")}</div>`;
+    results=`<section class="download-panel" id="simple-catalog"><div class="section-heading"><div><h2>${headingText}</h2><p>${escapeHTML(catalog.titulo)}</p></div>${back}</div>${recordingChips(simpleDownloadState.versionFilter,"data-simple-version")}<p id="simple-visible-count" class="download-hint"></p><div id="simple-empty-filter" hidden>${empty(tr("Nenhuma versão neste filtro"),tr("Escolha Todos ou outro tipo de gravação."),"search")}</div>${catalog.itens.length?body:empty(tr("Nenhum resultado"),tr("Tente outra busca ou cole um link do Spotify."),"search")}<p class="download-hint">${tr("Tipo estimado pelos nomes da faixa e do álbum; confira a edição quando não houver indicação.")}</p></section>`;
   }
-  return `${heading("ESCOLHA O QUE QUER OUVIR","Baixar músicas","Encontre o álbum, escolha a edição e baixe só as faixas que quiser.")}<form id="simple-download-form" class="download-panel"><div class="tabs simple-search-tabs">${[["artista","Por artista"],["musica","Por música"],["link","Por link"]].map(([key,text])=>`<button type="button" class="tab ${mode===key?"active":""}" data-simple-mode="${key}" aria-pressed="${mode===key}" ${busy?"disabled":""}>${text}</button>`).join("")}</div><div class="simple-search-fields"><label><span id="simple-query-label">${label}</span><input class="field" name="consulta" value="${escapeHTML(simpleDownloadState.query)}" placeholder="${escapeHTML(placeholder)}" required maxlength="1200"></label><button class="button primary" type="submit" ${busy?"disabled":""}>${icon("search")} ${mode==="link"?"Ver faixas":"Buscar"}</button></div><div class="simple-settings"><label>Pasta para salvar<input class="field" name="pasta" value="${escapeHTML(simpleDownloadState.folder)}" placeholder="Caminho de uma pasta existente" required></label><label>MP3<select class="field" name="bitrate">${["320k","256k","192k","128k"].map(v=>`<option value="${v}" ${simpleDownloadState.bitrate===v?"selected":""}>${v.slice(0,-1)} kbps</option>`).join("")}</select></label></div><p class="download-hint">Os arquivos vão direto para a pasta escolhida. Arquivos existentes são preservados. A taxa do MP3 não melhora a qualidade da fonte.</p></form>${results}${simpleDownloadResults(info.resultado)}`;
+  return `${heading(tr("ESCOLHA O QUE QUER OUVIR"),tr("Baixar músicas"),tr("Encontre o álbum, escolha a edição e baixe só as faixas que quiser."))}<form id="simple-download-form" class="download-panel"><div class="tabs simple-search-tabs">${[["artista",tr("Por artista")],["musica",tr("Por música")],["link",tr("Por link")]].map(([key,text])=>`<button type="button" class="tab ${mode===key?"active":""}" data-simple-mode="${key}" aria-pressed="${mode===key}" ${busy?"disabled":""}>${text}</button>`).join("")}</div><div class="simple-search-fields"><label><span id="simple-query-label">${label}</span><input class="field" name="consulta" value="${escapeHTML(simpleDownloadState.query)}" placeholder="${escapeHTML(placeholder)}" required maxlength="1200"></label><button class="button primary" type="submit" ${busy?"disabled":""}>${icon("search")} ${mode==="link"?tr("Ver faixas"):tr("Buscar")}</button></div><div class="simple-settings"><label>${tr("Pasta para salvar")}<input class="field" name="pasta" value="${escapeHTML(simpleDownloadState.folder)}" placeholder="${tr("Caminho de uma pasta existente")}" required></label><label>MP3<select class="field" name="bitrate">${["320k","256k","192k","128k"].map(v=>`<option value="${v}" ${simpleDownloadState.bitrate===v?"selected":""}>${v.slice(0,-1)} kbps</option>`).join("")}</select></label></div><p class="download-hint">${tr("Os arquivos vão direto para a pasta escolhida. Arquivos existentes são preservados. A taxa do MP3 não melhora a qualidade da fonte.")}</p></form>${results}${simpleDownloadResults(info.resultado)}`;
 }
 
 document.addEventListener("input",event=>{
@@ -144,11 +144,11 @@ document.addEventListener("click",async event=>{
       simpleFormValues(form);
       if(simpleDownloadState.mode!==button.dataset.simpleMode)simpleDownloadState.query="";
       simpleDownloadState.mode=button.dataset.simpleMode;
-      const [label,placeholder]=simpleModeLabels[simpleDownloadState.mode];
+      const [label,placeholder]=simpleModeLabels[simpleDownloadState.mode].map(tr);
       $('#simple-query-label').textContent=label;
       form.elements.consulta.value=simpleDownloadState.query;
       form.elements.consulta.placeholder=placeholder;
-      form.querySelector('[type="submit"]').innerHTML=icon("search")+" "+(simpleDownloadState.mode==="link"?"Ver faixas":"Buscar");
+      form.querySelector('[type="submit"]').innerHTML=icon("search")+" "+(simpleDownloadState.mode==="link"?tr("Ver faixas"):tr("Buscar"));
       document.querySelectorAll('[data-simple-mode]').forEach(el=>{el.classList.toggle("active",el===button);el.setAttribute("aria-pressed",String(el===button));});
       form.elements.consulta.focus();
     } else if(button.dataset.simpleOpen){
@@ -173,13 +173,13 @@ document.addEventListener("click",async event=>{
       updateSimpleSelection();
     } else if(button.dataset.action==="simple-download"){
       const selected=simpleVisibleSelection();
-      if(!selected.length)throw new Error("Selecione pelo menos uma faixa visível neste filtro para baixar.");
+      if(!selected.length)throw new Error(tr("Selecione pelo menos uma faixa visível neste filtro para baixar."));
       simpleFormValues($('#simple-download-form'));
       button.disabled=true;
       await api("/api/baixar/baixar",{catalogo:simpleDownloadState.catalogId,ids:selected,pasta:simpleDownloadState.folder,bitrate:simpleDownloadState.bitrate});
       await updateState();
       await render();
-      toast("Download iniciado na pasta escolhida.");
+      toast(tr("Download iniciado na pasta escolhida."));
     }
   }catch(error){button.disabled=false;toast(error.message);}
 });

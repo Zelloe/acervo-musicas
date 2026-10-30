@@ -11,12 +11,12 @@ function versionMatches(version, choice) {
 }
 
 function versionChips(selected, attribute) {
-  return `<div class="version-filters" role="group" aria-label="Tipo de gravação">${versionFilters.map(([key,label])=>`<button type="button" class="version-filter" ${attribute}="${key}" aria-pressed="${key===selected}">${label}</button>`).join("")}</div>`;
+  return `<div class="version-filters" role="group" aria-label="${tr("Tipo de gravação")}">${versionFilters.map(([key,label])=>`<button type="button" class="version-filter" ${attribute}="${key}" aria-pressed="${key===selected}">${tr(label)}</button>`).join("")}</div>`;
 }
 
 function versionBadges(version) {
-  if(!version?.rotulos?.length)return '<span class="version-badge unknown">Sem classificação</span>';
-  return `<span class="version-badges">${version.rotulos.map(label=>`<span class="version-badge ${version.marcas?.includes("ao_vivo")&&label==="Ao vivo"?"live":""}">${escapeHTML(label)}</span>`).join("")}</span>`;
+  if(!version?.rotulos?.length)return `<span class="version-badge unknown">${tr("Sem classificação")}</span>`;
+  return `<span class="version-badges">${version.rotulos.map(label=>`<span class="version-badge ${version.marcas?.includes("ao_vivo")&&label==="Ao vivo"?"live":""}">${escapeHTML(tr(label))}</span>`).join("")}</span>`;
 }
 
 function safePhoto(url) {
