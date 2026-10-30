@@ -68,7 +68,7 @@ async function updateState() {
 function setWriteControls() {
   const blocked = state.summary?.job?.estado === "executando" || !!state.summary?.erro_protecoes;
   $('#top-refresh').disabled = blocked;
-  document.querySelectorAll('[data-action="analyze"], [data-action="confirm-apply"], [data-action="confirm-restore"], [data-action="fetch-downloads"], [data-action="review-import"], [data-action="confirm-import"], [data-action="export-playlist"], [data-action="confirm-playlist"], [data-playlist-album], [data-track-protection], [data-protection-album], [data-action="protect-album"], [data-action="unprotect-album"], #playlist-form [type="submit"], #download-form [type="submit"], #simple-download-form [type="submit"], [data-simple-open], [data-action="simple-download"], .simple-track-check, [data-simple-mode], [data-action="simple-select-new"], [data-action="simple-select-all"], [data-action="simple-clear"], [data-action="simple-back"], #simple-download-form input, #simple-download-form select').forEach(el => { el.disabled = blocked; });
+  document.querySelectorAll('[data-action="analyze"], [data-action="confirm-apply"], [data-action="confirm-restore"], [data-action="fetch-downloads"], [data-action="review-import"], [data-action="confirm-import"], [data-action="export-playlist"], [data-action="confirm-playlist"], [data-playlist-album], [data-track-protection], [data-protection-album], [data-action="protect-album"], [data-action="unprotect-album"], [data-action="preview-lyrics"], [data-action="confirm-lyrics"], #lyrics-editor, #playlist-form [type="submit"], #download-form [type="submit"], #simple-download-form [type="submit"], [data-simple-open], [data-action="simple-download"], .simple-track-check, [data-simple-mode], [data-action="simple-select-new"], [data-action="simple-select-all"], [data-action="simple-clear"], [data-action="simple-back"], #simple-download-form input, #simple-download-form select').forEach(el => { el.disabled = blocked; });
 }
 
 function featuredAlbums() {
@@ -231,7 +231,7 @@ function confirmApply() {
 async function showDetails(id) {
   const track = await api(`/api/track?id=${encodeURIComponent(id)}`);
   const pairs = [["titulo","Título",join(track.titulo)],["artista","Artista",join(track.artista)],["artista_album","Artista do álbum",join(track.artista_album)],["album","Álbum",join(track.album)],["genero","Gênero",join(track.genero)],["ano","Ano",join(track.ano)],["faixa","Faixa",join(track.faixa)],["disco","Disco",join(track.disco)],[null,"Áudio",`${track.formato} · ${duration(track.duracao_segundos)} · ${Math.round((track.bitrate_bps||0)/1000)} kbps`],[null,"Capas",`${track.capas.length} imagens preservadas`],[null,"Arquivo",track.arquivo]];
-  modal(`${modalHead("Os detalhes da faixa", "Metadados lidos do seu arquivo. Proteja campos para preservar suas escolhas.")}<div class="detail-hero"><img src="${cover(id)}" alt="Capa do álbum"><div><h3>${escapeHTML(join(track.titulo))}</h3><p>${escapeHTML(join(track.artista))}</p><button class="button small primary" data-play="${id}">${icon("play")} Ouvir</button></div></div><div class="modal-body">${track.erro_protecoes?`<div class="error-box">${escapeHTML(track.erro_protecoes)}</div>`:""}<dl class="details-list">${pairs.map(([field,k,v])=>`<div><dt>${k}</dt><dd>${escapeHTML(v||"Não definido")}${field?protectionControl(track,field):""}</dd></div>`).join("")}</dl></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">Fechar</button></div>`);
+  modal(`${modalHead("Os detalhes da faixa", "Metadados lidos do seu arquivo. Proteja campos para preservar suas escolhas.")}<div class="detail-hero"><img src="${cover(id)}" alt="Capa do álbum"><div><h3>${escapeHTML(join(track.titulo))}</h3><p>${escapeHTML(join(track.artista))}</p><button class="button small primary" data-play="${id}">${icon("play")} Ouvir</button><button class="button small ghost" data-lyrics="${escapeHTML(id)}">${icon("lyrics")} Letra</button></div></div><div class="modal-body">${track.erro_protecoes?`<div class="error-box">${escapeHTML(track.erro_protecoes)}</div>`:""}<dl class="details-list">${pairs.map(([field,k,v])=>`<div><dt>${k}</dt><dd>${escapeHTML(v||"Não definido")}${field?protectionControl(track,field):""}</dd></div>`).join("")}</dl></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">Fechar</button></div>`);
 }
 
 function showSettings() {
@@ -256,6 +256,7 @@ async function play(id) {
   }
   const track=await api(`/api/track?id=${encodeURIComponent(id)}`);
   state.current=track;
+  if(typeof setLyricsTrack==="function")setLyricsTrack(track);
   $('#player-title').textContent=join(track.titulo);
   $('#player-artist').textContent=join(track.artista);
   $('#player-cover').innerHTML=`<img src="${cover(id)}" alt="">`;
@@ -349,6 +350,7 @@ async function poll() {
     const job=state.summary.job;
     const jobKey=job?`${job.id}:${job.estado}`:"";
     if(job?.estado==="erro"&&state.lastJob!==jobKey)toast(job.mensagem);
+    if(typeof captureLyricsJob==="function")await captureLyricsJob(job);
     const simpleChanged=captureSimpleDownloadJob(job);
     if(state.view==="downloads"&&simpleChanged)await render();
     if(job?.tipo==="download_direto"&&state.lastJob!==jobKey&&job.estado==="concluido"&&job.resultado?.avisos?.length)toast(job.resultado.avisos.join(" "));

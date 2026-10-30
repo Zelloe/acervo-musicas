@@ -80,6 +80,7 @@ async function playStaged(id) {
   const row=downloadState.batch.faixas.find(r=>r.id===id);
   if(!row?.real)throw new Error("Áudio ainda não disponível.");
   state.current={...row.real,id:`stage-${id}`};
+  if(typeof setLyricsTrack==="function")setLyricsTrack(null);
   state.queue=[];
   $('#player-title').textContent=join(row.real.titulo);
   $('#player-artist').textContent=join(row.real.artista)+" · prévia do download";

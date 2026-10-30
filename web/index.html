@@ -12,6 +12,7 @@
   <script src="/downloads.js" defer></script>
   <script src="/protecoes.js" defer></script>
   <script src="/baixar.js" defer></script>
+  <script src="/letras.js" defer></script>
   <script src="/app.js" defer></script>
   <script src="/busca.js" defer></script>
 </head>
@@ -41,6 +42,7 @@
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 2 9 4v6c0 5-9 10-9 10S3 17 3 12V6Z"/><path d="m8 12 3 3 5-6"/></symbol>
     <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></symbol>
     <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-lyrics" viewBox="0 0 24 24"><path d="M4 5h16M4 10h12M4 15h16M4 20h9"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
   </defs></svg>
 
@@ -78,8 +80,10 @@
     <footer class="content-footer"><span>Feito para quem gosta de ouvir o álbum inteiro.</span><span>ACERVO <i class="footer-dot"></i> BIBLIOTECA PESSOAL</span></footer>
   </main>
 
+  <aside id="lyrics-panel" class="lyrics-panel" aria-labelledby="lyrics-heading" hidden><header class="lyrics-header"><div><span class="section-kicker">LETRA</span><h2 id="lyrics-heading">Escolha uma música</h2><p id="lyrics-artist"></p></div><button class="icon-button" id="lyrics-close" aria-label="Fechar letra"><svg><use href="#i-close"/></svg></button></header><div id="lyrics-status" class="lyrics-status" role="status"></div><div id="lyrics-body" class="lyrics-body"></div><footer class="lyrics-footer"><span id="lyrics-source"></span><button class="text-button" id="lyrics-edit" data-action="edit-lyrics" disabled>Editar e salvar letra</button><label><input id="lyrics-follow" class="check" type="checkbox" checked> Seguir reprodução</label></footer></aside>
+
   <section class="player" aria-label="Reprodutor de música">
-    <div class="now-playing"><div class="player-cover" id="player-cover"><svg><use href="#i-disc"/></svg></div><div class="now-playing-text"><strong id="player-title">A próxima faixa é sua.</strong><span id="player-artist">Escolha uma música da coleção</span></div><span class="playing-dot" id="playing-dot" hidden></span></div>
+    <div class="now-playing"><div class="player-cover" id="player-cover"><svg><use href="#i-disc"/></svg></div><div class="now-playing-text"><strong id="player-title">A próxima faixa é sua.</strong><span id="player-artist">Escolha uma música da coleção</span></div><span class="playing-dot" id="playing-dot" hidden></span><button class="icon-button player-lyrics" id="lyrics-toggle" title="Letra" aria-label="Mostrar letra" aria-controls="lyrics-panel" aria-expanded="false" disabled><svg><use href="#i-lyrics"/></svg></button></div>
     <div class="player-middle"><div class="player-controls"><button class="icon-button" id="previous" aria-label="Faixa anterior" disabled><svg><use href="#i-prev"/></svg></button><button class="play-main" id="play-toggle" aria-label="Reproduzir" disabled><svg><use href="#i-play"/></svg></button><button class="icon-button" id="next" aria-label="Próxima faixa" disabled><svg><use href="#i-next"/></svg></button></div><div class="seek-row"><span id="time-current">0:00</span><input type="range" id="seek" aria-label="Posição da música" min="0" max="1000" value="0" disabled><span id="time-total">0:00</span></div></div>
     <div class="player-right"><span class="audio-quality" id="audio-quality">ÁUDIO ORIGINAL</span><svg><use href="#i-volume"/></svg><input type="range" id="volume" aria-label="Volume" min="0" max="100" value="70"></div>
     <audio id="audio" preload="metadata"></audio>

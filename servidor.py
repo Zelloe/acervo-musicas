@@ -11,16 +11,18 @@ from pathlib import Path
 import re
 import secrets
 import threading
+import time
 from urllib.parse import parse_qs, urlsplit
 
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3
 
-from biblioteca_core import apply_plan, atomic_json, durable_copy, library_lock, load_plan, restore, sha256
+from biblioteca_core import apply_plan, atomic_json, durable_copy, library_lock, load_plan, restore, secure_file, sha256
 from biblioteca_downloads import Downloads, clean_log, tool_status
 from biblioteca_plano import BASE, create_plan
 from diagnostico_biblioteca import read_track
 from musicbrainz_local import MusicBrainz
+from letras import Letras, gravar_letra, letra_atual, letra_da_faixa, parse_lrc
 from busca import BuscaGlobal, IndiceBiblioteca, normalizar
 from playlists import album_order, render as render_m3u8, write_m3u8
 from seletor_downloads import SeletorDownloads
@@ -94,6 +96,8 @@ class App:
         self.search_tracks = None
         self.search_index = None
         self.busca_global = BuscaGlobal()
+        self.letras = Letras(self.state_dir / "letras")
+        self.lyrics_previews = {}
         self.plan = None
         self.plan_path = None
         self.error = None
@@ -168,6 +172,65 @@ class App:
     def inventory_snapshot(self):
         with self.lock:
             return list(self.tracks)
+
+    def lyrics(self, ident):
+        with self.lock:
+            track = self.by_id.get(ident)
+            if track is None:
+                raise ValueError("Música não encontrada")
+            path = readable_music(self.root, track["arquivo"])
+            artist = " / ".join(track["artista"] or track["artista_album"])
+            title = " / ".join(track["titulo"])
+            album = " / ".join(track["album"])
+            seconds = track["duracao_segundos"]
+        return letra_da_faixa(path, artist, title, album, seconds, self.letras)
+
+    def preview_lyrics(self, data):
+        if set(data) != {"id", "texto"} or not isinstance(data.get("id"), str):
+            raise ValueError("Selecione uma faixa pelo identificador e confira a letra")
+        text = data.get("texto")
+        if not isinstance(text, str) or not text.strip() or len(text) > 100_000 or "\x00" in text:
+            raise ValueError("Letra vazia ou inválida")
+        text = text.replace("\r\n", "\n").strip()
+        if parse_lrc(text):
+            raise ValueError("Use a letra simples, sem marcações de tempo")
+        with self.lock:
+            if self.playlist_busy or self.policy_busy or (self.job and self.job["estado"] == "executando"):
+                raise ValueError("Aguarde a operação atual terminar")
+            protecoes.load(self.storage, self.root)
+            track = self.by_id.get(data["id"])
+            if track is None:
+                raise ValueError("Música não encontrada")
+            path = secure_file(self.root, track["arquivo"])
+            before = sha256(path)
+            current = letra_atual(path)
+            if current == [text]:
+                raise ValueError("A faixa já tem exatamente essa letra")
+            if sha256(path) != before:
+                raise ValueError("O arquivo mudou durante a prévia; confira novamente")
+            ident = secrets.token_hex(20)
+            self.lyrics_previews[ident] = {"id": data["id"], "arquivo": str(path), "texto": text, "sha256": before, "criado": time.monotonic()}
+            while len(self.lyrics_previews) > 20:
+                self.lyrics_previews.pop(next(iter(self.lyrics_previews)))
+        return {"previa": ident, "titulo": track["titulo"], "artista": track["artista"], "atual": current, "texto": text, "arquivo": str(path)}
+
+    def save_lyrics(self, data):
+        if set(data) != {"previa"} or not isinstance(data.get("previa"), str):
+            raise ValueError("Confira a prévia da letra antes de salvar")
+        with self.lock:
+            draft = self.lyrics_previews.get(data["previa"])
+            if draft is None or time.monotonic() - draft["criado"] > 900:
+                raise ValueError("A prévia expirou; confira a letra novamente")
+        def save():
+            with self.lock:
+                self.lyrics_previews.pop(data["previa"], None)
+                track = self.by_id.get(draft["id"])
+                if track is None or track["arquivo"] != draft["arquivo"]:
+                    raise ValueError("A faixa mudou no inventário; confira novamente")
+            result = gravar_letra(self.root, self.storage, draft["arquivo"], draft["texto"], anterior_sha256=draft["sha256"])
+            notices = self.refresh_downloaded([{"estado": "baixado", "arquivo": draft["arquivo"]}])
+            return {**result, "letra_track_id": draft["id"], "avisos": notices}
+        self.start("importacao", save)
 
     def load_download_cache(self):
         try:
@@ -512,6 +575,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send(200, asset.read_bytes(), mime)
         elif url.path == "/api/state":
             self.json(self.app.snapshot())
+        elif url.path == "/api/letra":
+            if set(query) != {"id"} or len(query["id"]) != 1:
+                raise ValueError("Selecione uma música pelo identificador da biblioteca")
+            self.json(self.app.lyrics(query["id"][0]))
         elif url.path == "/api/protections":
             self.json(self.app.protection_info(query.get("album_id", [""])[0]))
         elif url.path == "/api/baixar":
@@ -626,6 +693,11 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/api/analyze":
                 online = MusicBrainz(self.app.state_dir / "cache/musicbrainz", data.get("contato", ""), 200) if data.get("musicbrainz") else None
                 self.app.start("analise", lambda: self.app.analyze(online))
+            elif route == "/api/letra/preview":
+                self.json(self.app.preview_lyrics(data))
+                return
+            elif route == "/api/letra/salvar":
+                self.app.save_lyrics(data)
             elif route == "/api/baixar/buscar":
                 self.app.seletor.search_options(data)
                 self.app.start("busca_direta", lambda: self.app.seletor.search(data))
