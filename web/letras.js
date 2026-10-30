@@ -1,6 +1,6 @@
 "use strict";
 
-const lyricsState={track:null,serial:0,controller:null,lines:[],active:-1,cache:new Map(),returnFocus:null};
+const lyricsState={track:null,serial:0,controller:null,lines:[],active:-1,cache:new Map(),returnFocus:null,result:null,editor:false,draft:"",pending:null,seenJob:null};
 const lyricLabel=message=>typeof t==="function"?t(message):message;
 
 function lyricsStatus(message, retry=false) {
@@ -22,6 +22,10 @@ function setLyricsTrack(track) {
 }
 
 function displayLyrics(data) {
+  lyricsState.result=data;
+  lyricsState.editor=false;
+  $('#lyrics-edit').disabled=false;
+  $('#lyrics-edit').textContent=lyricLabel("Editar e salvar letra");
   lyricsState.lines=(data.sincronizada||[]).filter(line=>Number.isFinite(line.t)&&line.t>=0&&typeof line.linha==="string");
   lyricsState.active=-1;
   const body=$('#lyrics-body');
@@ -49,6 +53,8 @@ async function loadLyrics(track) {
   const serial=++lyricsState.serial;
   lyricsState.controller?.abort();
   lyricsState.track=track;
+  lyricsState.editor=false;lyricsState.result=null;lyricsState.draft="";
+  $('#lyrics-edit').disabled=false;
   lyricsState.lines=[];lyricsState.active=-1;
   $('#lyrics-heading').textContent=join(track.titulo);
   $('#lyrics-artist').textContent=join(track.artista);
@@ -73,6 +79,40 @@ async function loadLyrics(track) {
   }
 }
 
+function editLyrics() {
+  if(!lyricsState.track)return;
+  lyricsState.serial++;lyricsState.controller?.abort();
+  if(lyricsState.editor){displayLyrics(lyricsState.result||{encontrada:false});return;}
+  lyricsState.editor=true;
+  const text=lyricsState.draft||lyricsState.result?.texto||"";
+  lyricsState.draft=text;
+  $('#lyrics-edit').textContent=lyricLabel("Voltar à letra");
+  $('#lyrics-follow').parentElement.hidden=true;
+  lyricsStatus("Confira ou cole a letra simples antes de salvar.");
+  $('#lyrics-body').innerHTML=`<form id="lyrics-form"><label for="lyrics-editor">${escapeHTML(lyricLabel("Letra sem marcações de tempo"))}</label><textarea id="lyrics-editor" maxlength="100000" rows="12">${escapeHTML(text)}</textarea><p>${escapeHTML(lyricLabel("A gravação exige confirmação e cria um backup completo. A letra sincronizada continua disponível para reprodução."))}</p><button type="submit" class="button primary" data-action="preview-lyrics">${escapeHTML(lyricLabel("Revisar antes de salvar"))}</button></form>`;
+  setWriteControls();$('#lyrics-editor').focus();
+}
+
+async function previewLyrics(event) {
+  event.preventDefault();
+  const button=event.target.querySelector('[type="submit"]');button.disabled=true;
+  lyricsState.draft=$('#lyrics-editor').value;
+  try{
+    const preview=await api("/api/letra/preview",{id:lyricsState.track.id,texto:lyricsState.draft});
+    lyricsState.pending=preview;
+    modal(`${modalHead(lyricLabel("Salvar letra no arquivo?"),escapeHTML(join(preview.artista)+" — "+join(preview.titulo)))}<div class="modal-body"><div class="backup-note">${icon("shield")}<span>${escapeHTML(lyricLabel("Será criado um backup completo. Só a letra simples será alterada; você pode desfazer pelo Histórico."))}</span></div><h3>${escapeHTML(lyricLabel("Letra conferida"))}</h3><pre class="lyrics-review">${escapeHTML(preview.texto)}</pre>${preview.atual.length?`<details><summary>${escapeHTML(lyricLabel("Letra atual do arquivo"))}</summary><pre class="lyrics-review">${escapeHTML(preview.atual.join("\n\n"))}</pre></details>`:""}<p class="source">${escapeHTML(preview.arquivo)}</p></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${escapeHTML(lyricLabel("Voltar à revisão"))}</button><button class="button primary" data-action="confirm-lyrics">${escapeHTML(lyricLabel("Criar backup e salvar letra"))}</button></div>`);
+  }catch(error){toast(error.message);}finally{button.disabled=false;}
+}
+
+async function captureLyricsJob(job) {
+  if(!job||job.estado!=="concluido"||!job.resultado?.letra_track_id||lyricsState.seenJob===job.id)return;
+  lyricsState.seenJob=job.id;
+  const ident=job.resultado.letra_track_id;
+  for(const key of lyricsState.cache.keys())if(key.startsWith(ident+":"))lyricsState.cache.delete(key);
+  toast(lyricLabel("Letra salva no arquivo. Você pode desfazer pelo Histórico."));
+  if(!$('#lyrics-panel').hidden&&lyricsState.track?.id===ident)await loadLyrics(lyricsState.track);
+}
+
 async function showLyrics(id) {
   if(!id)return;
   lyricsState.returnFocus=document.activeElement;
@@ -90,7 +130,7 @@ async function showLyrics(id) {
 }
 
 function updateLyricsLine() {
-  if($('#lyrics-panel').hidden||!lyricsState.lines.length||state.current?.id!==lyricsState.track?.id)return;
+  if($('#lyrics-panel').hidden||lyricsState.editor||!lyricsState.lines.length||state.current?.id!==lyricsState.track?.id)return;
   const seconds=$('#audio').currentTime;
   let lo=0,hi=lyricsState.lines.length-1,index=-1;
   while(lo<=hi){const mid=(lo+hi)>>1;if(lyricsState.lines[mid].t<=seconds){index=mid;lo=mid+1;}else hi=mid-1;}
@@ -111,5 +151,12 @@ document.addEventListener("click",event=>{
   const button=event.target.closest("button");if(!button||button.disabled)return;
   if(button.dataset.lyrics)showLyrics(button.dataset.lyrics);
   else if(button.dataset.action==="retry-lyrics"&&lyricsState.track)loadLyrics(lyricsState.track);
+  else if(button.dataset.action==="edit-lyrics")editLyrics();
+  else if(button.dataset.action==="confirm-lyrics"&&lyricsState.pending){
+    button.disabled=true;
+    api("/api/letra/salvar",{previa:lyricsState.pending.previa}).then(async()=>{lyricsState.pending=null;$('#modal').close();await updateState();toast(lyricLabel("Criando backup e salvando a letra…"));}).catch(error=>{button.disabled=false;toast(error.message);});
+  }
 });
+document.addEventListener("submit",event=>{if(event.target.id==="lyrics-form")previewLyrics(event);});
+document.addEventListener("input",event=>{if(event.target.id==="lyrics-editor")lyricsState.draft=event.target.value;});
 document.addEventListener("keydown",event=>{if(event.key==="Escape"&&!$('#lyrics-panel').hidden&&!$('#modal').open){event.preventDefault();closeLyrics();}});
