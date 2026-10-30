@@ -1,29 +1,32 @@
-# Como contribuir
+# Contributing
 
-Obrigado pelo interesse no Acervo. Este guia resume o que é preciso saber antes
-de abrir uma contribuição.
+**English** · [Português](CONTRIBUTING.pt-BR.md)
 
-## Princípio central
+Thanks for your interest in Acervo. This guide covers what you need to know
+before opening a contribution. Issues and pull requests are welcome in English
+or Portuguese.
 
-O Acervo lida com a coleção de música de outras pessoas. Toda mudança precisa
-respeitar estas garantias:
+## Core principle
 
-- Nada é gravado na coleção sem uma prévia e uma aprovação explícita.
-- Antes de qualquer gravação existe um backup completo e verificável, e a
-  restauração devolve o arquivo original byte por byte.
-- Nada é excluído, renomeado, movido ou reconvertido automaticamente.
-- Capas, tags não aprovadas, versões legítimas (ao vivo, demo, remix, bônus) e
-  o fluxo de áudio são preservados.
-- Identificações ambíguas vão para revisão, com a fonte registrada.
-- O uso não depende de Spotify Premium nem de serviços pagos.
+Acervo handles other people's music collections. Every change must keep these
+guarantees:
 
-Uma contribuição que enfraqueça qualquer uma dessas garantias não será aceita,
-mesmo que deixe o programa mais rápido ou mais simples.
+- Nothing is written to the collection without a preview and explicit approval.
+- Every write has a full, verified backup first, and restoring brings back the
+  original file byte for byte.
+- Nothing is deleted, renamed, moved or re-encoded automatically.
+- Cover art, unapproved tags, legitimate versions (live, demo, remix, bonus) and
+  the audio stream are preserved.
+- Ambiguous identifications go to review, with their source recorded.
+- Using Acervo does not require Spotify Premium or any paid service.
 
-## Ambiente
+A contribution that weakens any of these guarantees will not be accepted, even
+if it makes the program faster or simpler.
 
-Requisitos: Python 3.10 ou superior e `ffmpeg` (usado pelos testes para gerar
-áudio temporário).
+## Environment
+
+Requirements: Python 3.10 or newer and `ffmpeg` (the tests use it to generate
+temporary audio).
 
 ```bash
 python -m venv .venv
@@ -31,57 +34,70 @@ python -m venv .venv
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-A interface é HTML, CSS e JavaScript puros, sem npm e sem etapa de compilação.
-Para conferir a sintaxe dos scripts:
+The interface is plain HTML, CSS and JavaScript, with no npm and no build step.
+To check the scripts' syntax:
 
 ```bash
 for f in web/*.js; do node --check "$f"; done
 ```
 
-## Testes
+The code, the interface and the command line are written in Portuguese
+(identifiers, messages and option names). Please follow the surrounding style;
+new user-facing text should be added in a way that can be translated.
 
-- **Nunca use a sua coleção real nos testes.** Gere arquivos temporários com
-  ffmpeg, como a suíte existente faz em `tests/test_biblioteca.py`.
-- Toda mudança em gravação, importação ou restauração precisa de testes que
-  demonstrem a preservação do que não foi aprovado e a restauração do original.
-- Consultas a serviços externos (MusicBrainz, spotDL, yt-dlp) devem ser
-  simuladas nos testes. O CI não acessa a rede para buscar músicas.
+## Tests
 
-## Organização do código
+- **Never use your real collection in tests.** Generate temporary files with
+  ffmpeg, as the existing suite does in `tests/test_biblioteca.py`.
+- Every change to writing, importing or restoring needs tests that show what
+  was not approved is preserved and that the original can be restored.
+- External services (MusicBrainz, LRCLIB, spotDL, yt-dlp) must be mocked in
+  tests. CI does not reach the network to look up music.
 
-| Arquivo | Responsabilidade |
+## Code layout
+
+| File | Responsibility |
 | --- | --- |
-| `corrigir_tags.py` | Linha de comando: `analisar`, `aplicar`, `restaurar`, `interface` |
-| `diagnostico_biblioteca.py` | Leitura e inventário, sem gravar |
-| `biblioteca_plano.py` | Regras, propostas e plano de aprovação |
-| `biblioteca_core.py` | Gravação validada, backups e restauração |
-| `biblioteca_downloads.py` | Catálogos, comparação e downloads fora da coleção |
-| `biblioteca_importacao.py` | Importação transacional e desfazer |
-| `musicbrainz_local.py` | Cliente MusicBrainz opcional, com cache e limite |
-| `servidor.py` e `web/` | Servidor local e interface |
+| `corrigir_tags.py` | Command line: `analisar`, `aplicar`, `restaurar`, `interface`, `playlist`, `proteger`, `desproteger`, `protecoes` |
+| `diagnostico_biblioteca.py` | Reading and inventory, never writes |
+| `biblioteca_plano.py` | Rules, proposals and the approval plan |
+| `biblioteca_core.py` | Validated writes, backups and restore |
+| `biblioteca_importacao.py` | Transactional import and undo |
+| `biblioteca_downloads.py` | Advanced download flow (review area) |
+| `baixador.py`, `baixar.py`, `spotdl_busca.py` | Direct spotDL downloads (core, terminal menu and adapter) |
+| `seletor_downloads.py` | Server side of the Baixar page |
+| `busca.py` | Library ranking and global suggestions |
+| `versoes.py` | Studio/live/acoustic/demo/remix classification |
+| `letras.py` | Lyrics from the file and LRCLIB; saving with backup |
+| `protecoes.py` | Protected fields |
+| `playlists.py` | M3U8 playlists |
+| `musicbrainz_local.py` | Optional MusicBrainz client, with cache and limits |
+| `servidor.py` and `web/` | Local server and interface |
 
-O planejamento das próximas funcionalidades está em [ROADMAP.md](ROADMAP.md).
-Só marque um item como concluído depois de cumprir o critério descrito lá.
+Planned features are listed in [ROADMAP.md](ROADMAP.md) (Portuguese). Only mark
+an item as done once it meets the criteria described there.
 
-## Regras de gênero e álbum
+## Genre and album rules
 
-`generos_artistas.csv` e `albuns_excecoes.csv` são regras de curadoria local.
-Ao propor novas regras:
+`generos_artistas.csv` and `albuns_excecoes.csv` are locally curated rules.
+When proposing new rules:
 
-- Prefira gêneros específicos e úteis (por exemplo, `Thrash Metal` em vez de
+- Prefer specific, useful genres (for example `Thrash Metal` rather than
   `Rock`).
-- Use regras por álbum quando a discografia do artista muda de estilo.
-- Não apresente uma regra local como identificação confirmada da gravação.
+- Use per-album rules when an artist's style changes, or when another band
+  shares the same name.
+- Record the source of the rule, and do not present a local rule as a confirmed
+  identification of the recording.
 
 ## Pull requests
 
-- Uma mudança por pull request, com descrição do problema e de como foi testada.
-- Não inclua arquivos de áudio, capas extraídas, relatórios, backups, cookies,
-  credenciais nem caminhos da sua máquina.
-- Mensagens de commit curtas, no estilo `tipo: descrição` (`feat`, `fix`,
+- One change per pull request, describing the problem and how it was tested.
+- Do not include audio files, extracted cover art, reports, backups, cookies,
+  credentials or paths from your machine.
+- Short commit messages in the `type: description` style (`feat`, `fix`,
   `docs`, `test`, `refactor`).
 
-## Licença
+## License
 
-Ao contribuir, você concorda em licenciar sua contribuição sob a
-[licença MIT](LICENSE) do projeto.
+By contributing, you agree to license your contribution under the project's
+[MIT license](LICENSE).

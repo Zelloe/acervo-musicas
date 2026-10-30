@@ -1,47 +1,56 @@
 # Acervo
 
-Gerenciador local de bibliotecas musicais. O Acervo lê a sua coleção de MP3 e
-FLAC, sugere correções de metadados (gênero, nome de álbum e outros campos),
-mostra tudo numa interface no navegador e só grava o que você aprovar, sempre
-com backup completo e restauração exata.
+**English** · [Português](README.pt-BR.md)
 
-A organização fica **dentro dos arquivos**, nas tags que qualquer player lê.
-O Acervo não cria pastas por gênero ou álbum, não renomeia, não move e não
-exclui músicas.
+A local music library manager. Acervo reads your MP3 and FLAC collection,
+suggests metadata fixes (genre, album name and other fields), shows everything
+in a browser interface and only writes what you approve, always with a full
+backup and an exact restore.
 
-> **Estado do projeto:** em desenvolvimento. O editor de metadados com backup e
-> restauração é a parte mais madura. Downloads e importação ainda estão sendo
-> testados. Veja o [ROADMAP](ROADMAP.md).
+Organisation lives **inside the files**, in the tags any player can read.
+Acervo does not create genre or album folders, and it never renames, moves or
+deletes your music.
 
-## O que ele faz
+> **Project status:** under active development. See the [ROADMAP](ROADMAP.md)
+> (in Portuguese).
+>
+> The interface and the command line are currently in Portuguese; commands and
+> options keep their Portuguese names (for example `--pasta` means "folder").
 
-- **Inventário:** lê MP3 (ID3v2.3/v2.4) e FLAC (Vorbis Comments) recursivamente,
-  com tags, capas, características técnicas e hashes.
-- **Sugestões de gênero:** a partir de regras locais editáveis por artista e por
-  álbum (`generos_artistas.csv`) e, opcionalmente, do MusicBrainz. Gêneros já
-  preenchidos são preservados por padrão.
-- **Unificação de álbuns:** regras conservadoras (`albuns_excecoes.csv`) que
-  exigem artista, edição, disco, faixa e título compatíveis. O nome anterior
-  fica guardado numa tag própria. Versões ao vivo, demos e bônus não são fundidas
-  só por semelhança de nome.
-- **Aprovação por alteração:** cada mudança aparece com o valor atual e o
-  sugerido, e só as linhas aprovadas são gravadas.
-- **Backup e restauração:** antes de gravar, o arquivo original inteiro é
-  copiado e verificado. A restauração devolve o original byte por byte e recusa
-  sobrescrever edições feitas depois por outro programa.
-- **Interface local:** biblioteca com busca e filtros, reprodução, revisão de
-  propostas, álbuns, histórico e restauração. Roda só em `127.0.0.1`.
-- **Downloads:** escolher artista, álbum, edição e faixas e baixar com spotDL
-  direto numa pasta, pelo navegador ou pelo terminal.
+## What it does
 
-## Instalação
+- **Inventory:** reads MP3 (ID3v2.3/v2.4) and FLAC (Vorbis comments)
+  recursively, with tags, cover art, technical details and hashes.
+- **Genre suggestions:** from editable local rules per artist and per album
+  (`generos_artistas.csv`) and, optionally, MusicBrainz. Existing genres are
+  kept by default.
+- **Album unification:** conservative rules (`albuns_excecoes.csv`) that require
+  matching artist, edition, disc, track number and title. The previous name is
+  kept in its own tag. Live versions, demos and bonus tracks are never merged
+  just because their names look alike.
+- **Per-change approval:** every change shows the current and the suggested
+  value, and only approved rows are written.
+- **Backup and restore:** before writing, the whole original file is copied and
+  verified. Restoring brings back the original byte for byte and refuses to
+  overwrite later edits made by another program.
+- **Local interface:** library with search and filters, playback, proposal
+  review, albums, history and restore. It only listens on `127.0.0.1`.
+- **Downloads:** pick an artist, album, edition and tracks and download them
+  with spotDL straight into a folder, from the browser or the terminal.
+- **Search:** in your library or in the global catalogue, with suggestions as
+  you type, recording-type filters (studio, live, acoustic…), cover art and
+  artist photos.
+- **Lyrics:** shows lyrics (synced when available) and lets you save them into
+  the file, with backup and undo.
 
-Requisitos:
+## Installation
 
-- Linux (testado em Arch/EndeavourOS e no fluxo do Ubuntu/Mint).
-- Python 3.10 ou superior, com o módulo `venv`. No Ubuntu/Mint:
+Requirements:
+
+- Linux (tested on Arch/EndeavourOS and with the Ubuntu/Mint setup).
+- Python 3.10 or newer with the `venv` module. On Ubuntu/Mint:
   `sudo apt install python3 python3-venv`.
-- Opcional, para baixar músicas: `ffmpeg` (`sudo apt install ffmpeg`) e
+- Optional, to download music: `ffmpeg` (`sudo apt install ffmpeg`) and
   [spotDL](https://github.com/spotDL/spotify-downloader) (`pipx install spotdl`).
 
 ```bash
@@ -50,248 +59,269 @@ cd acervo-musicas
 ./iniciar.sh
 ```
 
-Na primeira execução, `iniciar.sh` e `baixar.sh` criam a `.venv` e instalam as
-dependências sozinhos (precisa de internet). Não há dependências de JavaScript
-nem etapa de compilação.
+On first run, `iniciar.sh` and `baixar.sh` create the `.venv` and install the
+dependencies on their own (internet required). There are no JavaScript
+dependencies and no build step.
 
-Sem `--pasta`, o Acervo usa a pasta de músicas do sistema, a mesma que o
-gerenciador de arquivos mostra (por exemplo `~/Música` no Linux em português ou
-`~/Music` em inglês). Se ela não existir, o programa avisa e pede `--pasta`.
+Without `--pasta`, Acervo uses the system music folder, the same one your file
+manager shows (for example `~/Music`, or `~/Música` on a Portuguese system). If
+it does not exist, the program says so and asks for `--pasta`.
 
-## Baixar músicas
+## Downloading music
 
-Requer [spotDL](https://github.com/spotDL/spotify-downloader) (`pipx install spotdl`)
-e `ffmpeg`. Não precisa de conta de desenvolvedor do Spotify nem de Premium.
-Há duas formas de usar, com o mesmo comportamento.
+Requires [spotDL](https://github.com/spotDL/spotify-downloader)
+(`pipx install spotdl`) and `ffmpeg`. No Spotify developer account and no
+Premium subscription are needed. There are two ways to use it, with the same
+behaviour.
 
-**No navegador:** abra a interface (`./iniciar.sh`) e vá em **Baixar**. Escolha
-a aba Artista, Música ou Link, confira a pasta de destino e marque as faixas. As
-que faltam já vêm marcadas; as que você já tem aparecem desmarcadas. Quando o
-destino fica dentro da coleção aberta, as músicas novas aparecem na Biblioteca
-logo depois do download, sem precisar refazer a análise.
+**In the browser:** open the interface (`./iniciar.sh`) and go to **Baixar**
+("Download"). Pick the Artist, Song or Link tab, check the destination folder
+and tick the tracks. Missing tracks come pre-selected; the ones you already
+have are left unticked. When the destination is inside the open library, new
+songs show up in the Library right after the download, without a new analysis.
 
-**No terminal:**
+**In the terminal:**
 
 ```bash
 ./baixar.sh --pasta "$HOME/Music"
 ```
 
-O menu oferece três caminhos:
+The menu offers three paths:
 
-1. **Procurar artista:** mostra os álbuns com o ano; você escolhe o álbum, a
-   edição (normal, deluxe…) quando houver mais de uma, e as faixas.
-2. **Procurar música:** lista as versões encontradas com o álbum de cada uma.
-3. **Colar link do Spotify:** de música, álbum ou playlist.
+1. **Search an artist:** lists albums with their year; you pick the album, the
+   edition (standard, deluxe…) when there is more than one, and the tracks.
+2. **Search a song:** lists the versions found, each with its album.
+3. **Paste a Spotify link:** to a song, album or playlist.
 
-Na lista de faixas, as que você já tem na pasta aparecem como `[já tenho]`.
-Responda com `enter` para baixar só as que faltam, `todas`, ou números como
-`1-3,5`.
+In the track list, songs you already have in the folder are marked
+`[já tenho]` ("already have"). Press `enter` to download only the missing ones,
+type `todas` ("all"), or numbers such as `1-3,5`.
 
-Cada faixa vira `Artista - Título.mp3` direto na pasta escolhida, com título,
-artista, álbum, ano, número da faixa e capa vindos do spotDL. Como o spotDL sem
-API oficial não informa gênero, o gênero é preenchido pelas regras de
-`generos_artistas.csv` quando houver uma regra única para o artista ou álbum.
+Each track becomes `Artist - Title.mp3` directly in the chosen folder, with
+title, artist, album, year, track number and cover art from spotDL. Since
+spotDL without the official API does not provide genres, the genre is filled in
+from `generos_artistas.csv` when there is a single matching rule for the artist
+or album. Lyrics are embedded when they are found.
 
-O spotDL trabalha numa pasta temporária fora da coleção. O arquivo só aparece no
-destino depois de o download terminar com sucesso e o áudio ser validado com
-ffmpeg. Um arquivo que já exista com o mesmo nome nunca é substituído.
+spotDL works in a temporary folder outside your collection. The file only
+appears in the destination after the download finishes successfully and the
+audio passes an `ffmpeg` decode check. An existing file with the same name is
+never replaced.
 
-O spotDL usa os metadados do Spotify e busca o áudio no YouTube; `320k` é a
-taxa de saída, não a qualidade da fonte. Baixe apenas o que você tem o direito
-de baixar no seu país.
+spotDL takes metadata from Spotify and finds the audio on YouTube; `320k` is
+the output bitrate, not the quality of the source. Only download what you have
+the right to download in your country.
 
-## Uso pela interface
+## Search, filters and lyrics
+
+**Search:** the top bar has a **Your library | Global** switch. In your library,
+suggestions (artists, albums and songs) appear as you type, ignoring accents,
+case and punctuation and tolerating small typos (`metalica`, `acdc`). Enter
+lists the songs by relevance. In Global mode, suggestions come from spotDL's
+catalogue, and choosing an artist opens the **Baixar** page; nothing is
+downloaded until you choose.
+
+**Recording filters:** the Library and Baixar show a label on every song or
+album, plus **Studio, Live, Acoustic, Demo/Remix and Compilation** filters.
+Classification only looks at title qualifiers (`- Live`, `(Acoustic Version)`)
+and the album name (`Holy Live`, `Live in São Paulo`), so "Live and Learn" and
+"To Live Is to Die" stay studio recordings. A live album whose name does not
+say so shows up as studio.
+
+**Lyrics:** the player's lyrics panel uses, in this order, lyrics already saved
+in the file (or a `.lrc` file with the same name) and lyrics from
+[LRCLIB](https://lrclib.net), an open database that needs no account. To query
+LRCLIB, Acervo sends the artist, title, album and duration. Synced lyrics
+highlight the current line. After checking (and, if you want, correcting) the
+text, **Salvar letra no arquivo** ("save lyrics to file") writes the plain
+lyrics with a full backup; History can undo it. Looked-up lyrics are cached
+locally, outside your collection.
+
+## Using the interface
 
 ```bash
-./iniciar.sh --pasta "/caminho/para/suas/musicas"
+./iniciar.sh --pasta "/path/to/your/music"
 ```
 
-O navegador abre em <http://127.0.0.1:8765>. Mantenha o terminal aberto
-enquanto usa a interface. Ctrl+C encerra o servidor.
+The browser opens at <http://127.0.0.1:8765>. Keep the terminal open while you
+use the interface; Ctrl+C stops the server. After updating Acervo, restart the
+server (the page warns you when that is needed).
 
-Sem abrir o navegador automaticamente, ou com outra porta:
+Without opening the browser automatically, or on another port:
 
 ```bash
 .venv/bin/python corrigir_tags.py interface \
-  --pasta "/caminho/para/suas/musicas" \
+  --pasta "/path/to/your/music" \
   --porta 8765 \
-  --dados "/caminho/para/dados-do-acervo"
+  --dados "/path/to/acervo-data"
 ```
 
-`--dados` define onde ficam relatórios, backups e downloads em revisão. Deve ser
-uma pasta fora da coleção. O padrão é o diretório do programa.
+`--dados` ("data") sets where reports, backups and review downloads are kept.
+It must be outside the collection. The default is the program folder.
 
-Abrir a interface, ouvir músicas e gerar análises **não modifica** a coleção.
-A primeira análise lê todos os arquivos e calcula hashes, e pode levar alguns
-minutos em coleções grandes.
+Opening the interface, playing music and running analyses **does not modify**
+the collection. The first analysis reads every file and computes hashes, which
+can take a few minutes on large collections.
 
-## Uso pela linha de comando
+## Command line
 
-1. Gerar uma prévia (não grava nada):
+1. Create a preview (writes nothing):
 
    ```bash
    .venv/bin/python corrigir_tags.py analisar \
-     --pasta "/caminho/para/suas/musicas" \
+     --pasta "/path/to/your/music" \
      --normalizar-albuns \
-     --saida relatorios/minha_previa
+     --saida relatorios/my_preview
    ```
 
-2. Abrir `relatorios/minha_previa/alteracoes.csv` e trocar a coluna `aprovar`
-   para `sim` nas linhas desejadas. Não edite outras colunas: o plano é
-   conferido antes da aplicação.
+2. Open `relatorios/my_preview/alteracoes.csv` and set the `aprovar`
+   ("approve") column to `sim` ("yes") on the rows you want. Do not edit other
+   columns: the plan is checked before it is applied.
 
-3. Aplicar:
+3. Apply:
 
    ```bash
    .venv/bin/python corrigir_tags.py aplicar \
-     --plano relatorios/minha_previa/plano.json \
-     --aprovacoes relatorios/minha_previa/alteracoes.csv
+     --plano relatorios/my_preview/plano.json \
+     --aprovacoes relatorios/my_preview/alteracoes.csv
    ```
 
-4. Desfazer, se necessário, com o manifesto informado na aplicação:
+4. Undo if needed, with the manifest printed when applying:
 
    ```bash
    .venv/bin/python corrigir_tags.py restaurar \
-     --manifesto backups/ID_DA_EXECUCAO/manifesto.json
+     --manifesto backups/RUN_ID/manifesto.json
    ```
 
-Opções da análise:
+Analysis options:
 
-| Opção | Efeito |
+| Option | Effect |
 | --- | --- |
-| `--generos ARQUIVO` | Usar outro CSV de regras de gênero |
-| `--albuns ARQUIVO` | Usar outro CSV de regras de álbum |
-| `--musicbrainz --contato "e-mail ou URL"` | Consultar o MusicBrainz para faixas sem regra local |
-| `--max-consultas N` | Limite de consultas ao MusicBrainz (padrão 200) |
+| `--generos FILE` | Use another genre rules CSV |
+| `--albuns FILE` | Use another album rules CSV |
+| `--musicbrainz --contato "email or URL"` | Query MusicBrainz for tracks without a local rule |
+| `--max-consultas N` | MusicBrainz query limit (default 200) |
 
-### Campos protegidos
+### Protected fields
 
-Um campo protegido nunca é sugerido nem gravado pelo Acervo, mesmo que esteja
-vazio e mesmo que uma regra, o MusicBrainz ou um download proponham outro valor:
+A protected field is never suggested or written by Acervo, even when it is
+empty and even if a rule, MusicBrainz or a download proposes another value:
 
 ```bash
 .venv/bin/python corrigir_tags.py proteger \
-  --pasta "/caminho/para/suas/musicas" \
-  --arquivo "/caminho/para/suas/musicas/Artista/faixa.mp3" \
+  --pasta "/path/to/your/music" \
+  --arquivo "/path/to/your/music/Artist/track.mp3" \
   --campos genero,album
 ```
 
-Campos aceitos: `titulo`, `artista`, `artista_album`, `album`, `genero`, `ano`,
-`faixa` e `disco`. Use `desproteger` com os mesmos argumentos para liberar e
-`protecoes --pasta ...` para listar.
+Accepted fields: `titulo` (title), `artista` (artist), `artista_album` (album
+artist), `album`, `genero` (genre), `ano` (year), `faixa` (track) and `disco`
+(disc). Use `desproteger` with the same arguments to unlock, and
+`protecoes --pasta ...` to list. In the interface, protect fields from the
+track details or for a whole album.
 
-A proteção é conferida de novo no momento de gravar. Um plano ou uma importação
-preparados antes da proteção são recusados se tentarem mudar o campo. Uma
-restauração que voltaria um campo protegido a outro valor também é recusada até
-o campo ser desbloqueado, porque a restauração devolve o arquivo original
-inteiro.
+Protection is checked again at write time. A plan or import prepared before
+the protection is refused if it tries to change the field. A restore that would
+change a protected field back is also refused until the field is unlocked,
+because restoring brings back the whole original file.
 
-As proteções ficam em `<dados>/.biblioteca/protecoes/`, um arquivo por coleção,
-identificadas pelo caminho da faixa relativo à pasta da coleção. Se uma faixa
-for movida ou renomeada por outro programa, a proteção não a acompanha. Se esse
-arquivo estiver corrompido ou pertencer a outra coleção, o Acervo recusa
-qualquer gravação em vez de ignorar as proteções. Os comandos `analisar`,
-`aplicar`, `restaurar` e a interface usam a mesma pasta de dados; o padrão é o
-diretório do programa, e `--dados` escolhe outra.
+Protections live in `<dados>/.biblioteca/protecoes/`, one file per collection,
+keyed by the track path relative to the collection folder. If another program
+moves or renames a track, the protection does not follow it. If that file is
+corrupted or belongs to another collection, Acervo refuses every write instead
+of ignoring the protections.
 
-### Playlists M3U8
+### M3U8 playlists
 
-Na interface, use **Exportar M3U8** na Biblioteca (exporta todas as faixas da
-busca e do filtro atuais, inclusive as das outras páginas) ou no cartão de um
-álbum. Antes de salvar, uma prévia mostra o destino e as primeiras faixas. A
-playlist fica na pasta `Playlists/` da coleção, que é o único lugar onde a
-interface cria um arquivo novo dentro da coleção; as músicas não são alteradas.
+In the interface, use **Exportar M3U8** in the Library (exports every track of
+the current search and filter, including other pages) or on an album card. A
+preview shows the destination and the first tracks before saving. Playlists go
+to the collection's `Playlists/` folder, the only place where the interface
+creates a new file inside the collection; songs are not modified.
 
-Para substituir uma playlist que já existe, é preciso marcar essa opção na
-prévia. Antes da troca, a versão anterior é copiada e conferida em
-`backups/playlists/`, fora da coleção, e o caminho dessa cópia aparece na
-confirmação. Para voltar à versão anterior, copie esse arquivo de volta para
-`Playlists/`.
+Replacing an existing playlist must be ticked in the preview. Before the
+replacement, the previous version is copied and verified in
+`backups/playlists/`, outside the collection, and that path is shown in the
+confirmation.
 
-Pela linha de comando, a exportação só lê a coleção:
+From the command line, exporting only reads the collection:
 
 ```bash
 .venv/bin/python corrigir_tags.py playlist \
-  --pasta "/caminho/para/suas/musicas" \
+  --pasta "/path/to/your/music" \
   --genero "Progressive Rock" \
-  --nome "Progressivo" \
-  --saida "/caminho/para/suas/musicas/Playlists/Progressivo.m3u8"
+  --nome "Progressive" \
+  --saida "/path/to/your/music/Playlists/Progressive.m3u8"
 ```
 
-Os filtros `--genero`, `--artista` e `--album` comparam o valor inteiro, sem
-diferenciar maiúsculas. Sem filtros, a playlist inclui a coleção toda, ordenada
-por artista do álbum, álbum, disco e faixa.
-
-O arquivo é UTF-8, sem BOM, e os caminhos são relativos à pasta da playlist.
-Se a playlist ficar dentro da pasta da coleção e as duas forem copiadas juntas
-para outro disco, os caminhos continuam válidos. Uma playlist existente não é
-substituída sem `--sobrescrever`. Para conferir se todos os caminhos ainda
-resolvem:
+`--genero`, `--artista` and `--album` match the whole value, case-insensitive.
+Without filters the playlist contains the whole collection, ordered by album
+artist, album, disc and track. Files are UTF-8 without BOM, with paths relative
+to the playlist folder, so they keep working when the collection and its
+playlists are copied together to another disk. An existing playlist is not
+replaced without `--sobrescrever` ("overwrite"). To check that every path still
+resolves:
 
 ```bash
-.venv/bin/python corrigir_tags.py playlist --validar --saida Progressivo.m3u8
+.venv/bin/python corrigir_tags.py playlist --validar --saida Progressive.m3u8
 ```
 
-## Como as gravações são protegidas
+## How writes are protected
 
-Cada arquivo é editado numa cópia temporária. Antes de substituir o original no
-mesmo caminho, o Acervo confere:
+Each file is edited in a temporary copy. Before replacing the original at the
+same path, Acervo checks:
 
-- que o fluxo de áudio comprimido é idêntico (sem recodificação);
-- que capas, tags não aprovadas, frames desconhecidos e blocos FLAC continuam lá;
-- que a versão do ID3v2 e o ID3v1 existente foram mantidos;
-- que as tags gravadas são exatamente as aprovadas.
+- that the compressed audio stream is identical (no re-encoding);
+- that cover art, unapproved tags, unknown frames and FLAC blocks are still
+  there;
+- that the ID3v2 version and any existing ID3v1 tag were kept;
+- that the written tags are exactly the approved ones.
 
-Uma aplicação recusa arquivos que mudaram desde a prévia. Arquivos com links
-simbólicos ou hard links ficam para revisão manual. Uma execução interrompida
-pode ser restaurada pelo manifesto.
-
-O espaço dos backups é igual ao tamanho dos arquivos alterados. Os backups não
-são apagados automaticamente.
+Applying refuses files that changed since the preview. Files that are symlinks
+or have hard links are left for manual review. An interrupted run can be
+restored from its manifest. Backups take as much space as the changed files and
+are never deleted automatically.
 
 ## MusicBrainz
 
-A consulta é opcional e desligada por padrão. Envia apenas nomes de artista e
-álbum, nunca áudio. Exige um contato real para identificar o cliente, como pede
-a [política de uso](https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting),
-respeita o intervalo mínimo entre requisições e guarda cache por 30 dias.
-Artistas homônimos ou sem correspondência suficiente ficam pendentes.
+Lookups are optional and off by default. Only artist and album names are sent,
+never audio. A real contact is required to identify the client, as the
+[usage policy](https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting) asks;
+the minimum interval between requests is respected and results are cached for
+30 days. A genre is only suggested when the album itself is matched, so a band
+that merely shares a name never lends its genre.
 
-Nomes, tags e duração são evidências parciais. O Acervo ainda não faz
-identificação pelo áudio (impressão digital acústica).
+Names, tags and duration are partial evidence. Acervo does not yet identify
+recordings by audio fingerprint.
 
-## Downloads avançados
+## Advanced downloads
 
-O menu **Baixar** usa o fluxo direto descrito em [Baixar músicas](#baixar-músicas).
-Para quem prefere revisar antes de qualquer arquivo entrar na coleção, há um
-fluxo avançado em **Preferências → Downloads avançados**, que separa o download
-da entrada na coleção:
+The **Baixar** menu uses the direct flow described in
+[Downloading music](#downloading-music). If you prefer to review before any
+file enters the collection, an advanced flow lives under **Preferências →
+Downloads avançados** (Preferences → Advanced downloads):
 
-1. Informar um link ou busca e ver o catálogo da fonte.
-2. Comparar com os arquivos locais e escolher as faixas.
-3. Baixar numa área de revisão, fora da coleção.
-4. Ouvir, revisar tags e escolher, por faixa: manter a coleção, aplicar só as
-   tags, adicionar como nova versão ou substituir um MP3 local (com backup).
+1. Enter a link or search and see the source catalogue.
+2. Compare with local files and choose tracks.
+3. Download into a review area outside the collection.
+4. Listen, review tags and choose per track: keep the collection, apply only
+   the tags, add as a new version, or replace a local MP3 (with backup).
 
-O Acervo recusa substituir FLAC por MP3. A opção de bitrate define a taxa de
-saída e **não prova** a qualidade da fonte. O spotDL usa metadados do Spotify e
-busca o áudio em outras fontes. Não é preciso ter Spotify Premium.
+Acervo refuses to replace FLAC with MP3.
 
-Baixe apenas conteúdo que você tem o direito de baixar no seu país.
-
-## Testes
+## Tests
 
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-Os testes geram pequenos arquivos temporários com `ffmpeg` e nunca tocam numa
-coleção real.
+Tests generate small temporary files with `ffmpeg`, mock every network service
+and never touch a real collection.
 
-## Contribuir
+## Contributing
 
-Veja [CONTRIBUTING.md](CONTRIBUTING.md) e o [ROADMAP](ROADMAP.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the [ROADMAP](ROADMAP.md).
 
-## Licença
+## License
 
 [MIT](LICENSE).
