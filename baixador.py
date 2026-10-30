@@ -17,6 +17,7 @@ from mutagen.id3 import ID3, ID3NoHeaderError, TCON
 
 from biblioteca_plano import BASE, rules
 from diagnostico_biblioteca import TEMP_PREFIXES, album_base, normalized
+from letras import Letras, embutir_texto
 from versoes import classificar
 
 ADAPTER = BASE / "spotdl_busca.py"
@@ -193,7 +194,7 @@ def _publish(source: Path, final: Path) -> None:
         temp.unlink(missing_ok=True)
 
 
-def _baixar_uma(item: dict, pasta: Path, executable: str, regras: list[dict], bitrate: str) -> dict:
+def _baixar_uma(item: dict, pasta: Path, executable: str, regras: list[dict], bitrate: str, letras: Letras | None = None) -> dict:
     url = item.get("url", "")
     if not re.fullmatch(r"https://open\.spotify\.com/track/[A-Za-z0-9]+", url.split("?")[0]):
         return {**item, "estado": "erro", "mensagem": "Link de faixa inválido"}
@@ -216,15 +217,21 @@ def _baixar_uma(item: dict, pasta: Path, executable: str, regras: list[dict], bi
             return {**item, "estado": "erro", "mensagem": "O áudio baixado está corrompido ou incompleto"}
         genre = genero_por_regra(item.get("artista_album") or item.get("artista", ""), item.get("album", ""), regras)
         filled = _fill_genre(audio, genre)
+        lyrics = False
+        if letras:
+            try:
+                lyrics = embutir_texto(audio, letras.buscar(item.get("artista", ""), item.get("titulo", ""), item.get("album", ""), item.get("duracao")))
+            except RuntimeError:
+                lyrics = False  # sem letra o download continua valendo
         final = pasta / audio.name
         try:
             _publish(audio, final)
         except FileExistsError:
             return {**item, "estado": "ja_existia", "arquivo": str(final), "mensagem": "Já existe um arquivo com esse nome na pasta"}
-        return {**item, "estado": "baixado", "arquivo": str(final), "genero_preenchido": genre if filled else ""}
+        return {**item, "estado": "baixado", "arquivo": str(final), "genero_preenchido": genre if filled else "", "letra": lyrics}
 
 
-def baixar(lista: list[dict], pasta: Path, progresso=None, bitrate: str = "320k") -> list[dict]:
+def baixar(lista: list[dict], pasta: Path, progresso=None, bitrate: str = "320k", letras: Letras | bool | None = True) -> list[dict]:
     """Baixa cada faixa direto em `pasta`, sem nunca substituir um arquivo existente.
 
     O spotDL trabalha numa pasta temporária fora da coleção; o arquivo só aparece
@@ -239,12 +246,13 @@ def baixar(lista: list[dict], pasta: Path, progresso=None, bitrate: str = "320k"
     progresso = progresso or (lambda *args: None)
     regras = rules(BASE / "generos_artistas.csv")
     executable = spotdl_executable()
+    letras = Letras() if letras is True else (letras or None)
     results = []
     for index, item in enumerate(lista):
         label = f"{item.get('artista', '')} - {item.get('titulo', '')}"
         progresso(f"Baixando {index + 1} de {len(lista)} · {label}", round(index / len(lista) * 100))
         try:
-            results.append(_baixar_uma(item, pasta, executable, regras, bitrate))
+            results.append(_baixar_uma(item, pasta, executable, regras, bitrate, letras))
         except Exception as error:
             results.append({**item, "estado": "erro", "mensagem": f"{type(error).__name__}: {error}"[:300]})
             # Sem ffmpeg ou sem espaço/escrita no destino, as próximas falhariam igual.
