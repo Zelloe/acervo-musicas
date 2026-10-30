@@ -6,6 +6,7 @@ novos baixados pelo Acervo recebem a letra antes de entrar na pasta.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -192,3 +193,36 @@ def embutir_texto(path: Path, letra: dict) -> bool:
     tags.add(USLT(encoding=3, lang="XXX", desc="", text=letra["texto"]))
     tags.save(path, v2_version=tags.version[1] if tags.version[1] in (3, 4) else 4)
     return True
+
+
+def letra_atual(path: Path) -> list[str]:
+    """Letras simples já gravadas no arquivo, no formato que write_validated confere."""
+    path = Path(path)
+    if path.suffix.casefold() == ".mp3":
+        try:
+            return [frame.text for frame in ID3(path).getall("USLT")]
+        except ID3NoHeaderError:
+            return []
+    return list(FLAC(path).get("lyrics", []))
+
+
+def gravar_letra(root: Path, storage: Path, arquivo: str, texto: str) -> dict:
+    """Grava a letra numa faixa da coleção com backup, conferência e desfazer pelo Histórico."""
+    from biblioteca_core import secure_file, sha256
+    from biblioteca_importacao import import_reviewed
+
+    texto = (texto or "").replace("\r\n", "\n").strip()
+    if not texto or "\x00" in texto or len(texto) > 100_000:
+        raise ValueError("Letra vazia ou inválida")
+    if parse_lrc(texto):
+        raise ValueError("Grave a letra sem marcações de tempo; a versão sincronizada fica no cache do Acervo")
+    root = Path(root).resolve(strict=True)
+    path = secure_file(root, arquivo)
+    current = letra_atual(path)
+    if current == [texto]:
+        raise ValueError("A faixa já tem exatamente essa letra")
+    operation = {"acao": "metadados", "arquivo": str(path), "antes_sha256": sha256(path),
+                 "alteracoes": {"letra": {"atual": current, "proposto": [texto]}}}
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    return import_reviewed(root, Path(storage) / "backups", [operation], f"letra-{stamp}", Path(storage))
+

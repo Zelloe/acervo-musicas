@@ -12,7 +12,8 @@ from mutagen.flac import FLAC
 from mutagen.id3 import ID3, TIT2, TPE1, USLT
 
 import baixador
-from letras import Letras, embutir_texto, ler_embutida, parse_lrc
+from biblioteca_importacao import restore_import
+from letras import Letras, embutir_texto, gravar_letra, letra_atual, ler_embutida, parse_lrc
 
 LRC = "[00:00.00] 作词 : Johnson\n[00:27.24]Back in black\n[00:31.00][01:40.50]I hit the sack\n[ar:AC/DC]\nsem tempo\n"
 
@@ -142,6 +143,39 @@ class EmbeddedLyricsTest(unittest.TestCase):
         self.assertFalse(embutir_texto(path, {**found, "texto": "outra"}))
         self.assertEqual(ID3(path).getall("USLT")[0].text, "Back in black")
         self.assertFalse(embutir_texto(path, {**found, "instrumental": True}))
+
+    def test_write_lyrics_with_backup_and_exact_undo(self):
+        from mutagen.id3 import APIC
+        library, storage = self.dir / "musicas", self.dir / "dados"
+        library.mkdir()
+        mp3 = library / "faixa.mp3"
+        shutil.copy(self.mp3, mp3)
+        tags = ID3()
+        tags.add(TIT2(encoding=3, text=["Back In Black"]))
+        tags.add(APIC(encoding=3, mime="image/png", type=3, desc="Cover", data=b"capa"))
+        tags.save(mp3, v2_version=3)
+        flac = library / "faixa.flac"
+        shutil.copy(self.flac, flac)
+        originals = {p: p.read_bytes() for p in (mp3, flac)}
+        manifests = []
+        for path in (mp3, flac):
+            manifests.append(gravar_letra(library, storage, str(path), "Back in black\r\nI hit the sack")["manifesto"])
+            self.assertEqual(letra_atual(path), ["Back in black\nI hit the sack"])
+        self.assertEqual(ID3(mp3).getall("APIC")[0].data, b"capa")
+        self.assertEqual(ID3(mp3).getall("TIT2")[0].text, ["Back In Black"])
+        gravar_letra(library, storage, str(mp3), "Letra corrigida")  # trocar uma letra existente
+        self.assertEqual(letra_atual(mp3), ["Letra corrigida"])
+        with self.assertRaisesRegex(ValueError, "exatamente"):
+            gravar_letra(library, storage, str(mp3), "Letra corrigida")
+        with self.assertRaisesRegex(ValueError, "marcações de tempo"):
+            gravar_letra(library, storage, str(flac), "[00:01.00]verso")
+        restore_import(Path(manifests[1]))
+        self.assertEqual(flac.read_bytes(), originals[flac])
+        with self.assertRaisesRegex(ValueError, "posteriores"):
+            restore_import(Path(manifests[0]))  # a letra mudou depois; não sobrescreve
+        self.assertEqual(letra_atual(mp3), ["Letra corrigida"])
+        with self.assertRaises(ValueError):
+            gravar_letra(library, storage, str(self.dir / "fora.mp3"), "x")
 
     def test_download_embeds_lyrics_and_survives_lyrics_failure(self):
         item = {"titulo": "Back In Black", "artista": "AC/DC", "album": "Back In Black", "duracao": 255, "url": "https://open.spotify.com/track/abc123"}

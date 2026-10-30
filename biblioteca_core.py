@@ -14,7 +14,7 @@ import tempfile
 import uuid
 
 from mutagen.flac import FLAC
-from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, TPE2, TDRC, TYER, TRCK, TPOS, TXXX
+from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, TPE2, TDRC, TYER, TRCK, TPOS, TXXX, USLT
 
 
 ORIGINAL_MP3 = "BibliotecaMusical:AlbumAnterior"
@@ -29,6 +29,9 @@ TAG_FIELDS = {
     "faixa": ("TRCK", TRCK, "tracknumber"),
     "disco": ("TPOS", TPOS, "discnumber"),
 }
+
+# Campos que só são gravados por pedido explícito (fora da análise de metadados).
+EXTRA_FIELDS = {"letra": "lyrics"}  # FLAC: LYRICS; MP3: USLT
 
 
 def id3_field(field: str, version: int):
@@ -161,7 +164,7 @@ def previous_album(path: Path) -> list[str]:
 
 def write_validated(path: Path, changes: dict) -> dict:
     """Só deve receber uma cópia temporária. Aborta se algo não aprovado mudar."""
-    if not changes or set(changes) - TAG_FIELDS.keys():
+    if not changes or set(changes) - TAG_FIELDS.keys() - EXTRA_FIELDS.keys():
         raise ValueError("Campos de alteração não suportados")
     for change in changes.values():
         proposed = change["proposto"]
@@ -178,6 +181,15 @@ def write_validated(path: Path, changes: dict) -> dict:
             tail = handle.read()
         v1 = tail if len(tail) == 128 and tail[:3] == b"TAG" else b""
         for field, change in changes.items():
+            if field == "letra":
+                old = [f.text for f in tags.getall("USLT")]
+                if old != change["atual"]:
+                    raise ValueError("Valor atual de letra difere do plano")
+                allowed.update(k for k in tags.keys() if k.startswith("USLT"))
+                tags.delall("USLT")
+                tags.add(USLT(encoding=1 if tags.version[1] == 3 else 3, lang="XXX", desc="", text=change["proposto"][0]))
+                allowed.add("USLT::XXX")
+                continue
             key, frame = id3_field(field, tags.version[1])
             old = [str(v) for f in tags.getall(key) for v in (f.genres if field == "genero" else f.text)]
             if old != change["atual"]:
@@ -198,7 +210,7 @@ def write_validated(path: Path, changes: dict) -> dict:
         if audio.tags is None:
             audio.add_tags()
         for field, change in changes.items():
-            key = TAG_FIELDS[field][2]
+            key = EXTRA_FIELDS[field] if field in EXTRA_FIELDS else TAG_FIELDS[field][2]
             old = list(audio.get(key, []))
             if old != change["atual"]:
                 raise ValueError(f"Valor atual de {field} difere do plano")
@@ -220,6 +232,10 @@ def write_validated(path: Path, changes: dict) -> dict:
     if after["formato"] == "MP3":
         saved = ID3(path, translate=False)
         for field, change in changes.items():
+            if field == "letra":
+                if [f.text for f in saved.getall("USLT")] != change["proposto"]:
+                    raise ValueError("Não foi possível confirmar a gravação de letra")
+                continue
             key, _ = id3_field(field, saved.version[1])
             actual = [str(v) for f in saved.getall(key) for v in (f.genres if field == "genero" else f.text)]
             if actual != change["proposto"]:
@@ -227,7 +243,8 @@ def write_validated(path: Path, changes: dict) -> dict:
     else:
         saved = FLAC(path)
         for field, change in changes.items():
-            if list(saved.get(TAG_FIELDS[field][2], [])) != change["proposto"]:
+            key = EXTRA_FIELDS[field] if field in EXTRA_FIELDS else TAG_FIELDS[field][2]
+            if list(saved.get(key, [])) != change["proposto"]:
                 raise ValueError(f"Não foi possível confirmar a gravação de {field}")
     if "album" in changes and previous_album(path) != expected_history:
         raise ValueError("Informação da edição não foi preservada")
