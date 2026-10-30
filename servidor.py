@@ -489,7 +489,7 @@ class App:
             try:
                 manifest = json.loads(path.read_text())
                 if manifest["biblioteca"] == str(self.root):
-                    rows.append({"id": path.parent.name, "tipo": manifest.get("tipo", "metadados"), "estado": manifest["estado"], "data": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(), "arquivos": len(manifest["arquivos"]), "erro": manifest.get("erro")})
+                    rows.append({"id": path.parent.name, "tipo": manifest.get("tipo", "metadados"), "categoria": "letra" if str(manifest.get("lote", "")).startswith("letra-") else "", "estado": manifest["estado"], "data": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(), "arquivos": len(manifest["arquivos"]), "erro": manifest.get("erro")})
             except (OSError, ValueError, KeyError):
                 continue
         return sorted(rows, key=lambda r: r["data"], reverse=True)
