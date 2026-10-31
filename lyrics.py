@@ -1,7 +1,9 @@
 """Song lyrics: those already in the file and those from LRCLIB (open, no key).
 
-Nothing is written to the collection: fetched lyrics stay in a local cache. Only new
-files downloaded by Acervo get the lyrics before entering the folder.
+Looked-up lyrics stay in a local cache. Writing into collection tracks only
+happens through save_lyrics()/save_lyrics_batch(), after the user reviews them,
+with a full backup and undo; new downloads get the lyrics before entering the
+folder.
 """
 
 from __future__ import annotations
@@ -221,7 +223,12 @@ def current_lyrics(path: Path) -> list[str]:
 
 def format_lrc(lines: list[dict]) -> str:
     """{"t": 62.5, "linha": "verse"} becomes "[01:02.50]verse" (the common LRC form)."""
-    return "\n".join(f"[{int(line['t'] // 60):02d}:{line['t'] % 60:05.2f}]{line['linha']}" for line in lines)
+    stamped = []
+    for line in lines:
+        hundredths = int(round(line["t"] * 100))  # round first, so 59.999 s becomes 01:00.00 every time
+        minutes, rest = divmod(hundredths, 6000)
+        stamped.append(f"[{minutes:02d}:{rest // 100:02d}.{rest % 100:02d}]{line['linha']}")
+    return "\n".join(stamped)
 
 
 def prepare_text(text: str) -> str:
@@ -300,8 +307,10 @@ def bulk_lookup(tracks: list[dict], client: LyricsClient, progress=None, cancel=
 
     Each result: {"id", "file", "status", "text", "current"} where status is
     "synced", "plain" or "instrumental" (found), "not_found", "already_synced"
-    (the file already has timed lyrics) or "error"/"not_checked" when LRCLIB is
-    unavailable. A file with plain lyrics is offered the synced version if found.
+    (timed lyrics already inside the file's tag) or "error"/"not_checked" when LRCLIB
+    is unavailable. A file with plain lyrics is offered the synced version if found,
+    and timed lyrics that only exist in a .lrc next to the track are offered for
+    storing inside the file ("source": "lrc_file").
     After max_failures consecutive service errors the rest is marked not_checked.
     """
     progress = progress or (lambda *args: None)
@@ -313,12 +322,17 @@ def bulk_lookup(tracks: list[dict], client: LyricsClient, progress=None, cancel=
             results.append({**base, "status": "not_checked"})
             continue
         progress(_("Looking up lyrics {current} of {total}", current=index + 1, total=len(tracks)), round(index / max(len(tracks), 1) * 100))
-        embedded = read_embedded(Path(file)) if file else None
-        if embedded:
-            base["current"] = "synced" if embedded["sincronizada"] else "plain"
-            if embedded["sincronizada"]:
-                results.append({**base, "status": "already_synced"})
-                continue
+        path = Path(file) if file else None
+        in_tag = [text for text in (current_lyrics(path) if path and path.is_file() else []) if text.strip()]
+        if any(parse_lrc(text) for text in in_tag):
+            results.append({**base, "current": "synced", "status": "already_synced"})
+            continue
+        base["current"] = "plain" if in_tag else "none"
+        embedded = read_embedded(path) if path else None
+        if embedded and embedded["sincronizada"]:
+            # Timed lyrics only in a .lrc next to the track: offer to store them inside the file.
+            results.append({**base, "status": "synced", "text": format_lrc(embedded["sincronizada"]), "source": "lrc_file"})
+            continue
         artist = " / ".join(v for v in track.get("artista") or [] if v.strip())
         title = " / ".join(v for v in track.get("titulo") or [] if v.strip())
         album = " / ".join(v for v in track.get("album") or [] if v.strip())
