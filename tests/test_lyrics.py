@@ -19,7 +19,7 @@ LRC = "[00:00.00] 作词 : Johnson\n[00:27.24]Back in black\n[00:31.00][01:40.50
 
 
 class FakeLRCLIB:
-    """Imita o LRCLIB: devolve respostas na ordem e registra as URLs pedidas."""
+    """Mimics LRCLIB: returns answers in order and records the requested URLs."""
 
     def __init__(self, *answers):
         self.answers = list(answers)
@@ -61,7 +61,7 @@ class LyricsTest(unittest.TestCase):
         self.assertEqual(first["texto"], "Back in black\nI hit the sack")
         self.assertIn("duration=255", fake.urls[0])
         self.assertEqual(client.lookup("ac/dc", "back in black", "Back In Black", 255.4), first)
-        self.assertEqual(len(fake.urls), 1)  # a segunda veio do cache
+        self.assertEqual(len(fake.urls), 1)  # the second one came from the cache
 
     def test_search_fallback_requires_same_song_and_close_duration(self):
         wrong = {**HIT, "id": 1, "duration": 300}
@@ -80,7 +80,7 @@ class LyricsTest(unittest.TestCase):
         fake = FakeLRCLIB(*[urllib.error.URLError("sem rede")] * 4)
         with self.assertRaisesRegex(RuntimeError, "Sem conexão"):
             self.client(fake).lookup("Kyuss", "Gardenia", "", 413)
-        self.assertEqual(len(list((self.dir / "cache").glob("*.json"))), cached)  # falha não fica no cache
+        self.assertEqual(len(list((self.dir / "cache").glob("*.json"))), cached)  # a failure is not cached
         fake = FakeLRCLIB(404, [])
         self.assertEqual(self.client(fake).lookup("Kyuss", "Gardenia", "", 413), {"encontrada": False})
 
@@ -163,7 +163,7 @@ class EmbeddedLyricsTest(unittest.TestCase):
             self.assertEqual(current_lyrics(path), ["Back in black\nI hit the sack"])
         self.assertEqual(ID3(mp3).getall("APIC")[0].data, b"capa")
         self.assertEqual(ID3(mp3).getall("TIT2")[0].text, ["Back In Black"])
-        save_lyrics(library, storage, str(mp3), "Letra corrigida")  # trocar uma letra existente
+        save_lyrics(library, storage, str(mp3), "Letra corrigida")  # replace existing lyrics
         self.assertEqual(current_lyrics(mp3), ["Letra corrigida"])
         with self.assertRaisesRegex(ValueError, "exatamente"):
             save_lyrics(library, storage, str(mp3), "Letra corrigida")
@@ -172,7 +172,7 @@ class EmbeddedLyricsTest(unittest.TestCase):
         restore_import(Path(manifests[1]))
         self.assertEqual(flac.read_bytes(), originals[flac])
         with self.assertRaisesRegex(ValueError, "posteriores"):
-            restore_import(Path(manifests[0]))  # a letra mudou depois; não sobrescreve
+            restore_import(Path(manifests[0]))  # the lyrics changed afterwards; does not overwrite
         self.assertEqual(current_lyrics(mp3), ["Letra corrigida"])
         with self.assertRaises(ValueError):
             save_lyrics(library, storage, str(self.dir / "fora.mp3"), "x")

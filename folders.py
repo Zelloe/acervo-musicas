@@ -1,4 +1,4 @@
-"""Pasta de músicas padrão do sistema (ex.: ~/Música no Linux em português)."""
+"""The system's default music folder (e.g. ~/Música on a Portuguese-language Linux)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import shlex
 
 
 def default_music_folder() -> Path:
-    """Lê XDG_MUSIC_DIR como o xdg-user-dir; sem configuração, usa ~/Music."""
+    """Reads XDG_MUSIC_DIR the way xdg-user-dir does; without configuration, uses ~/Music."""
     home = Path.home()
     if os.environ.get("XDG_MUSIC_DIR"):
         return Path(os.environ["XDG_MUSIC_DIR"]).expanduser()

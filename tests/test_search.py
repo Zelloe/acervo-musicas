@@ -39,8 +39,8 @@ class LibrarySearchTest(unittest.TestCase):
 
     def test_accents_typos_prefixes_and_compact_names(self):
         self.assertEqual(self.ids("varias variaveis")[0], "5")
-        self.assertEqual(self.ids("metalica")[0], "4")  # erro de digitação
-        self.assertEqual(self.ids("engenh")[0], "5")    # ainda digitando
+        self.assertEqual(self.ids("metalica")[0], "4")  # typo
+        self.assertEqual(self.ids("engenh")[0], "5")    # still typing
         self.assertEqual(self.ids("acdc", 5), ["1", "2"])
         self.assertEqual(self.ids("aenima")[0], "3")
         self.assertEqual(self.ids("enima")[0], "3")
@@ -109,8 +109,8 @@ class GlobalSearchTest(unittest.TestCase):
     def test_answers_skip_noise_and_late_replies_and_are_cached(self):
         first = self.search.suggest("Kyuss")
         self.assertEqual(first["termos"], ["Kyuss x"])
-        self.assertEqual(self.search.suggest("  kyuss ")["chamadas"], 1)  # mesma consulta normalizada
-        self.assertEqual(self.search.suggest("alice")["chamadas"], 2)    # o processo continua aberto
+        self.assertEqual(self.search.suggest("  kyuss ")["chamadas"], 1)  # same normalized query
+        self.assertEqual(self.search.suggest("alice")["chamadas"], 2)    # the process stays open
         self.assertEqual(self.search.suggest("k"), {"termos": [], "artistas": []})
 
     def test_errors_and_timeouts_recover(self):
@@ -119,7 +119,7 @@ class GlobalSearchTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "demorou"):
             self.search.suggest("lento")
         self.assertIsNone(self.search.process)
-        self.assertEqual(self.search.suggest("depois")["chamadas"], 1)  # um processo novo
+        self.assertEqual(self.search.suggest("depois")["chamadas"], 1)  # a new process
 
     def test_close_during_pending_query(self):
         import threading

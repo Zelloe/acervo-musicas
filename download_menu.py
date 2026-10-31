@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Menu no terminal para escolher e baixar músicas com o spotDL."""
+"""Terminal menu to pick and download songs with spotDL."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from folders import require_folder, default_music_folder
 
 
 def parse_selection(text: str, items: list[dict]) -> list[int]:
-    """Aceita "1-3,5", "todas" ou "faltantes" (vazio = faltantes). Devolve índices de 0."""
+    """Accept "1-3,5", "todas" or "faltantes" (empty = faltantes). Return 0-based indexes."""
     text = text.strip().casefold()
     if text in ("", "faltantes", "f"):
         return [i for i, item in enumerate(items) if not item.get("ja_tenho")]
@@ -91,7 +91,7 @@ class Menu:
         if ask(f"Baixar {len(chosen)} faixa(s) em {self.folder}? [S/n] ").strip().casefold() not in ("", "s", "sim"):
             return
         results = downloader.download([items[i] for i in chosen], self.folder, lambda text, percent: print(f"  [{percent:>3}%] {text}"))
-        self.index = None  # a pasta mudou
+        self.index = None  # the folder changed
         done = [r for r in results if r["estado"] == "baixado"]
         print(f"\nBaixadas: {len(done)} de {len(results)}")
         for result in results:

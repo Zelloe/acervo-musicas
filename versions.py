@@ -1,7 +1,7 @@
-"""Classifica faixas e álbuns: estúdio, ao vivo, acústico, demo, remix, instrumental.
+"""Classifies tracks and albums: studio, live, acoustic, demo, remix, instrumental.
 
-Só olha os qualificadores do título ("- Live", "(Acoustic Version)") e o nome do
-álbum. Assim "Live and Learn" e "To Live Is to Die" continuam sendo de estúdio.
+It only looks at the title qualifiers ("- Live", "(Acoustic Version)") and the album
+name, so "Live and Learn" and "To Live Is to Die" are still studio recordings.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ QUALIFIER = {
     "remaster": re.compile(r"\bremaster(ed)?\b"),
 }
 ALBUM = {
-    # "Holy Live", "Live After Death", "Live in São Paulo"; não "Long Live Rock 'n' Roll".
+    # "Holy Live", "Live After Death", "Live in São Paulo"; not "Long Live Rock 'n' Roll".
     "ao_vivo": re.compile(r"(^live\b|\blive$|\blive (at|in|from|on|em|no|na)\b|\b(ao vivo|en vivo|en directo|in concert|unplugged)\b)"),
     "acustico": re.compile(r"\b(acoustic|acustic[oa]|unplugged|desplugado)\b"),
     "demo": re.compile(r"\bdemos?\b"),
@@ -39,7 +39,7 @@ ALBUM = {
 
 
 def qualifiers(titulo: str) -> list[str]:
-    """Trechos entre parênteses/colchetes e depois de " - " no título."""
+    """Parts of the title inside parentheses/brackets and after " - "."""
     parts = [a or b for a, b in re.findall(r"\(([^)]*)\)|\[([^\]]*)\]", titulo)]
     plain = re.sub(r"\([^)]*\)|\[[^\]]*\]", " ", titulo)
     parts += plain.split(" - ")[1:]

@@ -1,7 +1,7 @@
-"""Letras de músicas: as que já estão no arquivo e as do LRCLIB (aberto, sem chave).
+"""Song lyrics: those already in the file and those from LRCLIB (open, no key).
 
-Nada é gravado na coleção: letras buscadas ficam num cache local. Só arquivos
-novos baixados pelo Acervo recebem a letra antes de entrar na pasta.
+Nothing is written to the collection: fetched lyrics stay in a local cache. Only new
+files downloaded by Acervo get the lyrics before entering the folder.
 """
 
 from __future__ import annotations
@@ -26,13 +26,13 @@ from search import normalize
 API = "https://lrclib.net/api"
 USER_AGENT = "Acervo (https://github.com/Zelloe/acervo-musicas)"
 STAMP = re.compile(r"\[(\d{1,3}):(\d{1,2}(?:[.:]\d{1,3})?)\]")
-# Créditos que algumas fontes colocam como se fossem versos (letrista, compositor…).
+# Credits that some sources put in as if they were verses (lyricist, composer…).
 CREDIT = re.compile(r"^\s*(作词|作曲|编曲|制作人?|监制|混音|和声|录音|出品|lyrics by|written by|composed by)\s*[:：]", re.I)
 NOT_FOUND_DAYS = 7
 
 
 def parse_lrc(text: str) -> list[dict]:
-    """"[01:02.50]verso" vira {"t": 62.5, "linha": "verso"}, em ordem de tempo."""
+    """"[01:02.50]verse" becomes {"t": 62.5, "linha": "verse"}, in time order."""
     lines = []
     for raw in (text or "").splitlines():
         stamps = list(STAMP.finditer(raw))
@@ -59,7 +59,7 @@ def _result(synced: str = "", plain: str = "", instrumental: bool = False, sourc
 
 
 def read_embedded(path: Path) -> dict | None:
-    """Letra já presente: tag do arquivo ou um .lrc com o mesmo nome ao lado."""
+    """Lyrics already present: a file tag or a .lrc with the same name next to it."""
     path = Path(path)
     texts = []
     try:
@@ -98,7 +98,7 @@ def default_cache_dir() -> Path:
 
 
 class LyricsClient:
-    """Cliente do LRCLIB com cache em disco e uma requisição por vez."""
+    """LRCLIB client with an on-disk cache and one request at a time."""
 
     def __init__(self, cache_dir: Path | None = None, opener=None, min_interval: float = 0.5, retries: int = 3, sleep=time.sleep):
         self.cache_dir = Path(cache_dir) if cache_dir else default_cache_dir()
@@ -109,8 +109,8 @@ class LyricsClient:
         self.lock = threading.Lock()
         self.last = 0.0
 
-    def _key(self, artista, titulo, album, duracao) -> Path:
-        ident = "\x1f".join([normalize(artista), normalize(titulo), normalize(album or ""), str(round(duracao or 0))])
+    def _key(self, artist, title, album, duration) -> Path:
+        ident = "\x1f".join([normalize(artist), normalize(title), normalize(album or ""), str(round(duration or 0))])
         return self.cache_dir / (hashlib.sha256(ident.encode()).hexdigest()[:32] + ".json")
 
     def _get(self, endpoint: str, params: dict):
@@ -136,16 +136,16 @@ class LyricsClient:
             self.sleep(delay)
             delay *= 2
 
-    def _lookup(self, artista, titulo, album, duracao) -> dict:
-        exact = self._get("get", {"artist_name": artista, "track_name": titulo, "album_name": album, "duration": round(duracao) if duracao else None})
+    def _lookup(self, artist, title, album, duration) -> dict:
+        exact = self._get("get", {"artist_name": artist, "track_name": title, "album_name": album, "duration": round(duration) if duration else None})
         if exact is None:
-            # Sem correspondência exata: procura pelo nome e exige duração próxima.
-            found = self._get("search", {"artist_name": artista, "track_name": titulo}) or []
+            # No exact match: search by name and require a close duration.
+            found = self._get("search", {"artist_name": artist, "track_name": title}) or []
             candidates = [r for r in found if isinstance(r, dict)
-                          and normalize(r.get("trackName", "")) == normalize(titulo)
-                          and normalize(r.get("artistName", "")) == normalize(artista)
-                          and (not duracao or abs((r.get("duration") or 0) - duracao) <= 3)]
-            candidates.sort(key=lambda r: (not r.get("syncedLyrics"), abs((r.get("duration") or 0) - (duracao or 0))))
+                          and normalize(r.get("trackName", "")) == normalize(title)
+                          and normalize(r.get("artistName", "")) == normalize(artist)
+                          and (not duration or abs((r.get("duration") or 0) - duration) <= 3)]
+            candidates.sort(key=lambda r: (not r.get("syncedLyrics"), abs((r.get("duration") or 0) - (duration or 0))))
             exact = candidates[0] if candidates else None
         if not exact:
             return {"encontrada": False}
@@ -171,20 +171,20 @@ class LyricsClient:
             temp.write_text(json.dumps({**result, "_salvo": time.time()}, ensure_ascii=False), encoding="utf-8")
             os.replace(temp, path)
         except OSError:
-            pass  # sem cache, a letra continua sendo mostrada
+            pass  # without the cache, the lyrics are still shown
         return result
 
     buscar = lookup  # temporary alias (step B)
 
 
 def lyrics_for_track(path: Path, artista: str, titulo: str, album: str, duracao: float | None, cliente: LyricsClient) -> dict:
-    """A do arquivo tem prioridade; senão, a do LRCLIB (sem gravar nada)."""
+    """The file's lyrics take priority; otherwise LRCLIB's (without writing anything)."""
     # Temporary: calls the old name so server tests that patch it keep working during step B.
     return read_embedded(path) or cliente.buscar(artista, titulo, album, duracao)
 
 
 def embed_plain(path: Path, letra: dict) -> bool:
-    """Para arquivos NOVOS: grava a letra simples (USLT) se o MP3 ainda não tiver."""
+    """For NEW files: writes the plain lyrics (USLT) if the MP3 doesn't have any yet."""
     if path.suffix.casefold() != ".mp3" or not letra.get("encontrada") or letra.get("instrumental") or not letra.get("texto"):
         return False
     try:
@@ -199,7 +199,7 @@ def embed_plain(path: Path, letra: dict) -> bool:
 
 
 def current_lyrics(path: Path) -> list[str]:
-    """Letras simples já gravadas no arquivo, no formato que write_validated confere."""
+    """Plain lyrics already written to the file, in the format write_validated checks."""
     path = Path(path)
     if path.suffix.casefold() == ".mp3":
         try:
@@ -210,10 +210,10 @@ def current_lyrics(path: Path) -> list[str]:
 
 
 def save_lyrics(root: Path, storage: Path, arquivo: str, texto: str, anterior_sha256: str | None = None) -> dict:
-    """Grava a letra numa faixa da coleção com backup, conferência e desfazer pelo Histórico.
+    """Writes lyrics into a collection track with a backup, verification and undo from History.
 
-    Com anterior_sha256 (o hash visto na prévia), a gravação é recusada se a
-    faixa mudou desde então; a conferência acontece sob o library_lock.
+    With anterior_sha256 (the hash seen in the preview), the write is refused if the
+    track has changed since then; the check happens under library_lock.
     """
     from library_core import secure_file, sha256
     from library_import import import_reviewed

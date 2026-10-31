@@ -68,7 +68,7 @@ class DownloadTest(unittest.TestCase):
     def fake_spotdl(self, name="ACDC - Back In Black.mp3", returncode=0, corrupt=False, foreign=False):
         def run(command, cwd, **kwargs):
             self.assertEqual(command[1:3], ["download", self.item["url"]])
-            self.assertNotEqual(Path(cwd), self.folder)  # o spotDL nunca escreve direto na coleção
+            self.assertNotEqual(Path(cwd), self.folder)  # spotDL never writes straight into the collection
             target = Path(cwd) / name
             if corrupt:
                 data = self.sample.read_bytes()
@@ -93,7 +93,7 @@ class DownloadTest(unittest.TestCase):
         def dispatch(command, *args, **kwargs):
             if command[0] == "spotdl":
                 return fake(command, **kwargs)
-            return real(command, *args, **kwargs)  # ffmpeg real valida o áudio
+            return real(command, *args, **kwargs)  # the real ffmpeg validates the audio
         return dispatch
 
     def listing(self):

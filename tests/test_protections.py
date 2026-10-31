@@ -69,7 +69,7 @@ class ProtectionTest(unittest.TestCase):
     def protect(self, *fields, path=None):
         return protections.protect(self.data, self.lib, [str(path or self.track)], list(fields))
 
-    # Política
+    # Policy
 
     def test_policy_roundtrip_and_validation(self):
         self.assertEqual(protections.load(self.data, self.lib)["faixas"], {})
@@ -132,7 +132,7 @@ class ProtectionTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "ocupada"):
                 self.protect("genero")
 
-    # Propostas
+    # Proposals
 
     def test_empty_protected_field_is_not_proposed(self):
         _, _, rows = self.plan()
@@ -148,7 +148,7 @@ class ProtectionTest(unittest.TestCase):
         desired = {"genero": ["Hard Rock"], "album": ["Novo"]}
         self.assertEqual(set(changes_for(current, desired, True, True, 3, frozenset({"genero"}))), {"album"})
 
-    # Gravação e restauração de metadados
+    # Metadata writing and restore
 
     def test_plan_made_before_protection_is_refused(self):
         before = self.track.read_bytes()
@@ -184,7 +184,7 @@ class ProtectionTest(unittest.TestCase):
         restore(Path(result["manifesto"]))
         self.assertEqual(metadata_values(self.track)["genero"], [])
 
-    # Importação
+    # Import
 
     def operation(self, action, changes, source=None):
         op = {"acao": action, "arquivo": str(self.track), "antes_sha256": sha256(self.track), "alteracoes": changes}

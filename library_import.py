@@ -1,4 +1,4 @@
-"""Importação revisada de downloads, substituições e correções de álbum."""
+"""Reviewed import of downloads, replacements and album fixes."""
 
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -48,7 +48,7 @@ def preserve_original_tags(original: Path, candidate: Path) -> None:
     stream_hash = compressed_mp3_hash(candidate)
     fresh = ID3(candidate, translate=False)
     tags = deepcopy(ID3(original, translate=False))
-    # TLEN descreve a duração do áudio; vale a do download, não a do original.
+    # TLEN describes the audio length; the download's value applies, not the original's.
     tags.delall("TLEN")
     for frame in fresh.getall("TLEN"):
         tags.add(deepcopy(frame))
@@ -85,7 +85,7 @@ def new_destination(root: Path, folder: str, name: str) -> Path:
 
 
 def require_hard_links(directory: Path) -> None:
-    """Adições são publicadas com link(), que nunca sobrescreve um destino."""
+    """Additions are published with link(), which never overwrites a destination."""
     fd, name = tempfile.mkstemp(prefix=".acervo-import-", dir=directory)
     os.close(fd)
     probe = Path(name)
@@ -174,7 +174,7 @@ def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch
                 fd, name = tempfile.mkstemp(prefix=".acervo-import-", suffix=target.suffix, dir=target.parent)
                 os.close(fd)
                 temp = Path(name)
-                # Registrado antes da cópia para que a restauração encontre sobras de uma interrupção.
+                # Recorded before the copy so a restore can find leftovers from an interruption.
                 entry["temporario"] = str(temp)
                 atomic_json(manifest_path, manifest)
                 try:
@@ -184,7 +184,7 @@ def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch
                     entry["estado"] = "pronto_para_substituir"
                     atomic_json(manifest_path, manifest)
                     if entry["acao"] == "adicionar":
-                        # link() recusa atomicamente destinos que surgiram depois da prévia.
+                        # link() atomically refuses destinations that appeared after the preview.
                         os.link(temp, target)
                         temp.unlink()
                     else:
@@ -225,16 +225,16 @@ def restore_import(manifest_path: Path, storage: Path | None = None) -> dict:
             temp = Path(entry.get("temporario", "/inexistente"))
             if temp.parent == target.parent and temp.name.startswith(".acervo-import-") and temp.is_file() and not temp.is_symlink():
                 if target.is_file() and temp.stat().st_ino == target.stat().st_ino:
-                    # Janela entre link() e unlink() em uma interrupção do processo.
+                    # Window between link() and unlink() when the process was interrupted.
                     temp.unlink()
                 else:
-                    # Cópia interrompida: sai da coleção, mas fica guardada na transação.
+                    # Interrupted copy: leaves the collection but is kept in the transaction.
                     leftover = transaction / "retiradas" / f"temporario-{index:06d}{temp.suffix}"
                     if not leftover.exists():
                         durable_copy(temp, leftover)
                     temp.unlink()
                     sync_dir(target.parent)
-            # Entradas nunca publicadas não deixaram nada na coleção para desfazer.
+            # Entries never published left nothing in the collection to undo.
             if entry.get("estado") == "preparado":
                 continue
             pending = entry.get("estado") == "pronto_para_substituir"
@@ -276,7 +276,7 @@ def restore_import(manifest_path: Path, storage: Path | None = None) -> dict:
                     raise ValueError("A faixa mudou durante a restauração")
                 entry["estado"] = "adicao_arquivada"
                 atomic_json(manifest_path, manifest)
-                target.unlink()  # O áudio continua em retiradas/ e no download original.
+                target.unlink()  # The audio remains in retiradas/ and in the original download.
                 sync_dir(target.parent)
             else:
                 fd, name = tempfile.mkstemp(prefix=".acervo-undo-", suffix=target.suffix, dir=target.parent)

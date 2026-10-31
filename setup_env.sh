@@ -1,4 +1,4 @@
-# Usado por start.sh e download.sh: prepara a .venv na primeira execução.
+# Used by start.sh and download.sh: sets up the .venv on the first run.
 acervo_preparar() {
   if [[ -x .venv/bin/python ]] && .venv/bin/python -c 'import sys, mutagen; sys.exit(sys.version_info < (3, 10))' 2>/dev/null; then
     return 0
@@ -14,12 +14,12 @@ acervo_preparar() {
     return 1
   fi
   echo "Preparando o ambiente na primeira execução…"
-  local ambiente_novo=0
+  local new_env=0
   if [[ ! -e .venv && ! -L .venv ]]; then
-    ambiente_novo=1
+    new_env=1
   fi
   if ! "$py" -m venv .venv; then
-    if [[ $ambiente_novo == 1 ]]; then
+    if [[ $new_env == 1 ]]; then
       rm -rf .venv
     fi
     echo "Não foi possível criar o ambiente Python. No Ubuntu/Mint: sudo apt install python3-venv" >&2

@@ -1,4 +1,4 @@
-"""Leitura, gravação validada e transações reversíveis de metadados."""
+"""Metadata reading, validated writing and reversible transactions."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ TAG_FIELDS = {
     "disco": ("TPOS", TPOS, "discnumber"),
 }
 
-# Campos que só são gravados por pedido explícito (fora da análise de metadados).
+# Fields written only on explicit request (outside the metadata analysis).
 EXTRA_FIELDS = {"letra": "lyrics"}  # FLAC: LYRICS; MP3: USLT
 
 
@@ -108,7 +108,7 @@ def freeze(value):
 
 
 def integrity(path: Path) -> dict:
-    """Estado semântico completo das tags e hash do fluxo comprimido original."""
+    """Full semantic state of the tags and hash of the original compressed stream."""
     if path.suffix.casefold() == ".mp3":
         tags = ID3(path, translate=False)
         if tags.version[:2] not in ((2, 3), (2, 4)):
@@ -141,7 +141,7 @@ def integrity(path: Path) -> dict:
             data = handle.read(size)
             if len(data) != size:
                 raise ValueError("Bloco FLAC truncado")
-            if kind not in (1, 4):  # padding e Vorbis Comments podem mudar
+            if kind not in (1, 4):  # padding and Vorbis Comments may change
                 blocks.append([kind, hashlib.sha256(data).hexdigest()])
             if header[0] & 128:
                 break
@@ -163,7 +163,7 @@ def previous_album(path: Path) -> list[str]:
 
 
 def write_validated(path: Path, changes: dict) -> dict:
-    """Só deve receber uma cópia temporária. Aborta se algo não aprovado mudar."""
+    """Must only receive a temporary copy. Aborts if anything unapproved changes."""
     if not changes or set(changes) - TAG_FIELDS.keys() - EXTRA_FIELDS.keys():
         raise ValueError("Campos de alteração não suportados")
     for change in changes.values():
@@ -228,7 +228,7 @@ def write_validated(path: Path, changes: dict) -> dict:
     for key in before["tags"].keys() | after["tags"].keys():
         if key not in allowed and before["tags"].get(key) != after["tags"].get(key):
             raise ValueError(f"Validação recusou mudança na tag {key}")
-    # Confere os valores gravados, incluindo a preservação da edição.
+    # Checks the written values, including the preserved edition.
     if after["formato"] == "MP3":
         saved = ID3(path, translate=False)
         for field, change in changes.items():
@@ -325,7 +325,7 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Pat
     if backup_root == root or root in backup_root.parents:
         raise ValueError("Backups devem ficar fora da biblioteca")
     with library_lock(root):
-        # A política atual vale mesmo para planos gerados antes da proteção.
+        # The current policy applies even to plans generated before the protection.
         policy = protections.load(storage or backup_root.parent, root)
         for name, entry in selected.items():
             path = secure_file(root, name)
@@ -348,7 +348,7 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Pat
         manifest = {"schema": 1, "biblioteca": str(root), "plano_sha256": sha256(plan_path), "estado": "preparando_backups", "arquivos": []}
         atomic_json(manifest_path, manifest)
         try:
-            # Todos os backups são confirmados antes da primeira gravação na coleção.
+            # All backups are confirmed before the first write to the collection.
             for index, (name, entry) in enumerate(selected.items()):
                 source = secure_file(root, name)
                 backup = originals / (f"{index:06d}" + source.suffix)
@@ -367,7 +367,7 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Pat
                 try:
                     durable_copy(transaction / entry["backup"], temp)
                     entry["verificacao"] = write_validated(temp, entry["alteracoes"])
-                    # Frames de capa já foram verificados; evita duplicar tags no manifesto.
+                    # Cover frames were already verified; avoids duplicating tags in the manifest.
                     entry["verificacao"] = {k: v for k, v in entry["verificacao"].items() if k in ("audio_sha256", "formato", "versao")}
                     entry["depois_sha256"] = sha256(temp)
                     entry["estado"] = "pronto_para_substituir"
@@ -393,7 +393,7 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Pat
 def restore(manifest_path: Path, storage: Path | None = None) -> dict:
     import protections
     manifest_path = manifest_path.resolve(strict=True)
-    # Manifestos ficam em <dados>/backups/<execução>/manifesto.json.
+    # Manifests live in <data>/backups/<run>/manifesto.json.
     storage = storage or manifest_path.parent.parent.parent
     manifest = json.loads(manifest_path.read_text())
     if manifest.get("tipo") == "downloads":
@@ -406,7 +406,7 @@ def restore(manifest_path: Path, storage: Path | None = None) -> dict:
     with library_lock(root):
         policy = protections.load(storage, root)
         work = []
-        # Recusa todo o lote antes de escrever se houver edições posteriores.
+        # Refuses the whole batch before writing if there are later edits.
         for entry in manifest["arquivos"]:
             source = secure_file(root, entry["arquivo"])
             backup = (transaction / entry["backup"]).resolve(strict=True)

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Diagnóstico somente de leitura da biblioteca musical.
+"""Read-only diagnosis of the music library.
 
-Lê MP3/FLAC com Mutagen e exporta inventário JSON/CSV e candidatos a
-variações de álbum. Não possui função de gravação de tags nem usa a rede.
+Reads MP3/FLAC with Mutagen and exports a JSON/CSV inventory and album
+variant candidates. Has no tag-writing function and never uses the network.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ FIELDS = {
     "disco": ("TPOS", "discnumber"),
     "genero": ("TCON", "genre"),
 }
-# Cópias temporárias que o Acervo cria ao lado do original durante gravações.
+# Temporary copies Acervo creates next to the original while writing.
 TEMP_PREFIXES = (".acervo-import-", ".acervo-undo-", ".acervo-baixando-", ".biblioteca-", ".restaurar-")
 REQUIRED = ("titulo", "artista", "artista_album", "album", "ano", "faixa", "disco", "genero")
 VERSION = re.compile(
@@ -51,7 +51,7 @@ def normalized(value: str) -> str:
 
 
 def album_base(value: str) -> str:
-    """Heurística usada exclusivamente no relatório, nunca como identificação."""
+    """Heuristic used only in the report, never as identification."""
     value = unicodedata.normalize("NFKC", value).strip()
     while match := re.search(r"\s*[\[(]([^\[\]()]+)[\])]\s*$", value):
         label = match.group(1)
@@ -142,7 +142,7 @@ def write_csv(path: Path, rows: list[dict], fields: list[str]) -> None:
 
 
 def scan(root: Path, output: Path) -> dict:
-    # Não escreve relatórios na biblioteca nem permite sobrescrever uma execução.
+    # Never writes reports into the library nor allows overwriting a previous run.
     if output == root or root in output.parents:
         raise ValueError("A saída dos relatórios deve ficar fora da biblioteca")
     if output.exists():
@@ -187,7 +187,7 @@ def scan(root: Path, output: Path) -> dict:
 
     groups = defaultdict(list)
     for row in tracks:
-        # Créditos diferentes permanecem separados; AC/DC nunca é dividido pela barra.
+        # Different credits stay separate; AC/DC is never split at the slash.
         artist = tuple(normalized(v) for v in row["artista_album"] or row["artista"])
         if artist and len(row["album"]) == 1:
             groups[(artist, normalized(album_base(row["album"][0])))].append(row)

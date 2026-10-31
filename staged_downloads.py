@@ -1,4 +1,4 @@
-"""Catálogo, download em área de revisão e importação explícita de músicas."""
+"""Catalog, download into a review area and explicit import of songs."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def clean_log(text: str) -> str:
 
 def title_key(value: str) -> str:
     value = normalized(value)
-    # Só elimina qualificadores de remasterização; live/demo/mix continuam distintos.
+    # Only strips remaster qualifiers; live/demo/mix stay distinct.
     return re.sub(r"\s*(?:-\s*(?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?|[\[(](?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?[\])])\s*$", "", value).strip()
 
 
@@ -159,8 +159,8 @@ class Downloads:
         if not executable:
             raise ValueError(f"{provider} não está instalado")
         if provider == "spotdl":
-            # O save tradicional reconsulta cada faixa e suas letras; o adaptador
-            # usa o catálogo do próprio spotDL, sem essa repetição.
+            # The regular save looks up every track and its lyrics again; the adapter
+            # uses spotDL's own catalog, without that repetition.
             try:
                 first = Path(executable).resolve().open().readline().strip()
                 interpreter = shlex.split(first[2:]) if first.startswith("#!") else []
@@ -177,7 +177,7 @@ class Downloads:
         self.runner.run(command, path, log, timeout=180)
         if provider == "spotdl":
             return json.loads((path / "catalogo.spotdl").read_text())
-        # yt-dlp imprime JSON em stdout; stderr de avisos pode antecedê-lo.
+        # yt-dlp prints JSON to stdout; warnings on stderr may come before it.
         lines = log.read_text(errors="replace").splitlines()
         data = next((json.loads(line) for line in reversed(lines) if line.startswith("{")), None)
         if not data:
@@ -337,22 +337,22 @@ class Downloads:
                 self.progress(f"Baixando {index+1} de {len(ids)} · {' / '.join(row['metadados']['titulo'])}", round(index/len(ids)*100))
                 output = path / "audio" / (row_id + ".mp3")
                 log = path / (row_id + ".log")
-                # Sobras de uma tentativa interrompida seriam reaproveitadas
-                # pelas opções de não sobrescrever das ferramentas.
+                # Leftovers from an interrupted attempt would be reused
+                # by the tools' no-overwrite options.
                 for leftover in (path / "audio").glob(row_id + ".*"):
                     leftover.unlink()
                 if batch["ferramenta"] == "spotdl":
                     raw = dict(row["fonte"])
                     raw["genres"] = row["metadados"]["genero"]
-                    # O catálogo simples pode omitir ISRC; Mutagen rejeita None
-                    # na gravação feita pelo spotDL. Ausência não vira um ID falso.
+                    # The simple catalog may omit the ISRC; Mutagen rejects None
+                    # when spotDL writes the tags. A missing value does not become a fake ID.
                     for field in ("isrc", "publisher", "date"):
                         raw[field] = raw.get(field) or ""
                     single = path / (row_id + ".spotdl")
                     single.write_text(json.dumps([raw], ensure_ascii=False))
-                    # Templates absolutos são sanitizados pelo spotDL (inclusive
-                    # pastas que começam com ponto). Um caminho relativo fixo
-                    # mantém o download estritamente dentro do lote de revisão.
+                    # Absolute templates are sanitized by spotDL (including
+                    # folders starting with a dot). A fixed relative path
+                    # keeps the download strictly inside the review batch.
                     template = str(Path("audio") / output.with_suffix(".{output-ext}").name)
                     command = [shutil.which("spotdl") or "spotdl", "download", str(single), "--output", template, "--format", "mp3", "--bitrate", batch["opcoes"]["bitrate"], "--overwrite", "skip", "--threads", "1", "--lyrics", "--max-retries", "1", "--simple-tui", "--print-errors"]
                 else:
