@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from search import normalizar
+from search import normalize
 
-TIPOS = ("ao_vivo", "acustico", "demo", "remix", "instrumental", "estudio")
-ROTULOS = {
+KINDS = ("ao_vivo", "acustico", "demo", "remix", "instrumental", "estudio")
+LABELS = {
     "ao_vivo": "Ao vivo", "acustico": "Acústico", "demo": "Demo", "remix": "Remix",
     "instrumental": "Instrumental", "estudio": "Estúdio", "remaster": "Remaster",
     "coletanea": "Coletânea", "edicao_especial": "Edição especial",
@@ -38,27 +38,31 @@ ALBUM = {
 }
 
 
-def qualificadores(titulo: str) -> list[str]:
+def qualifiers(titulo: str) -> list[str]:
     """Trechos entre parênteses/colchetes e depois de " - " no título."""
     parts = [a or b for a, b in re.findall(r"\(([^)]*)\)|\[([^\]]*)\]", titulo)]
     plain = re.sub(r"\([^)]*\)|\[[^\]]*\]", " ", titulo)
     parts += plain.split(" - ")[1:]
-    return [normalizar(p) for p in parts if p.strip()]
+    return [normalize(p) for p in parts if p.strip()]
 
 
-def classificar(titulo: str = "", album: str = "", tipo_album: str = "") -> dict:
+def classify(titulo: str = "", album: str = "", tipo_album: str = "") -> dict:
     marks = set()
-    for part in qualificadores(titulo or ""):
+    for part in qualifiers(titulo or ""):
         marks.update(name for name, pattern in QUALIFIER.items() if pattern.search(part))
-    album_text = normalizar(album or "")
+    album_text = normalize(album or "")
     if album_text:
         marks.update(name for name, pattern in ALBUM.items() if pattern.search(album_text))
-        for part in qualificadores(album):
+        for part in qualifiers(album):
             marks.update(name for name, pattern in QUALIFIER.items() if pattern.search(part))
     if (tipo_album or "").casefold() == "compilation":
         marks.add("coletanea")
-    kind = next((t for t in TIPOS if t in marks), "estudio")
+    kind = next((t for t in KINDS if t in marks), "estudio")
     marks.add(kind)
-    order = list(TIPOS) + ["remaster", "coletanea", "edicao_especial"]
+    order = list(KINDS) + ["remaster", "coletanea", "edicao_especial"]
     marks = sorted(marks, key=order.index)
-    return {"tipo": kind, "marcas": marks, "rotulos": [ROTULOS[m] for m in marks]}
+    return {"tipo": kind, "marcas": marks, "rotulos": [LABELS[m] for m in marks]}
+
+
+# Temporary aliases for server.py during the English rename (step B); remove when server.py is updated.
+classificar = classify

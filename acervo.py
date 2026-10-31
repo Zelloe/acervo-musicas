@@ -10,7 +10,7 @@ import sys
 from library_core import apply_plan, restore
 from library_plan import create_plan
 from musicbrainz_client import MusicBrainz
-from folders import exigir_pasta, pasta_musicas_padrao
+from folders import require_folder, default_music_folder
 
 
 PROGRAM = Path(__file__).resolve().parent
@@ -56,7 +56,7 @@ def main() -> int:
     playlist.add_argument("--sobrescrever", action="store_true")
     playlist.add_argument("--validar", action="store_true", help="Somente conferir os caminhos de uma playlist existente")
     serve = commands.add_parser("interface", help="Abrir o menu HTML local")
-    serve.add_argument("--pasta", type=Path, default=pasta_musicas_padrao(), help="Padrão: a pasta de músicas do sistema (ex.: ~/Música)")
+    serve.add_argument("--pasta", type=Path, default=default_music_folder(), help="Padrão: a pasta de músicas do sistema (ex.: ~/Música)")
     serve.add_argument("--porta", type=int, default=8765)
     serve.add_argument("--dados", type=Path, help="Pasta externa para relatórios e backups")
     serve.add_argument("--abrir", action="store_true", help="Abrir no navegador padrão")
@@ -98,7 +98,7 @@ def main() -> int:
                 result["erros_de_leitura"] = errors
         else:
             from server import serve
-            args.pasta = exigir_pasta(args.pasta)
+            args.pasta = require_folder(args.pasta)
             serve(args.pasta, args.porta, args.dados, args.abrir)
             return 0
         print(json.dumps(result, ensure_ascii=False, indent=2))

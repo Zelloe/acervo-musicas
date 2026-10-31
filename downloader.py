@@ -17,8 +17,8 @@ from mutagen.id3 import ID3, ID3NoHeaderError, TCON
 
 from library_plan import BASE, rules
 from library_scan import TEMP_PREFIXES, album_base, normalized
-from lyrics import Letras, embutir_texto
-from versions import classificar
+from lyrics import LyricsClient, embed_plain
+from versions import classify
 
 ADAPTER = BASE / "spotdl_search.py"
 TEMPLATE = "{artist} - {title}.{output-ext}"
@@ -66,32 +66,32 @@ def _text(value: str, name: str) -> str:
 PHOTO_HOSTS = re.compile(r"https://(?:[a-z0-9-]+\.googleusercontent\.com|i\.scdn\.co|mosaic\.scdn\.co|image-cdn-[a-z0-9-]+\.spotifycdn\.com)/[^\s\"'<>]+")
 
 
-def foto_segura(url) -> str:
+def safe_photo(url) -> str:
     return url if isinstance(url, str) and PHOTO_HOSTS.fullmatch(url) else ""
 
 
 def _enrich(items: list[dict], title_key: str | None, album_key: str, kind_key: str) -> list[dict]:
     for item in items:
-        item["versao"] = classificar(item.get(title_key, "") if title_key else "", item.get(album_key, ""), item.get(kind_key, ""))
+        item["versao"] = classify(item.get(title_key, "") if title_key else "", item.get(album_key, ""), item.get(kind_key, ""))
         for key in ("capa", "foto"):
             if key in item:
-                item[key] = foto_segura(item[key])
+                item[key] = safe_photo(item[key])
     return items
 
 
-def buscar_albuns(artista: str) -> list[dict]:
+def search_albums(artista: str) -> list[dict]:
     return _enrich(_adapter("albuns", _text(artista, "o nome do artista")), None, "titulo", "tipo")
 
 
-def edicoes(artista: str, album: str) -> list[dict]:
+def editions(artista: str, album: str) -> list[dict]:
     return _enrich(_adapter("edicoes", _text(artista, "o nome do artista"), _text(album, "o nome do álbum")), None, "titulo", "tipo")
 
 
-def buscar_musicas(texto: str) -> list[dict]:
+def search_songs(texto: str) -> list[dict]:
     return _enrich(_adapter("musicas", _text(texto, "o que procurar")), "titulo", "album", "tipo_album")
 
 
-def faixas(url: str) -> list[dict]:
+def tracks(url: str) -> list[dict]:
     url = _text(url, "um link do Spotify")
     if not re.fullmatch(r"https://open\.spotify\.com/(?:intl-[a-z-]+/)?(track|album|playlist)/[A-Za-z0-9]+(?:\?\S*)?", url):
         raise ValueError("Use um link do Spotify de música, álbum ou playlist")
@@ -102,7 +102,7 @@ def _key(artist: str, title: str) -> str:
     return normalized(artist) + "\x1f" + normalized(REMASTER.sub("", title))
 
 
-def indice_local(pasta: Path) -> set[str]:
+def local_index(pasta: Path) -> set[str]:
     """Artista + título de tudo o que já existe na pasta, para marcar "já tenho"."""
     keys = set()
     for folder, dirs, names in os.walk(pasta, followlinks=False):
@@ -125,14 +125,14 @@ def indice_local(pasta: Path) -> set[str]:
     return keys
 
 
-def ja_tenho(lista: list[dict], indice: set[str]) -> list[dict]:
+def mark_owned(lista: list[dict], indice: set[str]) -> list[dict]:
     for item in lista:
         artists = [item.get("artista", "")] + list(item.get("artistas") or [])
         item["ja_tenho"] = any(_key(a, item.get("titulo", "")) in indice for a in artists if a)
     return lista
 
 
-def genero_por_regra(artista: str, album: str, regras: list[dict] | None = None) -> str:
+def genre_from_rules(artista: str, album: str, regras: list[dict] | None = None) -> str:
     """Mesma prioridade da análise: regra do álbum, depois regra do artista; só se for única."""
     regras = rules(BASE / "genre_rules.csv") if regras is None else regras
     by_artist = [r for r in regras if normalized(r["artista"]) == normalized(artista)]
@@ -194,7 +194,7 @@ def _publish(source: Path, final: Path) -> None:
         temp.unlink(missing_ok=True)
 
 
-def _baixar_uma(item: dict, pasta: Path, executable: str, regras: list[dict], bitrate: str, letras: Letras | None = None) -> dict:
+def _download_one(item: dict, pasta: Path, executable: str, regras: list[dict], bitrate: str, lyrics_client: LyricsClient | None = None) -> dict:
     url = item.get("url", "")
     if not re.fullmatch(r"https://open\.spotify\.com/track/[A-Za-z0-9]+", url.split("?")[0]):
         return {**item, "estado": "erro", "mensagem": "Link de faixa inválido"}
@@ -215,23 +215,23 @@ def _baixar_uma(item: dict, pasta: Path, executable: str, regras: list[dict], bi
         audio = produced[0]
         if not _valid_audio(audio):
             return {**item, "estado": "erro", "mensagem": "O áudio baixado está corrompido ou incompleto"}
-        genre = genero_por_regra(item.get("artista_album") or item.get("artista", ""), item.get("album", ""), regras)
+        genre = genre_from_rules(item.get("artista_album") or item.get("artista", ""), item.get("album", ""), regras)
         filled = _fill_genre(audio, genre)
-        lyrics = False
-        if letras:
+        embedded = False
+        if lyrics_client:
             try:
-                lyrics = embutir_texto(audio, letras.buscar(item.get("artista", ""), item.get("titulo", ""), item.get("album", ""), item.get("duracao")))
+                embedded = embed_plain(audio, lyrics_client.lookup(item.get("artista", ""), item.get("titulo", ""), item.get("album", ""), item.get("duracao")))
             except RuntimeError:
-                lyrics = False  # sem letra o download continua valendo
+                embedded = False  # sem letra o download continua valendo
         final = pasta / audio.name
         try:
             _publish(audio, final)
         except FileExistsError:
             return {**item, "estado": "ja_existia", "arquivo": str(final), "mensagem": "Já existe um arquivo com esse nome na pasta"}
-        return {**item, "estado": "baixado", "arquivo": str(final), "genero_preenchido": genre if filled else "", "letra": lyrics}
+        return {**item, "estado": "baixado", "arquivo": str(final), "genero_preenchido": genre if filled else "", "letra": embedded}
 
 
-def baixar(lista: list[dict], pasta: Path, progresso=None, bitrate: str = "320k", letras: Letras | bool | None = True) -> list[dict]:
+def download(lista: list[dict], pasta: Path, progress=None, bitrate: str = "320k", lyrics: LyricsClient | bool | None = True) -> list[dict]:
     """Baixa cada faixa direto em `pasta`, sem nunca substituir um arquivo existente.
 
     O spotDL trabalha numa pasta temporária fora da coleção; o arquivo só aparece
@@ -243,21 +243,36 @@ def baixar(lista: list[dict], pasta: Path, progresso=None, bitrate: str = "320k"
         raise ValueError(f"A pasta de destino não existe: {pasta}")
     if bitrate not in ("128k", "192k", "256k", "320k"):
         raise ValueError("Bitrate inválido")
-    progresso = progresso or (lambda *args: None)
+    progress = progress or (lambda *args: None)
     regras = rules(BASE / "genre_rules.csv")
     executable = spotdl_executable()
-    letras = Letras() if letras is True else (letras or None)
+    lyrics = LyricsClient() if lyrics is True else (lyrics or None)
     results = []
     for index, item in enumerate(lista):
         label = f"{item.get('artista', '')} - {item.get('titulo', '')}"
-        progresso(f"Baixando {index + 1} de {len(lista)} · {label}", round(index / len(lista) * 100))
+        progress(f"Baixando {index + 1} de {len(lista)} · {label}", round(index / len(lista) * 100))
         try:
-            results.append(_baixar_uma(item, pasta, executable, regras, bitrate, letras))
+            results.append(_download_one(item, pasta, executable, regras, bitrate, lyrics))
         except Exception as error:
             results.append({**item, "estado": "erro", "mensagem": f"{type(error).__name__}: {error}"[:300]})
             # Sem ffmpeg ou sem espaço/escrita no destino, as próximas falhariam igual.
             if isinstance(error, RuntimeError) or (isinstance(error, OSError) and error.errno in (errno.ENOSPC, errno.EROFS, errno.EDQUOT, errno.EACCES)):
                 results.extend({**rest, "estado": "nao_baixado", "mensagem": "Interrompido após o erro anterior"} for rest in lista[index + 1:])
                 break
-    progresso("Downloads concluídos", 100)
+    progress("Downloads concluídos", 100)
     return results
+
+
+# Temporary aliases for server.py/download_picker.py during the English rename (step B); remove afterwards.
+buscar_albuns = search_albums
+edicoes = editions
+buscar_musicas = search_songs
+faixas = tracks
+indice_local = local_index
+ja_tenho = mark_owned
+foto_segura = safe_photo
+
+
+def baixar(lista, pasta, progresso=None, bitrate="320k", letras=True):
+    return download(lista, pasta, progress=progresso, bitrate=bitrate, lyrics=letras)
+
