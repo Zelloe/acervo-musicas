@@ -114,7 +114,7 @@ class ImportTest(unittest.TestCase):
         calls = []
 
         def edited_by_other_program(src, dst):
-            if Path(dst).parent == self.lib:  # atomic_json também usa os.replace
+            if Path(dst).parent == self.lib:  # atomic_json also uses os.replace
                 calls.append(dst)
                 if len(calls) == 2:
                     raise ValueError("simulação de falha")
@@ -123,7 +123,7 @@ class ImportTest(unittest.TestCase):
         with patch.object(library_import.os, "replace", side_effect=edited_by_other_program):
             with self.assertRaises(RuntimeError) as caught:
                 import_reviewed(self.lib, self.backups, ops, "lote")
-        second.write_bytes(second.read_bytes() + b"\0")  # edição externa após a falha
+        second.write_bytes(second.read_bytes() + b"\0")  # external edit after the failure
         second_bytes = second.read_bytes()
         restore_import(self.manifest(caught.exception))
         self.assertEqual(first.read_bytes(), first_bytes)
@@ -158,7 +158,7 @@ class ImportTest(unittest.TestCase):
         entry = json.loads(manifest_path.read_text())["arquivos"][0]
         leftover = Path(entry["temporario"])
         self.assertTrue(leftover.name.startswith(".acervo-import-"))
-        shutil.copy(source, leftover)  # simula um processo morto antes do finally
+        shutil.copy(source, leftover)  # simulates a process killed before the finally
         summary = scan(self.lib, Path(self.temp.name) / "inventario")
         self.assertIn(str(leftover), [item["arquivo"] for item in summary["ignorados"]])
         restore_import(manifest_path)

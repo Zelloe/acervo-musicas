@@ -1,4 +1,4 @@
-"""Campos protegidos: escolhas do usuário que o Acervo não pode propor nem gravar."""
+"""Protected fields: user choices that Acervo may neither propose nor write."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ SCHEMA = 1
 
 
 def policy_path(storage: Path, root: Path) -> Path:
-    """Um arquivo por biblioteca canônica, para não misturar coleções com os mesmos dados."""
+    """One file per canonical library, so collections sharing the same data never mix."""
     root = root.resolve()
     digest = hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:16]
     return storage.resolve() / ".biblioteca" / "protecoes" / f"{digest}.json"
@@ -26,9 +26,9 @@ def empty(root: Path) -> dict:
 
 
 def load(storage: Path, root: Path) -> dict:
-    """Não pega o lock: deve ser chamada por quem já está dentro de library_lock."""
+    """Does not take the lock: must be called by code already inside library_lock."""
     path = policy_path(storage, root)
-    # Falha fechada: só a ausência comprovada do arquivo vale como política vazia.
+    # Fail closed: only a confirmed missing file counts as an empty policy.
     try:
         info = path.lstat()
     except FileNotFoundError:
@@ -52,10 +52,10 @@ def load(storage: Path, root: Path) -> dict:
     return policy
 
 
-def _relative(root: Path, arquivo: str) -> str:
-    path = Path(arquivo)
+def _relative(root: Path, file: str) -> str:
+    path = Path(file)
     if not path.is_absolute():
-        raise ValueError(f"Caminho inválido: {arquivo}")
+        raise ValueError(f"Caminho inválido: {file}")
     return path.relative_to(root.resolve()).as_posix()
 
 
@@ -80,7 +80,7 @@ def require_unprotected(policy: dict, root: Path, arquivo: str, fields) -> None:
 
 
 def require_same_protected(policy: dict, root: Path, arquivo: str, current: Path, candidate: Path) -> None:
-    """O arquivo que vai ocupar o caminho precisa manter os valores protegidos atuais."""
+    """The file that will take the path must keep the current protected values."""
     fields = protected(policy, root, arquivo)
     if not fields:
         return
@@ -90,26 +90,26 @@ def require_same_protected(policy: dict, root: Path, arquivo: str, current: Path
         raise ValueError(f"A operação mudaria campo protegido ({', '.join(changed)}): {Path(arquivo).name}. Desbloqueie antes.")
 
 
-def _validate(root: Path, arquivos: list[str], campos: list[str]) -> tuple[list[str], list[str]]:
-    if not isinstance(campos, list) or not campos or any(c not in FIELDS for c in campos):
+def _validate(root: Path, files: list[str], fields: list[str]) -> tuple[list[str], list[str]]:
+    if not isinstance(fields, list) or not fields or any(c not in FIELDS for c in fields):
         raise ValueError(f"Campos inválidos; use: {', '.join(FIELDS)}")
-    if not isinstance(arquivos, list) or not arquivos:
+    if not isinstance(files, list) or not files:
         raise ValueError("Selecione ao menos uma faixa")
     relatives = []
-    for arquivo in arquivos:
-        path = Path(arquivo) if isinstance(arquivo, str) else None
+    for file in files:
+        path = Path(file) if isinstance(file, str) else None
         if path is None or not path.is_absolute() or path.is_symlink() or path.resolve() != path:
-            raise ValueError(f"Caminho inválido ou simbólico: {arquivo}")
-        relative = _relative(root, arquivo)
+            raise ValueError(f"Caminho inválido ou simbólico: {file}")
+        relative = _relative(root, file)
         if not path.is_file() or path.suffix.casefold() not in (".mp3", ".flac"):
-            raise ValueError(f"Faixa inexistente ou formato não suportado: {arquivo}")
+            raise ValueError(f"Faixa inexistente ou formato não suportado: {file}")
         relatives.append(relative)
-    return relatives, sorted(set(campos), key=FIELDS.index)
+    return relatives, sorted(set(fields), key=FIELDS.index)
 
 
-def _change(storage: Path, root: Path, arquivos: list[str], campos: list[str], add: bool) -> dict:
+def _change(storage: Path, root: Path, files: list[str], requested_fields: list[str], add: bool) -> dict:
     root = root.resolve(strict=True)
-    relatives, fields = _validate(root, arquivos, campos)
+    relatives, fields = _validate(root, files, requested_fields)
     path = policy_path(storage, root)
     try:
         with library_lock(root):

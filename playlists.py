@@ -1,4 +1,4 @@
-"""Playlists M3U8 portáteis, com caminhos relativos ao arquivo da playlist."""
+"""Portable M3U8 playlists, with paths relative to the playlist file."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def _number(values) -> int:
 
 
 def collect(root: Path, progress=None) -> tuple[list[dict], list[dict]]:
-    """Lê a coleção sem gravar nada; segue as mesmas exclusões do inventário."""
+    """Reads the collection without writing anything; follows the same exclusions as the inventory."""
     paths = []
     for folder, dirs, names in os.walk(root, followlinks=False):
         dirs[:] = [d for d in dirs if not (Path(folder) / d).is_symlink()]
@@ -51,7 +51,7 @@ def matches(track: dict, field: str, wanted: str | None) -> bool:
 
 
 def render(playlist: Path, tracks: list[dict], name: str | None = None) -> str:
-    """Gera o conteúdo; a pasta da playlist é a referência dos caminhos."""
+    """Builds the content; the playlist's folder is the base for the paths."""
     base = playlist.parent.resolve()
     lines = ["#EXTM3U"]
     if name:
@@ -62,7 +62,7 @@ def render(playlist: Path, tracks: list[dict], name: str | None = None) -> str:
         if any(c in relative for c in "\r\n"):
             raise ValueError(f"Caminho com quebra de linha não cabe em M3U8: {path}")
         if relative.startswith("#"):
-            relative = "./" + relative  # linhas iniciadas por # são comentários
+            relative = "./" + relative  # lines starting with # are comments
         label = " - ".join(part for part in (_text(track.get("artista")), _text(track.get("titulo"))) if part) or path.stem
         seconds = round(track["duracao_segundos"]) if track.get("duracao_segundos") else -1
         lines.append(f"#EXTINF:{seconds},{' '.join(label.split())}")
@@ -79,14 +79,14 @@ def _sync_dir(directory: Path) -> None:
 
 
 def _publish_exclusive(temp: Path, playlist: Path, data: bytes) -> None:
-    """Publica sem nunca substituir um arquivo que tenha surgido no caminho."""
+    """Publishes without ever replacing a file that has appeared at the path."""
     try:
-        os.link(temp, playlist)  # atômico e exclusivo
+        os.link(temp, playlist)  # atomic and exclusive
         return
     except FileExistsError:
         raise
     except OSError:
-        pass  # exFAT/FAT e alguns compartilhamentos não têm hard links
+        pass  # exFAT/FAT and some network shares lack hard links
     fd = os.open(playlist, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
     try:
         with os.fdopen(fd, "wb") as handle:
@@ -107,15 +107,15 @@ def write_m3u8(playlist: Path, tracks: list[dict], name: str | None = None, over
     playlist.parent.mkdir(parents=True, exist_ok=True)
     if not overwrite and os.path.lexists(playlist):
         raise FileExistsError(f"A playlist já existe: {playlist}")
-    fd, name_tmp = tempfile.mkstemp(prefix=".acervo-playlist-", suffix=".tmp", dir=playlist.parent)
-    temp = Path(name_tmp)
+    fd, temp_name = tempfile.mkstemp(prefix=".acervo-playlist-", suffix=".tmp", dir=playlist.parent)
+    temp = Path(temp_name)
     try:
         with os.fdopen(fd, "wb") as handle:
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
         if overwrite:
-            os.replace(temp, playlist)  # atômico: a anterior fica inteira até a troca
+            os.replace(temp, playlist)  # atomic: the previous one stays intact until the swap
         else:
             _publish_exclusive(temp, playlist, data)
         _sync_dir(playlist.parent)
@@ -127,7 +127,7 @@ def write_m3u8(playlist: Path, tracks: list[dict], name: str | None = None, over
 
 
 def validate_m3u8(playlist: Path) -> dict:
-    """Confere se cada entrada resolve para um arquivo a partir da pasta da playlist."""
+    """Checks that each entry resolves to a file from the playlist's folder."""
     base = playlist.parent
     entries, missing = 0, []
     for line in playlist.read_text(encoding="utf-8-sig").splitlines():

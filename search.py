@@ -1,4 +1,4 @@
-"""Busca com sugestões: na biblioteca local (sem rede) e no catálogo global do spotDL."""
+"""Search with suggestions: in the local library (offline) and in the spotDL global catalog."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ LABELS = {"titulo": "título", "artista": "artista", "album": "álbum", "genero"
 
 
 def normalize(texto: str) -> str:
-    """Minúsculas, sem acentos e sem pontuação: "Ænima!" e "aenima" se encontram."""
+    """Lowercase, without accents or punctuation: "Ænima!" and "aenima" match."""
     texto = unicodedata.normalize("NFKD", str(texto)).replace("æ", "ae").replace("Æ", "ae").replace("ø", "o").replace("Ø", "o")
     texto = "".join(c for c in texto if not unicodedata.combining(c)).casefold()
     texto = texto.replace("&", " e ").replace("'", "").replace("’", "")
@@ -25,7 +25,7 @@ def normalize(texto: str) -> str:
 
 
 def _distance(a: str, b: str, limit: int) -> int:
-    """Levenshtein com corte: devolve limit + 1 assim que passar do limite."""
+    """Levenshtein with a cutoff: returns limit + 1 as soon as the limit is exceeded."""
     if abs(len(a) - len(b)) > limit:
         return limit + 1
     previous = list(range(len(b) + 1))
@@ -43,19 +43,19 @@ def _token_score(query: str, token: str) -> float:
     if token == query:
         return 1.0
     if token.startswith(query):
-        return 0.8  # quem está digitando ainda não terminou a palavra
+        return 0.8  # the user is still typing the word
     if len(query) >= 3 and query in token:
         return 0.6
     if len(query) >= 4:
         limit = 2 if len(query) >= 8 else 1
-        # Compara também com o começo da palavra, para erros no meio da digitação.
+        # Also compare with the start of the word, for typos made mid-typing.
         if min(_distance(query, token, limit), _distance(query, token[:len(query)], limit) if len(token) > len(query) else limit + 1) <= limit:
             return 0.35
     return 0.0
 
 
 class _Matcher:
-    """Pontua entidades (faixas, artistas, álbuns) descritas por campos de texto."""
+    """Scores entities (tracks, artists, albums) described by text fields."""
 
     def __init__(self, entities: list[dict[str, str]]):
         self.entities = entities
@@ -65,12 +65,12 @@ class _Matcher:
             for field, text in texts.items():
                 tokens = set(text.split())
                 if 1 < len(text.split()) <= 4:
-                    tokens.add(text.replace(" ", ""))  # "acdc" encontra "AC/DC", "pinkfloyd" encontra "Pink Floyd"
+                    tokens.add(text.replace(" ", ""))  # "acdc" finds "AC/DC", "pinkfloyd" finds "Pink Floyd"
                 for token in tokens:
                     self.vocabulary.setdefault(token, []).append((index, field))
 
-    def rank(self, consulta: str, limite: int) -> list[tuple[float, int, str]]:
-        query = normalize(consulta)
+    def rank(self, raw_query: str, limit: int) -> list[tuple[float, int, str]]:
+        query = normalize(raw_query)
         terms = list(dict.fromkeys(query.split()))
         if not terms:
             return []
@@ -88,17 +88,17 @@ class _Matcher:
         ranked = []
         for index, slots in best.items():
             if any(value == 0 for value, _ in slots):
-                continue  # todos os termos precisam aparecer
+                continue  # every term must appear
             total = sum(value for value, _ in slots)
             for field, text in self.texts[index].items():
                 if len(terms) > 1 and query in text:
-                    total += FIELDS[field]  # a frase inteira, na ordem
+                    total += FIELDS[field]  # the whole phrase, in order
                 if text == query:
                     total += FIELDS[field] * 1.5
             fields = [field for _, field in slots]
             ranked.append((round(total, 3), index, max(set(fields), key=fields.count)))
         ranked.sort(key=lambda item: (-item[0], self.texts[item[1]].get("titulo", "")))
-        return ranked[:limite]
+        return ranked[:limit]
 
 
 def _join(values) -> str:
@@ -106,7 +106,7 @@ def _join(values) -> str:
 
 
 class LibraryIndex:
-    """Índice em memória das faixas já lidas pelo servidor; reconstruir quando elas mudarem."""
+    """In-memory index of the tracks already read by the server; rebuild it when they change."""
 
     def __init__(self, tracks: list[dict]):
         self.tracks = tracks
@@ -122,7 +122,7 @@ class LibraryIndex:
             for name in list(track.get("artista") or []) + list(track.get("artista_album") or []):
                 if name.strip():
                     names.setdefault(normalize(name), name)
-            for key, name in names.items():  # artista e artista do álbum iguais contam uma vez
+            for key, name in names.items():  # an identical artist and album artist count once
                 entry = artists.setdefault(key, {"nome": name, "faixas": 0})
                 entry["faixas"] += 1
             artist = _join(track.get("artista_album")) or _join(track.get("artista"))
@@ -152,9 +152,9 @@ class LibraryIndex:
     sugerir = suggest
 
 class GlobalSearch:
-    """Sugestões do catálogo global por um processo do spotDL que fica aberto.
+    """Global catalog suggestions from a spotDL process that stays open.
 
-    Abrir o Python do spotDL leva ~2 s; com o processo aberto, uma sugestão leva ~1 s.
+    Starting spotDL's Python takes ~2 s; with the process open, a suggestion takes ~1 s.
     """
 
     def __init__(self, command_factory=None, timeout: float = 15.0, cache_size: int = 200):
@@ -173,7 +173,7 @@ class GlobalSearch:
         if self.process and self.process.poll() is None:
             return
         self.process = subprocess.Popen(self.command_factory(), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
-        # Uma thread lê as linhas; várias respostas podem chegar juntas num mesmo bloco.
+        # A thread reads the lines; several answers may arrive together in one chunk.
         self.lines = queue.Queue()
         threading.Thread(target=self._read, args=(self.process, self.lines), daemon=True).start()
 
@@ -183,12 +183,12 @@ class GlobalSearch:
             for line in process.stdout:
                 lines.put(line)
         except (OSError, ValueError):
-            pass  # fechar() encerrou o processo e seus canais
+            pass  # close() ended the process and its pipes
         lines.put(None)
 
     def _call(self, command: str, *args: str) -> object:
         self._start()
-        # Cópias locais: fechar() pode ser chamado por outra thread durante a espera.
+        # Local copies: close() may be called by another thread while we wait.
         process, lines = self.process, self.lines
         self.counter += 1
         try:
@@ -202,7 +202,7 @@ class GlobalSearch:
             try:
                 line = lines.get(timeout=max(0.0, deadline - time.monotonic()))
             except queue.Empty:
-                self.close()  # um processo travado não pode responder à próxima consulta
+                self.close()  # a stuck process cannot answer the next query
                 raise RuntimeError("A busca global demorou demais; tente de novo") from None
             if line is None:
                 self.close()
@@ -212,7 +212,7 @@ class GlobalSearch:
             except json.JSONDecodeError:
                 continue
             if not isinstance(answer, dict) or answer.get("id") != self.counter:
-                continue  # aviso solto ou resposta atrasada de uma consulta anterior
+                continue  # a stray warning or a late answer to an earlier query
             if not answer.get("ok"):
                 raise RuntimeError(f"A busca global falhou: {answer.get('erro', 'sem detalhes')}")
             return answer.get("dados")
@@ -235,7 +235,7 @@ class GlobalSearch:
             return result
 
     def close(self):
-        """Encerra o processo; uma consulta em andamento termina com RuntimeError."""
+        """Ends the process; a query in progress fails with RuntimeError."""
         process, self.process = self.process, None
         if not process:
             return

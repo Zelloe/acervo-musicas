@@ -1,4 +1,4 @@
-"""Adaptador executado no Python do spotDL; consulta catálogo sem buscar áudio/letras."""
+"""Adapter run on spotDL's Python; queries the catalog without fetching audio/lyrics."""
 
 import json
 from pathlib import Path

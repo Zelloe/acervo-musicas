@@ -1,4 +1,4 @@
-"""Geração de planos imutáveis e planilhas de aprovação."""
+"""Generation of immutable plans and approval spreadsheets."""
 
 from __future__ import annotations
 
@@ -28,13 +28,13 @@ def propose(track: dict, genres: list[dict], albums: list[dict], online=None, pr
     changes, review = [], []
     review.extend(f"Campo protegido: {field}" for field in sorted(protected & {"genero", "album"}))
     artists = track["artista_album"] or track["artista"]
-    # Uma string com '/' é um crédito inteiro; não se divide AC/DC nem convidados.
+    # A string with '/' is a single credit; AC/DC and featured artists are not split.
     artist = artists[0] if len(artists) == 1 else ""
     genre_rules = [r for r in genres if normalized(r["artista"]) == normalized(artist) and (not r.get("album") or any(normalized(album_base(a)) == normalized(r["album"]) for a in track["album"]))]
     specific = [r for r in genre_rules if r.get("album")]
     matches = specific or genre_rules
     existing_genre = any(v.strip() for v in track["genero"])
-    # Proteção vale também para campo vazio e evita até a consulta externa.
+    # Protection also applies to an empty field and even skips the online lookup.
     if not existing_genre and "genero" not in protected:
         options = {r["genero"] for r in matches if r.get("genero", "").strip()}
         if len(options) == 1:
@@ -59,7 +59,7 @@ def propose(track: dict, genres: list[dict], albums: list[dict], online=None, pr
         numbers = json.loads(rule["faixas_json"])
         number = track["faixa"][0].split("/")[0] if len(track["faixa"]) == 1 else ""
         disc = track["disco"][0].split("/")[0] if len(track["disco"]) == 1 else ""
-        # O título inteiro deve corresponder: "To Live Is to Die" não é uma versão ao vivo.
+        # The whole title must match: "To Live Is to Die" is not a live version.
         if disc != rule["disco"] or normalized(clean_title) != normalized(numbers.get(number, "")) or not clean_title:
             review.append("Álbum candidato com versão/faixa/disco incompatível; preservar e revisar")
             continue
@@ -110,7 +110,7 @@ def create_plan(root: Path, output: Path, normalize_albums: bool = False, genre_
             tracks.append(track)
             changes, review = propose(track, genres, albums, online, protections.protected(policy, root, str(path)))
             if changes:
-                # Verifica suporte antes de oferecer aprovação de gravação.
+                # Checks support before offering write approval.
                 integrity(path)
                 if path.stat().st_nlink > 1:
                     raise ValueError("Arquivo com hard links; aprovação bloqueada")

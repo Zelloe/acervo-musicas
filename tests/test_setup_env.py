@@ -1,4 +1,4 @@
-"""Falhas de inicialização não podem apagar o ambiente anterior do usuário."""
+"""Startup failures must not delete the user's previous environment."""
 
 import os
 from pathlib import Path

@@ -1,4 +1,4 @@
-"""O nome exato de um artista não basta para atribuir gênero a um homônimo."""
+"""An artist's exact name is not enough to assign a genre to a namesake."""
 
 from pathlib import Path
 import tempfile

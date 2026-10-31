@@ -1,9 +1,9 @@
-"""Adaptador executado no Python do spotDL: buscas para escolher o que baixar.
+"""Adapter run on spotDL's Python: searches to pick what to download.
 
-Uso: python spotdl_search.py <comando> <saida.json> [argumentos...]
-Comandos: albuns <artista> | edicoes <artista> <album> | musicas <texto> | faixas <url> | sugestoes <texto>
-Ou: python spotdl_search.py servir  (fica aberto; uma consulta JSON por linha em stdin)
-Não usa a API oficial do Spotify nem baixa áudio.
+Usage: python spotdl_search.py <command> <output.json> [arguments...]
+Commands: albuns <artist> | edicoes <artist> <album> | musicas <text> | faixas <url> | sugestoes <text>
+Or: python spotdl_search.py servir  (stays open; one JSON request per line on stdin)
+Does not use the official Spotify API and does not download audio.
 """
 
 import json
@@ -31,7 +31,7 @@ def client():
 
 
 def picture(images, prefer: int = 300) -> str:
-    """URL da imagem mais próxima do tamanho pedido (capas e fotos)."""
+    """URL of the image closest to the requested size (covers and photos)."""
     images = [i for i in images or [] if isinstance(i, dict) and i.get("url")]
     if not images:
         return ""
@@ -43,7 +43,7 @@ def same(a: str, b: str) -> bool:
 
 
 def albums(artist: str) -> list[dict]:
-    # A busca de álbuns sem API oficial volta vazia no Spotify; o YouTube Music lista bem.
+    # Album search without the official API comes back empty on Spotify; YouTube Music lists them well.
     found, seen = [], set()
     for item in ytmusic().search(artist, filter="albums", limit=40):
         names = [a.get("name", "") for a in item.get("artists") or []]
@@ -67,7 +67,7 @@ def editions(artist: str, album: str) -> list[dict]:
         if not any(same(a["name"], artist) for a in item["artists"]):
             continue
         found.setdefault(item["id"], {"titulo": item["name"], "artista": ", ".join(a["name"] for a in item["artists"]), "tipo": item.get("album_type") or "", "url": item["external_urls"]["spotify"], "capa": picture(item.get("images"))})
-    # A edição com o nome exato aparece primeiro; deluxe/remaster depois.
+    # The edition with the exact name comes first; deluxe/remaster after.
     return sorted(found.values(), key=lambda e: (not same(e["titulo"], album), len(e["titulo"])))
 
 
@@ -100,7 +100,7 @@ def tracks(url: str) -> list[dict]:
 
 
 def suggestions(text: str) -> dict:
-    """Rápido o bastante para enquanto se digita: só o YouTube Music."""
+    """Fast enough to run while typing: YouTube Music only."""
     terms = [t for t in ytmusic().get_search_suggestions(text) if isinstance(t, str)][:6]
     artists, seen = [], set()
     for item in ytmusic().search(text, filter="artists", limit=6):
@@ -115,7 +115,7 @@ HANDLERS = {"albuns": albums, "edicoes": editions, "musicas": songs, "faixas": t
 
 
 def serve():
-    # Avisos de bibliotecas não podem se misturar às respostas JSON.
+    # Library warnings must not mix with the JSON responses.
     out, sys.stdout = sys.stdout, sys.stderr
     for line in sys.stdin:
         request = None

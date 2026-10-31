@@ -1,4 +1,4 @@
-"""Cliente MusicBrainz opcional, com cache, limite de consultas e revisão conservadora."""
+"""Optional MusicBrainz client, with caching, a request limit and conservative review."""
 
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ class MusicBrainz:
                 pass
         if self.disabled or self.requests >= self.max_requests:
             raise ValueError("Consultas online suspensas ou limite atingido; revisão pendente")
-        # O bloqueio e o relógio persistido compartilham o limite entre processos deste cache.
+        # The lock and the persisted clock share the limit across processes using this cache.
         with (self.cache / ".rate.lock").open("a+") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
             for attempt in range(3):
@@ -79,7 +79,7 @@ class MusicBrainz:
     def artist(self, name: str) -> dict | None:
         result = self.get("artist", query="artist:" + literal(name), limit=25)
         candidates = [a for a in result.get("artists", []) if normalized(a.get("name", "")) == normalized(name) and int(a.get("score", 0)) >= 95]
-        # Não escolhe por popularidade entre artistas homônimos.
+        # Never picks by popularity among artists with the same name.
         return candidates[0] if len(candidates) == 1 else None
 
     @staticmethod

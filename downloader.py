@@ -1,4 +1,4 @@
-"""Baixar músicas com o spotDL direto numa pasta, escolhendo artista, álbum, edição e faixas."""
+"""Download songs with spotDL straight into a folder, picking artist, album, edition and tracks."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ REMASTER = re.compile(r"\s*(?:-\s*|\(|\[)\s*(?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d
 
 
 def spotdl_executable() -> str:
-    # Aberto pelo menu do sistema, o PATH pode não incluir ~/.local/bin (pipx).
+    # When launched from the system menu, PATH may not include ~/.local/bin (pipx).
     found = shutil.which("spotdl") or str(Path.home() / ".local/bin/spotdl")
     if not Path(found).is_file():
         raise RuntimeError("spotDL não encontrado. Instale com: pipx install spotdl")
@@ -34,7 +34,7 @@ def spotdl_executable() -> str:
 
 
 def spotdl_python() -> list[str]:
-    """O adaptador precisa rodar no Python em que o spotDL está instalado."""
+    """The adapter must run on the Python that spotDL is installed in."""
     executable = Path(spotdl_executable()).resolve()
     try:
         first = executable.open(encoding="utf-8").readline().strip()
@@ -62,7 +62,7 @@ def _text(value: str, name: str) -> str:
     return value.strip()
 
 
-# Só imagens dos CDNs de capas; nada de URLs arbitrárias vindas da busca.
+# Only images from cover CDNs; no arbitrary URLs coming from the search.
 PHOTO_HOSTS = re.compile(r"https://(?:[a-z0-9-]+\.googleusercontent\.com|i\.scdn\.co|mosaic\.scdn\.co|image-cdn-[a-z0-9-]+\.spotifycdn\.com)/[^\s\"'<>]+")
 
 
@@ -103,7 +103,7 @@ def _key(artist: str, title: str) -> str:
 
 
 def local_index(pasta: Path) -> set[str]:
-    """Artista + título de tudo o que já existe na pasta, para marcar "já tenho"."""
+    """Artist + title of everything already in the folder, to mark "already owned"."""
     keys = set()
     for folder, dirs, names in os.walk(pasta, followlinks=False):
         for name in names:
@@ -133,7 +133,7 @@ def mark_owned(lista: list[dict], indice: set[str]) -> list[dict]:
 
 
 def genre_from_rules(artista: str, album: str, regras: list[dict] | None = None) -> str:
-    """Mesma prioridade da análise: regra do álbum, depois regra do artista; só se for única."""
+    """Same priority as the analysis: album rule, then artist rule; only if it is unique."""
     regras = rules(BASE / "genre_rules.csv") if regras is None else regras
     by_artist = [r for r in regras if normalized(r["artista"]) == normalized(artista)]
     specific = [r for r in by_artist if r.get("album") and normalized(r["album"]) == normalized(album_base(album))]
@@ -160,27 +160,27 @@ def _valid_audio(path: Path) -> bool:
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         raise RuntimeError("ffmpeg não encontrado; ele é necessário para o spotDL e para validar o áudio")
-    # Sem -xerror o ffmpeg termina com 0 mesmo com erros de decodificação.
+    # Without -xerror ffmpeg exits with 0 even on decoding errors.
     process = subprocess.run([ffmpeg, "-v", "error", "-xerror", "-nostdin", "-i", str(path), "-map", "0:a:0", "-f", "null", "-"], capture_output=True, timeout=180)
     return process.returncode == 0
 
 
 def _publish(source: Path, final: Path) -> None:
-    """Coloca o arquivo pronto no destino sem nunca substituir um que já exista."""
+    """Put the finished file at the destination without ever replacing an existing one."""
     fd, name = tempfile.mkstemp(prefix=".acervo-baixando-", suffix=final.suffix, dir=final.parent)
     temp = Path(name)
     try:
-        os.fchmod(fd, 0o644)  # mkstemp cria 0600; players e outros programas precisam ler
+        os.fchmod(fd, 0o644)  # mkstemp creates 0600; players and other programs need to read it
         with os.fdopen(fd, "wb") as handle, source.open("rb") as origin:
             shutil.copyfileobj(origin, handle)
             handle.flush()
             os.fsync(handle.fileno())
         try:
-            os.link(temp, final)  # atômico e exclusivo
+            os.link(temp, final)  # atomic and exclusive
         except FileExistsError:
             raise
         except OSError:
-            # exFAT/FAT e alguns compartilhamentos não têm hard links.
+            # exFAT/FAT and some network shares have no hard links.
             out = os.open(final, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
             try:
                 with os.fdopen(out, "wb") as handle, source.open("rb") as origin:
@@ -194,13 +194,13 @@ def _publish(source: Path, final: Path) -> None:
         temp.unlink(missing_ok=True)
 
 
-def _download_one(item: dict, pasta: Path, executable: str, regras: list[dict], bitrate: str, lyrics_client: LyricsClient | None = None) -> dict:
+def _download_one(item: dict, folder: Path, executable: str, genre_rules: list[dict], bitrate: str, lyrics_client: LyricsClient | None = None) -> dict:
     url = item.get("url", "")
     if not re.fullmatch(r"https://open\.spotify\.com/track/[A-Za-z0-9]+", url.split("?")[0]):
         return {**item, "estado": "erro", "mensagem": "Link de faixa inválido"}
     with tempfile.TemporaryDirectory(prefix="acervo-download-") as work:
         work = Path(work)
-        # Template relativo com cwd na pasta: o spotDL sanitiza caminhos absolutos.
+        # Relative template with cwd in the folder: spotDL sanitizes absolute paths.
         command = [executable, "download", url, "--output", TEMPLATE, "--format", "mp3", "--bitrate", bitrate,
                    "--overwrite", "skip", "--threads", "1", "--simple-tui", "--print-errors"]
         try:
@@ -215,15 +215,15 @@ def _download_one(item: dict, pasta: Path, executable: str, regras: list[dict], 
         audio = produced[0]
         if not _valid_audio(audio):
             return {**item, "estado": "erro", "mensagem": "O áudio baixado está corrompido ou incompleto"}
-        genre = genre_from_rules(item.get("artista_album") or item.get("artista", ""), item.get("album", ""), regras)
+        genre = genre_from_rules(item.get("artista_album") or item.get("artista", ""), item.get("album", ""), genre_rules)
         filled = _fill_genre(audio, genre)
         embedded = False
         if lyrics_client:
             try:
                 embedded = embed_plain(audio, lyrics_client.lookup(item.get("artista", ""), item.get("titulo", ""), item.get("album", ""), item.get("duracao")))
             except RuntimeError:
-                embedded = False  # sem letra o download continua valendo
-        final = pasta / audio.name
+                embedded = False  # without lyrics the download still counts
+        final = folder / audio.name
         try:
             _publish(audio, final)
         except FileExistsError:
@@ -232,11 +232,11 @@ def _download_one(item: dict, pasta: Path, executable: str, regras: list[dict], 
 
 
 def download(lista: list[dict], pasta: Path, progress=None, bitrate: str = "320k", lyrics: LyricsClient | bool | None = True) -> list[dict]:
-    """Baixa cada faixa direto em `pasta`, sem nunca substituir um arquivo existente.
+    """Download each track straight into `pasta`, never replacing an existing file.
 
-    O spotDL trabalha numa pasta temporária fora da coleção; o arquivo só aparece
-    no destino depois de o spotDL terminar com sucesso e o áudio ser validado.
-    Erros ficam registrados por faixa e o resultado parcial é sempre devolvido.
+    spotDL works in a temporary folder outside the collection; the file only shows
+    up at the destination after spotDL finishes successfully and the audio is validated.
+    Errors are recorded per track and the partial result is always returned.
     """
     pasta = Path(pasta).expanduser()
     if not pasta.is_dir():
@@ -244,7 +244,7 @@ def download(lista: list[dict], pasta: Path, progress=None, bitrate: str = "320k
     if bitrate not in ("128k", "192k", "256k", "320k"):
         raise ValueError("Bitrate inválido")
     progress = progress or (lambda *args: None)
-    regras = rules(BASE / "genre_rules.csv")
+    genre_rules = rules(BASE / "genre_rules.csv")
     executable = spotdl_executable()
     lyrics = LyricsClient() if lyrics is True else (lyrics or None)
     results = []
@@ -252,10 +252,10 @@ def download(lista: list[dict], pasta: Path, progress=None, bitrate: str = "320k
         label = f"{item.get('artista', '')} - {item.get('titulo', '')}"
         progress(f"Baixando {index + 1} de {len(lista)} · {label}", round(index / len(lista) * 100))
         try:
-            results.append(_download_one(item, pasta, executable, regras, bitrate, lyrics))
+            results.append(_download_one(item, pasta, executable, genre_rules, bitrate, lyrics))
         except Exception as error:
             results.append({**item, "estado": "erro", "mensagem": f"{type(error).__name__}: {error}"[:300]})
-            # Sem ffmpeg ou sem espaço/escrita no destino, as próximas falhariam igual.
+            # Without ffmpeg, or without space/write access at the destination, the next ones would fail the same way.
             if isinstance(error, RuntimeError) or (isinstance(error, OSError) and error.errno in (errno.ENOSPC, errno.EROFS, errno.EDQUOT, errno.EACCES)):
                 results.extend({**rest, "estado": "nao_baixado", "mensagem": "Interrompido após o erro anterior"} for rest in lista[index + 1:])
                 break
