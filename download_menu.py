@@ -9,7 +9,7 @@ import re
 import sys
 
 import downloader
-from folders import exigir_pasta, pasta_musicas_padrao
+from folders import require_folder, default_music_folder
 
 
 def parse_selection(text: str, items: list[dict]) -> list[int]:
@@ -63,8 +63,8 @@ class Menu:
     def known(self, items: list[dict]) -> list[dict]:
         if self.index is None:
             print("Conferindo o que já existe na pasta…")
-            self.index = downloader.indice_local(self.folder)
-        return downloader.ja_tenho(items, self.index)
+            self.index = downloader.local_index(self.folder)
+        return downloader.mark_owned(items, self.index)
 
     def pick_and_download(self, items: list[dict], with_album: bool) -> None:
         if not items:
@@ -90,7 +90,7 @@ class Menu:
             return
         if ask(f"Baixar {len(chosen)} faixa(s) em {self.folder}? [S/n] ").strip().casefold() not in ("", "s", "sim"):
             return
-        results = downloader.baixar([items[i] for i in chosen], self.folder, lambda text, percent: print(f"  [{percent:>3}%] {text}"))
+        results = downloader.download([items[i] for i in chosen], self.folder, lambda text, percent: print(f"  [{percent:>3}%] {text}"))
         self.index = None  # a pasta mudou
         done = [r for r in results if r["estado"] == "baixado"]
         print(f"\nBaixadas: {len(done)} de {len(results)}")
@@ -106,7 +106,7 @@ class Menu:
         if not artist:
             return
         print("Procurando álbuns…")
-        albums = downloader.buscar_albuns(artist)
+        albums = downloader.search_albums(artist)
         if not albums:
             print("Nenhum álbum encontrado. Tente o nome exato do artista ou procure por música.")
             return
@@ -114,26 +114,26 @@ class Menu:
         if not album:
             return
         print("Procurando edições…")
-        editions = downloader.edicoes(artist, album["titulo"])
+        editions = downloader.editions(artist, album["titulo"])
         if not editions:
             print("Esse álbum não foi encontrado no catálogo do spotDL. Tente procurar por música.")
             return
         edition = editions[0] if len(editions) == 1 else choose_one(editions, lambda e: f"{e['titulo']}  · {e['artista']}")
         if edition:
             print("Carregando faixas…")
-            self.pick_and_download(downloader.faixas(edition["url"]), with_album=False)
+            self.pick_and_download(downloader.tracks(edition["url"]), with_album=False)
 
     def by_song(self) -> None:
         text = ask("Música (ex.: Kyuss Gardenia): ").strip()
         if text:
             print("Procurando…")
-            self.pick_and_download(downloader.buscar_musicas(text), with_album=True)
+            self.pick_and_download(downloader.search_songs(text), with_album=True)
 
     def by_link(self) -> None:
         url = ask("Link do Spotify (música, álbum ou playlist): ").strip()
         if url:
             print("Carregando…")
-            self.pick_and_download(downloader.faixas(url), with_album=True)
+            self.pick_and_download(downloader.tracks(url), with_album=True)
 
     def run(self) -> None:
         actions = {"1": self.by_artist, "2": self.by_song, "3": self.by_link}
@@ -153,10 +153,10 @@ class Menu:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pasta", type=Path, default=pasta_musicas_padrao(), help="Onde salvar (padrão: a pasta de músicas do sistema, ex.: ~/Música)")
+    parser.add_argument("--pasta", type=Path, default=default_music_folder(), help="Onde salvar (padrão: a pasta de músicas do sistema, ex.: ~/Música)")
     args = parser.parse_args()
     try:
-        folder = exigir_pasta(args.pasta)
+        folder = require_folder(args.pasta)
     except ValueError as error:
         print(error, file=sys.stderr)
         return 1

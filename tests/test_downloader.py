@@ -32,17 +32,17 @@ class SelectionTest(unittest.TestCase):
                 parse_selection(bad, ITEMS)
 
     def test_genre_rules_follow_analysis_priority(self):
-        self.assertEqual(downloader.genero_por_regra("ac/dc", "Back In Black", RULES), "Hard Rock")
-        self.assertEqual(downloader.genero_por_regra("Metallica", "Load (Remastered)", RULES), "Hard Rock")
-        self.assertEqual(downloader.genero_por_regra("Metallica", "Master of Puppets", RULES), "Thrash Metal")
-        self.assertEqual(downloader.genero_por_regra("Duplo", "X", RULES), "")
-        self.assertEqual(downloader.genero_por_regra("Desconhecido", "X", RULES), "")
+        self.assertEqual(downloader.genre_from_rules("ac/dc", "Back In Black", RULES), "Hard Rock")
+        self.assertEqual(downloader.genre_from_rules("Metallica", "Load (Remastered)", RULES), "Hard Rock")
+        self.assertEqual(downloader.genre_from_rules("Metallica", "Master of Puppets", RULES), "Thrash Metal")
+        self.assertEqual(downloader.genre_from_rules("Duplo", "X", RULES), "")
+        self.assertEqual(downloader.genre_from_rules("Desconhecido", "X", RULES), "")
 
     def test_inputs_are_validated_before_running_spotdl(self):
         with self.assertRaises(ValueError):
-            downloader.faixas("https://example.com/album/1")
+            downloader.tracks("https://example.com/album/1")
         with self.assertRaises(ValueError):
-            downloader.buscar_musicas("--output /etc")
+            downloader.search_songs("--output /etc")
 
 
 @unittest.skipUnless(shutil.which("ffmpeg"), "Os testes de integração usam ffmpeg para gerar áudio temporário")
@@ -86,7 +86,7 @@ class DownloadTest(unittest.TestCase):
 
     def download(self, items, **fake):
         with patch.object(downloader, "spotdl_executable", return_value="spotdl"), patch.object(downloader.subprocess, "run", side_effect=self.wrap(self.fake_spotdl(**fake))):
-            return downloader.baixar(items, self.folder, letras=False)
+            return downloader.download(items, self.folder, lyrics=False)
 
     def wrap(self, fake):
         real = subprocess.run
@@ -157,19 +157,19 @@ class DownloadTest(unittest.TestCase):
             self.item = next(i for i in (self.item, other, third) if command[2] == i["url"])
             return self.fake_spotdl(name)(command, cwd)
         with patch.object(downloader, "spotdl_executable", return_value="spotdl"), patch.object(downloader, "_publish", side_effect=publish), patch.object(downloader.subprocess, "run", side_effect=self.wrap(run)):
-            results = downloader.baixar([self.item, other, third, fourth], self.folder, letras=False)
+            results = downloader.download([self.item, other, third, fourth], self.folder, lyrics=False)
         self.assertEqual([r["estado"] for r in results], ["baixado", "erro", "erro", "nao_baixado"])
         self.assertEqual(self.listing(), ["ACDC - Back In Black.mp3"])
 
     def test_index_marks_existing_tracks(self):
         self.download([self.item])
-        index = downloader.indice_local(self.folder)
-        marked = downloader.ja_tenho([dict(self.item), {"titulo": "Back In Black - Remastered 2003", "artista": "AC/DC"}, {"titulo": "Hells Bells", "artista": "AC/DC"}], index)
+        index = downloader.local_index(self.folder)
+        marked = downloader.mark_owned([dict(self.item), {"titulo": "Back In Black - Remastered 2003", "artista": "AC/DC"}, {"titulo": "Hells Bells", "artista": "AC/DC"}], index)
         self.assertEqual([m["ja_tenho"] for m in marked], [True, True, False])
 
     def test_bad_link_is_reported_without_running(self):
         with patch.object(downloader, "spotdl_executable", return_value="spotdl"), patch.object(downloader.subprocess, "run") as run:
-            result = downloader.baixar([{**self.item, "url": "https://open.spotify.com/album/x"}], self.folder, letras=False)
+            result = downloader.download([{**self.item, "url": "https://open.spotify.com/album/x"}], self.folder, lyrics=False)
         run.assert_not_called()
         self.assertEqual(result[0]["estado"], "erro")
 

@@ -5,7 +5,7 @@ import textwrap
 import time
 import unittest
 
-from search import BuscaGlobal, IndiceBiblioteca, normalizar
+from search import GlobalSearch, LibraryIndex, normalize
 
 
 def track(ident, title, artist, album, genre="", album_artist=""):
@@ -26,16 +26,16 @@ TRACKS = [
 class LibrarySearchTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.index = IndiceBiblioteca(TRACKS)
+        cls.index = LibraryIndex(TRACKS)
 
     def ids(self, query, limit=3):
-        return [r["id"] for r in self.index.buscar(query, limit)]
+        return [r["id"] for r in self.index.search(query, limit)]
 
     def test_normalization(self):
-        self.assertEqual(normalizar("Ænima!"), "aenima")
-        self.assertEqual(normalizar("Várias  Variáveis"), "varias variaveis")
-        self.assertEqual(normalizar("AC/DC"), "ac dc")
-        self.assertEqual(normalizar("Guns N' Roses"), "guns n roses")
+        self.assertEqual(normalize("Ænima!"), "aenima")
+        self.assertEqual(normalize("Várias  Variáveis"), "varias variaveis")
+        self.assertEqual(normalize("AC/DC"), "ac dc")
+        self.assertEqual(normalize("Guns N' Roses"), "guns n roses")
 
     def test_accents_typos_prefixes_and_compact_names(self):
         self.assertEqual(self.ids("varias variaveis")[0], "5")
@@ -51,29 +51,29 @@ class LibrarySearchTest(unittest.TestCase):
         self.assertEqual(self.ids("back in black")[0], "1")
 
     def test_genre_search_and_reason(self):
-        result = self.index.buscar("thrash", 5)
+        result = self.index.search("thrash", 5)
         self.assertEqual([r["id"] for r in result], ["4"])
         self.assertEqual(result[0]["motivo"], "gênero")
 
     def test_suggestions_group_artists_albums_and_songs(self):
-        suggestions = self.index.sugerir("ac")
+        suggestions = self.index.suggest("ac")
         self.assertEqual(suggestions["artistas"][0], {"nome": "AC/DC", "faixas": 2})
         self.assertEqual(suggestions["albuns"][0]["titulo"], "Back In Black")
         self.assertEqual(suggestions["albuns"][0]["faixas"], 2)
         self.assertIn("1", [s["id"] for s in suggestions["musicas"]])
-        self.assertEqual(self.index.sugerir("   "), {"artistas": [], "albuns": [], "musicas": []})
+        self.assertEqual(self.index.suggest("   "), {"artistas": [], "albuns": [], "musicas": []})
 
     def test_artist_and_album_artist_count_once(self):
-        index = IndiceBiblioteca([track("1", "Song", "Kyuss", "Wretch", album_artist="Kyuss")])
-        self.assertEqual(index.sugerir("kyuss")["artistas"], [{"nome": "Kyuss", "faixas": 1}])
+        index = LibraryIndex([track("1", "Song", "Kyuss", "Wretch", album_artist="Kyuss")])
+        self.assertEqual(index.suggest("kyuss")["artistas"], [{"nome": "Kyuss", "faixas": 1}])
 
     def test_large_library_stays_fast(self):
         import time
         many = [track(str(i), f"Song {i}", f"Band {i % 300}", f"Album {i % 900}", "Rock") for i in range(3000)]
-        index = IndiceBiblioteca(many)
+        index = LibraryIndex(many)
         start = time.perf_counter()
-        index.sugerir("band 12")
-        index.buscar("albm 45")
+        index.suggest("band 12")
+        index.search("albm 45")
         self.assertLess(time.perf_counter() - start, 1.5)
 
 
@@ -100,37 +100,37 @@ class GlobalSearchTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         script = Path(self.temp.name) / "worker.py"
         script.write_text(FAKE_WORKER)
-        self.search = BuscaGlobal(lambda: [sys.executable, str(script)], timeout=1.0)
+        self.search = GlobalSearch(lambda: [sys.executable, str(script)], timeout=1.0)
 
     def tearDown(self):
-        self.search.fechar()
+        self.search.close()
         self.temp.cleanup()
 
     def test_answers_skip_noise_and_late_replies_and_are_cached(self):
-        first = self.search.sugerir("Kyuss")
+        first = self.search.suggest("Kyuss")
         self.assertEqual(first["termos"], ["Kyuss x"])
-        self.assertEqual(self.search.sugerir("  kyuss ")["chamadas"], 1)  # mesma consulta normalizada
-        self.assertEqual(self.search.sugerir("alice")["chamadas"], 2)    # o processo continua aberto
-        self.assertEqual(self.search.sugerir("k"), {"termos": [], "artistas": []})
+        self.assertEqual(self.search.suggest("  kyuss ")["chamadas"], 1)  # mesma consulta normalizada
+        self.assertEqual(self.search.suggest("alice")["chamadas"], 2)    # o processo continua aberto
+        self.assertEqual(self.search.suggest("k"), {"termos": [], "artistas": []})
 
     def test_errors_and_timeouts_recover(self):
         with self.assertRaisesRegex(RuntimeError, "sem rede"):
-            self.search.sugerir("falha")
+            self.search.suggest("falha")
         with self.assertRaisesRegex(RuntimeError, "demorou"):
-            self.search.sugerir("lento")
+            self.search.suggest("lento")
         self.assertIsNone(self.search.process)
-        self.assertEqual(self.search.sugerir("depois")["chamadas"], 1)  # um processo novo
+        self.assertEqual(self.search.suggest("depois")["chamadas"], 1)  # um processo novo
 
     def test_close_during_pending_query(self):
         import threading
         self.search.timeout = 10.0
-        process = (self.search.sugerir("aquece"), self.search.process)[1]
+        process = (self.search.suggest("aquece"), self.search.process)[1]
         errors = []
-        worker = threading.Thread(target=lambda: errors.append(self._capture(lambda: self.search.sugerir("lento"))))
+        worker = threading.Thread(target=lambda: errors.append(self._capture(lambda: self.search.suggest("lento"))))
         worker.start()
         time.sleep(0.3)
         started = time.monotonic()
-        self.search.fechar()
+        self.search.close()
         worker.join(5)
         self.assertFalse(worker.is_alive())
         self.assertLess(time.monotonic() - started, 3)

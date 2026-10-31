@@ -7,7 +7,7 @@ from pathlib import Path
 import shlex
 
 
-def pasta_musicas_padrao() -> Path:
+def default_music_folder() -> Path:
     """Lê XDG_MUSIC_DIR como o xdg-user-dir; sem configuração, usa ~/Music."""
     home = Path.home()
     if os.environ.get("XDG_MUSIC_DIR"):
@@ -30,7 +30,7 @@ def pasta_musicas_padrao() -> Path:
     return home / "Music"
 
 
-def exigir_pasta(pasta: Path, opcao: str = "--pasta") -> Path:
+def require_folder(pasta: Path, opcao: str = "--pasta") -> Path:
     pasta = pasta.expanduser()
     if not pasta.is_dir():
         raise ValueError(f'A pasta de músicas não existe: {pasta}\nInforme onde estão suas músicas, por exemplo: {opcao} "$HOME/Música"')

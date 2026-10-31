@@ -21,7 +21,7 @@ import urllib.request
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3, ID3NoHeaderError, USLT
 
-from search import normalizar
+from search import normalize
 
 API = "https://lrclib.net/api"
 USER_AGENT = "Acervo (https://github.com/Zelloe/acervo-musicas)"
@@ -58,7 +58,7 @@ def _result(synced: str = "", plain: str = "", instrumental: bool = False, sourc
             "instrumental": bool(instrumental), "fonte": source, "url": url}
 
 
-def ler_embutida(path: Path) -> dict | None:
+def read_embedded(path: Path) -> dict | None:
     """Letra já presente: tag do arquivo ou um .lrc com o mesmo nome ao lado."""
     path = Path(path)
     texts = []
@@ -93,15 +93,15 @@ def ler_embutida(path: Path) -> dict | None:
     return None
 
 
-def cache_padrao() -> Path:
+def default_cache_dir() -> Path:
     return Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "acervo" / "letras"
 
 
-class Letras:
+class LyricsClient:
     """Cliente do LRCLIB com cache em disco e uma requisição por vez."""
 
     def __init__(self, cache_dir: Path | None = None, opener=None, min_interval: float = 0.5, retries: int = 3, sleep=time.sleep):
-        self.cache_dir = Path(cache_dir) if cache_dir else cache_padrao()
+        self.cache_dir = Path(cache_dir) if cache_dir else default_cache_dir()
         self.opener = opener or (lambda request, timeout: urllib.request.urlopen(request, timeout=timeout))
         self.min_interval = min_interval
         self.retries = retries
@@ -110,7 +110,7 @@ class Letras:
         self.last = 0.0
 
     def _key(self, artista, titulo, album, duracao) -> Path:
-        ident = "\x1f".join([normalizar(artista), normalizar(titulo), normalizar(album or ""), str(round(duracao or 0))])
+        ident = "\x1f".join([normalize(artista), normalize(titulo), normalize(album or ""), str(round(duracao or 0))])
         return self.cache_dir / (hashlib.sha256(ident.encode()).hexdigest()[:32] + ".json")
 
     def _get(self, endpoint: str, params: dict):
@@ -142,8 +142,8 @@ class Letras:
             # Sem correspondência exata: procura pelo nome e exige duração próxima.
             found = self._get("search", {"artist_name": artista, "track_name": titulo}) or []
             candidates = [r for r in found if isinstance(r, dict)
-                          and normalizar(r.get("trackName", "")) == normalizar(titulo)
-                          and normalizar(r.get("artistName", "")) == normalizar(artista)
+                          and normalize(r.get("trackName", "")) == normalize(titulo)
+                          and normalize(r.get("artistName", "")) == normalize(artista)
                           and (not duracao or abs((r.get("duration") or 0) - duracao) <= 3)]
             candidates.sort(key=lambda r: (not r.get("syncedLyrics"), abs((r.get("duration") or 0) - (duracao or 0))))
             exact = candidates[0] if candidates else None
@@ -152,7 +152,7 @@ class Letras:
         return _result(exact.get("syncedLyrics") or "", exact.get("plainLyrics") or "", exact.get("instrumental"),
                        "lrclib", f"https://lrclib.net/api/get/{exact['id']}" if exact.get("id") else "")
 
-    def buscar(self, artista: str, titulo: str, album: str = "", duracao: float | None = None) -> dict:
+    def lookup(self, artista: str, titulo: str, album: str = "", duracao: float | None = None) -> dict:
         if not (artista or "").strip() or not (titulo or "").strip():
             return {"encontrada": False}
         path = self._key(artista, titulo, album, duracao)
@@ -174,13 +174,16 @@ class Letras:
             pass  # sem cache, a letra continua sendo mostrada
         return result
 
+    buscar = lookup  # temporary alias (step B)
 
-def letra_da_faixa(path: Path, artista: str, titulo: str, album: str, duracao: float | None, cliente: Letras) -> dict:
+
+def lyrics_for_track(path: Path, artista: str, titulo: str, album: str, duracao: float | None, cliente: LyricsClient) -> dict:
     """A do arquivo tem prioridade; senão, a do LRCLIB (sem gravar nada)."""
-    return ler_embutida(path) or cliente.buscar(artista, titulo, album, duracao)
+    # Temporary: calls the old name so server tests that patch it keep working during step B.
+    return read_embedded(path) or cliente.buscar(artista, titulo, album, duracao)
 
 
-def embutir_texto(path: Path, letra: dict) -> bool:
+def embed_plain(path: Path, letra: dict) -> bool:
     """Para arquivos NOVOS: grava a letra simples (USLT) se o MP3 ainda não tiver."""
     if path.suffix.casefold() != ".mp3" or not letra.get("encontrada") or letra.get("instrumental") or not letra.get("texto"):
         return False
@@ -195,7 +198,7 @@ def embutir_texto(path: Path, letra: dict) -> bool:
     return True
 
 
-def letra_atual(path: Path) -> list[str]:
+def current_lyrics(path: Path) -> list[str]:
     """Letras simples já gravadas no arquivo, no formato que write_validated confere."""
     path = Path(path)
     if path.suffix.casefold() == ".mp3":
@@ -206,7 +209,7 @@ def letra_atual(path: Path) -> list[str]:
     return list(FLAC(path).get("lyrics", []))
 
 
-def gravar_letra(root: Path, storage: Path, arquivo: str, texto: str, anterior_sha256: str | None = None) -> dict:
+def save_lyrics(root: Path, storage: Path, arquivo: str, texto: str, anterior_sha256: str | None = None) -> dict:
     """Grava a letra numa faixa da coleção com backup, conferência e desfazer pelo Histórico.
 
     Com anterior_sha256 (o hash visto na prévia), a gravação é recusada se a
@@ -222,7 +225,7 @@ def gravar_letra(root: Path, storage: Path, arquivo: str, texto: str, anterior_s
         raise ValueError("Grave a letra sem marcações de tempo; a versão sincronizada fica no cache do Acervo")
     root = Path(root).resolve(strict=True)
     path = secure_file(root, arquivo)
-    current = letra_atual(path)
+    current = current_lyrics(path)
     if current == [texto]:
         raise ValueError("A faixa já tem exatamente essa letra")
     if anterior_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", str(anterior_sha256)):
@@ -231,3 +234,10 @@ def gravar_letra(root: Path, storage: Path, arquivo: str, texto: str, anterior_s
                  "alteracoes": {"letra": {"atual": current, "proposto": [texto]}}}
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     return import_reviewed(root, Path(storage) / "backups", [operation], f"letra-{stamp}", Path(storage))
+
+
+# Temporary aliases for server.py during the English rename (step B); remove when server.py is updated.
+Letras = LyricsClient
+letra_da_faixa = lyrics_for_track
+letra_atual = current_lyrics
+gravar_letra = save_lyrics

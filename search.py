@@ -16,7 +16,7 @@ FIELDS = {"titulo": 3.0, "artista": 2.5, "album": 2.0, "genero": 1.0}
 LABELS = {"titulo": "título", "artista": "artista", "album": "álbum", "genero": "gênero"}
 
 
-def normalizar(texto: str) -> str:
+def normalize(texto: str) -> str:
     """Minúsculas, sem acentos e sem pontuação: "Ænima!" e "aenima" se encontram."""
     texto = unicodedata.normalize("NFKD", str(texto)).replace("æ", "ae").replace("Æ", "ae").replace("ø", "o").replace("Ø", "o")
     texto = "".join(c for c in texto if not unicodedata.combining(c)).casefold()
@@ -59,7 +59,7 @@ class _Matcher:
 
     def __init__(self, entities: list[dict[str, str]]):
         self.entities = entities
-        self.texts = [{field: normalizar(text) for field, text in entity.items()} for entity in entities]
+        self.texts = [{field: normalize(text) for field, text in entity.items()} for entity in entities]
         self.vocabulary: dict[str, list[tuple[int, str]]] = {}
         for index, texts in enumerate(self.texts):
             for field, text in texts.items():
@@ -70,7 +70,7 @@ class _Matcher:
                     self.vocabulary.setdefault(token, []).append((index, field))
 
     def rank(self, consulta: str, limite: int) -> list[tuple[float, int, str]]:
-        query = normalizar(consulta)
+        query = normalize(consulta)
         terms = list(dict.fromkeys(query.split()))
         if not terms:
             return []
@@ -105,7 +105,7 @@ def _join(values) -> str:
     return " / ".join(v for v in values or [] if v.strip())
 
 
-class IndiceBiblioteca:
+class LibraryIndex:
     """Índice em memória das faixas já lidas pelo servidor; reconstruir quando elas mudarem."""
 
     def __init__(self, tracks: list[dict]):
@@ -121,25 +121,25 @@ class IndiceBiblioteca:
             names = {}
             for name in list(track.get("artista") or []) + list(track.get("artista_album") or []):
                 if name.strip():
-                    names.setdefault(normalizar(name), name)
+                    names.setdefault(normalize(name), name)
             for key, name in names.items():  # artista e artista do álbum iguais contam uma vez
                 entry = artists.setdefault(key, {"nome": name, "faixas": 0})
                 entry["faixas"] += 1
             artist = _join(track.get("artista_album")) or _join(track.get("artista"))
             album = _join(track.get("album"))
             if album:
-                entry = albums.setdefault((normalizar(artist), normalizar(album)), {"titulo": album, "artista": artist, "track_id": track.get("id"), "faixas": 0})
+                entry = albums.setdefault((normalize(artist), normalize(album)), {"titulo": album, "artista": artist, "track_id": track.get("id"), "faixas": 0})
                 entry["faixas"] += 1
         self.artists = list(artists.values())
         self.albums = list(albums.values())
         self.artist_matcher = _Matcher([{"artista": a["nome"]} for a in self.artists])
         self.album_matcher = _Matcher([{"album": a["titulo"], "artista": a["artista"]} for a in self.albums])
 
-    def buscar(self, consulta: str, limite: int = 50) -> list[dict]:
+    def search(self, consulta: str, limite: int = 50) -> list[dict]:
         return [{"id": self.tracks[index].get("id"), "pontuacao": score, "motivo": LABELS[field]}
                 for score, index, field in self.songs.rank(consulta, limite)]
 
-    def sugerir(self, consulta: str, limite: int = 8) -> dict:
+    def suggest(self, consulta: str, limite: int = 8) -> dict:
         artists = [self.artists[i] for _, i, _ in self.artist_matcher.rank(consulta, limite)]
         albums = [self.albums[i] for _, i, _ in self.album_matcher.rank(consulta, limite)]
         songs = []
@@ -148,8 +148,10 @@ class IndiceBiblioteca:
             songs.append({"id": track.get("id"), "titulo": _join(track.get("titulo")), "artista": _join(track.get("artista"))})
         return {"artistas": artists[:4], "albuns": albums[:4], "musicas": songs[:limite]}
 
+    buscar = search  # temporary aliases (step B)
+    sugerir = suggest
 
-class BuscaGlobal:
+class GlobalSearch:
     """Sugestões do catálogo global por um processo do spotDL que fica aberto.
 
     Abrir o Python do spotDL leva ~2 s; com o processo aberto, uma sugestão leva ~1 s.
@@ -193,17 +195,17 @@ class BuscaGlobal:
             process.stdin.write(json.dumps({"id": self.counter, "cmd": command, "args": list(args)}) + "\n")
             process.stdin.flush()
         except (OSError, ValueError):
-            self.fechar()
+            self.close()
             raise RuntimeError("A busca global foi encerrada inesperadamente") from None
         deadline = time.monotonic() + self.timeout
         while True:
             try:
                 line = lines.get(timeout=max(0.0, deadline - time.monotonic()))
             except queue.Empty:
-                self.fechar()  # um processo travado não pode responder à próxima consulta
+                self.close()  # um processo travado não pode responder à próxima consulta
                 raise RuntimeError("A busca global demorou demais; tente de novo") from None
             if line is None:
-                self.fechar()
+                self.close()
                 raise RuntimeError("A busca global foi encerrada inesperadamente")
             try:
                 answer = json.loads(line)
@@ -215,8 +217,8 @@ class BuscaGlobal:
                 raise RuntimeError(f"A busca global falhou: {answer.get('erro', 'sem detalhes')}")
             return answer.get("dados")
 
-    def sugerir(self, consulta: str) -> dict:
-        key = normalizar(consulta)
+    def suggest(self, consulta: str) -> dict:
+        key = normalize(consulta)
         if len(key) < 2:
             return {"termos": [], "artistas": []}
         with self.lock:
@@ -224,15 +226,15 @@ class BuscaGlobal:
                 self.cache.move_to_end(key)
                 return self.cache[key]
             result = self._call("sugestoes", consulta.strip()[:200])
-            from downloader import foto_segura
+            from downloader import safe_photo
             for artist in result.get("artistas", []):
-                artist["foto"] = foto_segura(artist.get("foto"))
+                artist["foto"] = safe_photo(artist.get("foto"))
             self.cache[key] = result
             while len(self.cache) > self.cache_size:
                 self.cache.popitem(last=False)
             return result
 
-    def fechar(self):
+    def close(self):
         """Encerra o processo; uma consulta em andamento termina com RuntimeError."""
         process, self.process = self.process, None
         if not process:
@@ -248,3 +250,13 @@ class BuscaGlobal:
                 stream.close()
             except (OSError, ValueError):
                 pass
+
+
+    sugerir = suggest  # temporary aliases (step B)
+    fechar = close
+
+
+# Temporary aliases for server.py during the English rename (step B); remove when server.py is updated.
+normalizar = normalize
+IndiceBiblioteca = LibraryIndex
+BuscaGlobal = GlobalSearch
