@@ -4,6 +4,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import threading
 import unittest
 import urllib.error
 from unittest.mock import patch
@@ -14,7 +15,7 @@ from mutagen.id3 import ID3, TIT2, TPE1, USLT
 import downloader
 from library_import import restore_import
 from messages import language
-from lyrics import LyricsClient, embed_plain, save_lyrics, current_lyrics, read_embedded, parse_lrc
+from lyrics import bulk_lookup, save_lyrics_batch, LyricsClient, embed_plain, save_lyrics, current_lyrics, read_embedded, parse_lrc
 
 LRC = "[00:00.00] 作词 : Johnson\n[00:27.24]Back in black\n[00:31.00][01:40.50]I hit the sack\n[ar:AC/DC]\nsem tempo\n"
 
@@ -171,8 +172,6 @@ class EmbeddedLyricsTest(unittest.TestCase):
         self.assertEqual(current_lyrics(mp3), ["Letra corrigida"])
         with self.assertRaisesRegex(ValueError, "exactly these lyrics"):
             save_lyrics(library, storage, str(mp3), "Letra corrigida")
-        with self.assertRaisesRegex(ValueError, "without timestamps"):
-            save_lyrics(library, storage, str(flac), "[00:01.00]verso")
         restore_import(Path(manifests[1]))
         self.assertEqual(flac.read_bytes(), originals[flac])
         with self.assertRaisesRegex(ValueError, "later edits"):
@@ -180,6 +179,89 @@ class EmbeddedLyricsTest(unittest.TestCase):
         self.assertEqual(current_lyrics(mp3), ["Letra corrigida"])
         with self.assertRaises(ValueError):
             save_lyrics(library, storage, str(self.dir / "fora.mp3"), "x")
+
+    def test_synced_lyrics_are_written_as_tidy_lrc_and_read_back(self):
+        library, storage = self.dir / "musicas", self.dir / "dados"
+        library.mkdir()
+        mp3, flac = library / "faixa.mp3", library / "faixa.flac"
+        shutil.copy(self.mp3, mp3)
+        shutil.copy(self.flac, flac)
+        for path in (mp3, flac):
+            save_lyrics(library, storage, str(path), "[00:00.00] 作词 : Johnson\r\n[ar:AC/DC]\n[00:27.24]Back in black\n[01:40.5]I hit the sack")
+            self.assertEqual(current_lyrics(path), ["[00:27.24]Back in black\n[01:40.50]I hit the sack"])
+            embedded = read_embedded(path)
+            self.assertEqual(embedded["sincronizada"], [{"t": 27.24, "linha": "Back in black"}, {"t": 100.5, "linha": "I hit the sack"}])
+            self.assertEqual(embedded["texto"], "Back in black\nI hit the sack")
+
+    def test_batch_save_is_one_transaction_with_one_undo(self):
+        library, storage = self.dir / "musicas", self.dir / "dados"
+        library.mkdir()
+        tracks = []
+        for name in ("a.mp3", "b.mp3", "c.mp3"):
+            shutil.copy(self.mp3, library / name)
+            tracks.append(library / name)
+        save_lyrics(library, storage, str(tracks[2]), "Igual")
+        originals = {p: p.read_bytes() for p in tracks}
+        result = save_lyrics_batch(library, storage, [
+            {"file": str(tracks[0]), "text": "[00:01.00]Um"},
+            {"file": str(tracks[1]), "text": "Dois"},
+            {"file": str(tracks[2]), "text": "Igual"},
+        ])
+        self.assertEqual(result["arquivos_alterados"], 2)
+        self.assertEqual(result["skipped"], [str(tracks[2])])
+        self.assertEqual([current_lyrics(p) for p in tracks], [["[00:01.00]Um"], ["Dois"], ["Igual"]])
+        restore_import(Path(result["manifesto"]))
+        self.assertEqual({p: p.read_bytes() for p in tracks}, originals)
+        with self.assertRaisesRegex(ValueError, "already have exactly"):
+            save_lyrics_batch(library, storage, [{"file": str(tracks[2]), "text": "Igual"}])
+        with self.assertRaises(ValueError):
+            save_lyrics_batch(library, storage, [{"file": str(self.dir / "fora.mp3"), "text": "x"}])
+
+    def test_bulk_lookup_classifies_and_stops_when_the_service_is_down(self):
+        library = self.dir / "musicas"
+        library.mkdir()
+        synced = library / "synced.mp3"
+        shutil.copy(self.mp3, synced)
+        synced.with_suffix(".lrc").write_text("[00:01.00]Já sincronizada\n", encoding="utf-8")
+        plain = library / "plain.mp3"
+        shutil.copy(self.mp3, plain)
+        tags = ID3()
+        tags.add(USLT(encoding=3, lang="eng", desc="", text="Só texto"))
+        tags.save(plain)
+
+        def track(path, title):
+            return {"id": title, "arquivo": str(path), "artista": ["Banda"], "titulo": [title], "album": ["Disco"], "duracao_segundos": 100}
+
+        answers = {
+            "Plain upgrade": {"encontrada": True, "instrumental": False, "sincronizada": [{"t": 1.0, "linha": "Verso"}], "texto": "Verso"},
+            "Text only": {"encontrada": True, "instrumental": False, "sincronizada": [], "texto": "Linha"},
+            "Orion": {"encontrada": True, "instrumental": True, "sincronizada": [], "texto": ""},
+            "Missing": {"encontrada": False},
+        }
+
+        class Client:
+            def __init__(self):
+                self.calls = []
+
+            def lookup(self, artist, title, album, duration):
+                self.calls.append(title)
+                if title.startswith("Down"):
+                    raise RuntimeError("503")
+                return answers[title]
+
+        client = Client()
+        missing = library / "missing.mp3"
+        shutil.copy(self.mp3, missing)
+        rows = [track(synced, "Already"), track(plain, "Plain upgrade"), track(missing, "Text only"), track(missing, "Orion"), track(missing, "Missing")]
+        rows += [track(missing, f"Down {i}") for i in range(3)] + [track(missing, "Text only")]
+        result = bulk_lookup(rows, client, max_failures=3)
+        self.assertEqual([r["status"] for r in result], ["already_synced", "synced", "plain", "instrumental", "not_found", "error", "error", "error", "not_checked"])
+        self.assertEqual(result[1]["text"], "[00:01.00]Verso")
+        self.assertEqual(result[1]["current"], "plain")
+        self.assertNotIn("Already", client.calls)
+        cancel = threading.Event()
+        cancel.set()
+        self.assertEqual({r["status"] for r in bulk_lookup(rows[:2], client, cancel=cancel)}, {"not_checked"})
 
     def test_write_refuses_track_changed_since_preview(self):
         from library_core import sha256
