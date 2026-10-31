@@ -10,7 +10,7 @@ const join = (values) => (values || []).join(" / ");
 const number = (value) => new Intl.NumberFormat(uiLocale()).format(value || 0);
 const duration = (value) => { const seconds = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`; };
 const cover = (id) => `/api/cover?id=${encodeURIComponent(id)}`;
-const state = {view:"home", summary:null, albums:[], proposals:null, pending:[], selected:new Set(), page:0, filter:"all", versionFilter:"all", reviewFilter:"all", albumFilter:"all", search:"", searchArtist:"", searchAlbum:"", searchLabel:"", queue:[], current:null, request:0, lastJob:null};
+const state = {view:"home", summary:null, serverIncompatible:false, albums:[], proposals:null, pending:[], selected:new Set(), page:0, filter:"all", versionFilter:"all", reviewFilter:"all", albumFilter:"all", search:"", searchArtist:"", searchAlbum:"", searchLabel:"", queue:[], current:null, request:0, lastJob:null};
 const token = $('meta[name="library-token"]').content;
 const playlistState = {draft:null, pending:null, exists:false};
 let toastTimeout;
@@ -60,11 +60,21 @@ function settings() {
   catch { return {musicbrainz:false, contact:""}; }
 }
 
+function restartMessage() {
+  return $('#restart-notice')?.textContent.trim() || tr("Acervo has been updated. Restart the server and reload this page to finish updating.");
+}
+
 async function updateState() {
   state.summary = await api("/api/state");
   const info = state.summary;
+  const incompatible=!info?.summary || typeof info.summary!=="object" || typeof info.library!=="string" || info.lyrics_tools!==true;
+  state.serverIncompatible=incompatible;
   const restart=$('#restart-notice');
-  if(restart)restart.hidden=!(info.restart_required || typeof remotePhoto!=="function" || typeof versionChips!=="function" || typeof i18nState==="undefined");
+  if(restart)restart.hidden=!(incompatible || info?.restart_required || info?.["reinicio_necessario"] || typeof remotePhoto!=="function" || typeof versionChips!=="function" || typeof i18nState==="undefined" || typeof renderBulkLyrics!=="function" || typeof startManualSync!=="function");
+  if(incompatible){
+    setWriteControls();
+    throw new Error(restartMessage());
+  }
   $('#library-count').textContent = number(info.summary.read_count);
   $('#folder-label').textContent = info.library.replace(/^\/home\/[^/]+/, "~");
   $('#folder-label').title = info.library;
@@ -78,9 +88,11 @@ async function updateState() {
 }
 
 function setWriteControls() {
-  const blocked = state.summary?.job?.status === "running" || !!state.summary?.protection_error;
+  const blocked = state.serverIncompatible || state.summary?.job?.status === "running" || !!state.summary?.lyrics_busy || !!state.summary?.protection_error;
   $('#top-refresh').disabled = blocked;
-  document.querySelectorAll('[data-action="analyze"], [data-action="confirm-apply"], [data-action="confirm-restore"], [data-action="fetch-downloads"], [data-action="review-import"], [data-action="confirm-import"], [data-action="export-playlist"], [data-action="confirm-playlist"], [data-playlist-album], [data-track-protection], [data-protection-album], [data-action="protect-album"], [data-action="unprotect-album"], [data-action="preview-lyrics"], [data-action="confirm-lyrics"], #lyrics-editor, #playlist-form [type="submit"], #download-form [type="submit"], #simple-download-form [type="submit"], [data-simple-open], [data-action="simple-download"], .simple-track-check, [data-simple-mode], [data-action="simple-select-new"], [data-action="simple-select-all"], [data-action="simple-clear"], [data-action="simple-back"], #simple-download-form input, #simple-download-form select').forEach(el => { el.disabled = blocked; });
+  document.querySelectorAll('[data-action="analyze"], [data-action="confirm-apply"], [data-action="confirm-restore"], [data-action="fetch-downloads"], [data-action="review-import"], [data-action="confirm-import"], [data-action="export-playlist"], [data-action="confirm-playlist"], [data-playlist-album], [data-track-protection], [data-protection-album], [data-action="protect-album"], [data-action="unprotect-album"], [data-action="preview-lyrics"], [data-action="confirm-lyrics"], [data-action="bulk-review"], [data-action="bulk-confirm"], [data-action="sync-review"], #lyrics-editor, #playlist-form [type="submit"], #download-form [type="submit"], #simple-download-form [type="submit"], [data-simple-open], [data-action="simple-download"], .simple-track-check, [data-simple-mode], [data-action="simple-select-new"], [data-action="simple-select-all"], [data-action="simple-clear"], [data-action="simple-back"], #simple-download-form input, #simple-download-form select').forEach(el => { el.disabled = blocked; });
+  if(typeof updateBulkSelection==="function")updateBulkSelection();
+  if(typeof updateSyncControls==="function")updateSyncControls();
 }
 
 function featuredAlbums() {
@@ -118,7 +130,7 @@ async function renderLibrary() {
   state.queue = result.tracks.map(t=>t.id);
   const searching = !!(state.search || state.searchArtist || state.searchAlbum);
   const description = searching ? `${number(result.total)} ${tr("tracks for “")}${escapeHTML(state.searchLabel || state.search)}${tr("” · results ranked by relevance")}` : `${number(result.total)} ${tr("tracks ·")} ${number(state.summary.artist_count)} ${tr("artist credits")}`;
-  return `${heading(tr("YOUR MUSIC, YOUR COLLECTION"),searching?tr("Search results"):tr("All your tracks"),description, `<button class="button ghost" data-action="export-playlist" ${state.summary.job?.status==="running"?"disabled":""}>${icon("download")} ${tr("Export M3U8")}</button><button class="button ghost" data-action="analyze">${icon("refresh")} ${tr("Refresh library")}</button>`)}<div class="table-toolbar"><div class="tabs">${[["all",tr("All tracks")],["missing-genre",tr("Genre missing")],["flac","FLAC"],["versions",tr("Versions and extras")]].map(([key,label])=>`<button class="tab ${state.filter===key?"active":""}" data-filter="${key}">${label}</button>`).join("")}</div><span class="table-note">${icon("shield")} ${tr("Your original files")}</span></div>${recordingChips(state.versionFilter,"data-library-version")}${result.tracks.length ? trackTable(result.tracks,state.page*50) : empty(tr("No tracks here"), tr("Try another search or change the filters."), "search")}<div class="table-footer"><span>${result.total ? `${number(state.page*50+1)}–${number(Math.min((state.page+1)*50,result.total))} ${tr("of")} ${number(result.total)} ${tr("tracks")}` : tr("0 tracks")}</span><div class="pagination"><button class="button small ghost" data-page="${state.page-1}" ${state.page===0?"disabled":""}>${tr("Previous")}</button><button class="button small ghost" data-page="${state.page+1}" ${(state.page+1)*50>=result.total?"disabled":""}>${tr("Next")}</button></div></div>`;
+  return `${heading(tr("YOUR MUSIC, YOUR COLLECTION"),searching?tr("Search results"):tr("All your tracks"),description, `<button class="button ghost" data-view="lyrics">${icon("lyrics")} ${tr("Lyrics for all tracks")}</button><button class="button ghost" data-action="export-playlist" ${state.summary.job?.status==="running"?"disabled":""}>${icon("download")} ${tr("Export M3U8")}</button><button class="button ghost" data-action="analyze">${icon("refresh")} ${tr("Refresh library")}</button>`)}<div class="table-toolbar"><div class="tabs">${[["all",tr("All tracks")],["missing-genre",tr("Genre missing")],["flac","FLAC"],["versions",tr("Versions and extras")]].map(([key,label])=>`<button class="tab ${state.filter===key?"active":""}" data-filter="${key}">${label}</button>`).join("")}</div><span class="table-note">${icon("shield")} ${tr("Your original files")}</span></div>${recordingChips(state.versionFilter,"data-library-version")}${result.tracks.length ? trackTable(result.tracks,state.page*50) : empty(tr("No tracks here"), tr("Try another search or change the filters."), "search")}<div class="table-footer"><span>${result.total ? `${number(state.page*50+1)}–${number(Math.min((state.page+1)*50,result.total))} ${tr("of")} ${number(result.total)} ${tr("tracks")}` : tr("0 tracks")}</span><div class="pagination"><button class="button small ghost" data-page="${state.page-1}" ${state.page===0?"disabled":""}>${tr("Previous")}</button><button class="button small ghost" data-page="${state.page+1}" ${(state.page+1)*50>=result.total?"disabled":""}>${tr("Next")}</button></div></div>`;
 }
 
 function filteredProposals() {
@@ -177,14 +189,19 @@ async function renderAlbums() {
 async function renderHistory() {
   const rows = (await api("/api/history")).runs;
   const labels = {completed:tr("Completed"),restored:tr("Restored"),interrupted:tr("Interrupted"),applying:tr("In progress"),preparing_backups:tr("Preparing backup")};
-  return `${heading(tr("EVERY CHANGE HAS A WAY BACK"),tr("Collection history"), tr("Review your changes and restore files from an earlier operation."))}${rows.length ? rows.map(r=>`<article class="history-row"><span class="history-icon">${icon("history")}</span><div class="history-text"><strong>${number(r.files)} ${r.files===1?tr("file"):tr("files")} · ${r.category==="lyrics"?tr("track lyrics"):r.type==="downloads"?tr("download import"):tr("metadata update")}</strong><p>${escapeHTML(new Date(r.date).toLocaleString(uiLocale()))} · ${r.type==="downloads"?tr("originals backed up · additions can be archived when undoing"):tr("full backup")}${r.error?" · "+escapeHTML(r.error):""}</p></div><span class="chip ${r.status==="interrupted"?"amber":""}">${escapeHTML(labels[r.status]||r.status)}</span><button class="button small ghost" data-restore="${r.id}" data-restore-kind="${r.category==="lyrics"?"metadata":r.type==="downloads"?"downloads":"metadata"}" ${r.status==="restored"?"disabled":""}>${icon("history")} ${r.category==="lyrics"?tr("Restore lyrics"):r.type==="downloads"?tr("Undo import"):tr("Restore")}</button></article>`).join("") : empty(tr("Your collection starts a new chapter."), tr("Backups and records will appear here when you apply your first changes. Until then, your files stay as they are."), "history", `<button class="button primary" data-view="review">${tr("Explore suggestions")} `+icon("arrow")+'</button>')}`;
+  return `${heading(tr("EVERY CHANGE HAS A WAY BACK"),tr("Collection history"), tr("Review your changes and restore files from an earlier operation."))}${rows.length ? rows.map(r=>`<article class="history-row"><span class="history-icon">${icon("history")}</span><div class="history-text"><strong>${number(r.files)} ${r.files===1?tr("file"):tr("files")} · ${r.category==="lyrics"?tr(r.files>1?"lyrics batch":"track lyrics"):r.type==="downloads"?tr("download import"):tr("metadata update")}</strong><p>${escapeHTML(new Date(r.date).toLocaleString(uiLocale()))} · ${r.type==="downloads"?tr("originals backed up · additions can be archived when undoing"):tr("full backup")}${r.error?" · "+escapeHTML(r.error):""}</p></div><span class="chip ${r.status==="interrupted"?"amber":""}">${escapeHTML(labels[r.status]||r.status)}</span><button class="button small ghost" data-restore="${r.id}" data-restore-kind="${r.category==="lyrics"?"metadata":r.type==="downloads"?"downloads":"metadata"}" ${r.status==="restored"?"disabled":""}>${icon("history")} ${r.category==="lyrics"?tr("Restore lyrics"):r.type==="downloads"?tr("Undo import"):tr("Restore")}</button></article>`).join("") : empty(tr("Your collection starts a new chapter."), tr("Backups and records will appear here when you apply your first changes. Until then, your files stay as they are."), "history", `<button class="button primary" data-view="review">${tr("Explore suggestions")} `+icon("arrow")+'</button>')}`;
 }
 
 async function render() {
   const request = ++state.request;
-  document.querySelectorAll('.nav-item').forEach(el=>{ el.classList.toggle("active",el.dataset.view===state.view); el.setAttribute("aria-current",el.dataset.view===state.view?"page":"false"); });
+  document.querySelectorAll('.nav-item').forEach(el=>{ el.classList.toggle("active",el.dataset.view===(state.view==="lyrics"?"library":state.view)); el.setAttribute("aria-current",el.dataset.view===(state.view==="lyrics"?"library":state.view)?"page":"false"); });
+  if(state.serverIncompatible){
+    $('#content').innerHTML=empty(tr("Could not open the library"),escapeHTML(restartMessage()),"folder");
+    setWriteControls();
+    return;
+  }
   try {
-    let html = await ({home:renderHome,library:renderLibrary,downloads:renderSimpleDownloads,"advanced-downloads":renderDownloads,review:renderReview,albums:renderAlbums,history:renderHistory}[state.view] || renderHome)();
+    let html = await ({home:renderHome,library:renderLibrary,lyrics:typeof renderBulkLyrics==="function"?renderBulkLyrics:()=>empty(tr("Could not open the library"),escapeHTML(restartMessage()),"lyrics"),downloads:renderSimpleDownloads,"advanced-downloads":renderDownloads,review:renderReview,albums:renderAlbums,history:renderHistory}[state.view] || renderHome)();
     if (request !== state.request) return;
     if (state.summary.error) html = `<div class="error-box">${escapeHTML(state.summary.error)}</div>`+html;
     if (state.summary.protection_error) html = `<div class="error-box"><strong>${tr("Protected fields unavailable.")}</strong> ${escapeHTML(state.summary.protection_error)} ${tr("Changes are blocked until this file is fixed.")}</div>`+html;
@@ -196,7 +213,7 @@ async function render() {
 }
 
 function navigate(view) {
-  if (!["home","library","downloads","advanced-downloads","review","albums","history"].includes(view)) view="home";
+  if (!["home","library","lyrics","downloads","advanced-downloads","review","albums","history"].includes(view)) view="home";
   state.view=view;
   state.page=0;
   history.replaceState(null,"",`#${view}`);
@@ -253,7 +270,7 @@ async function showDetails(id) {
 
 function showSettings() {
   const options=settings();
-  modal(`${modalHead(tr("Make it yours."),tr("Preferences for the next library scan."))}<div class="modal-body"><div class="form-row"><label><input type="checkbox" class="check" id="use-musicbrainz" ${options.musicbrainz?"checked":""}> ${tr("Look up MusicBrainz for genres without a local rule")}</label><p>${tr("Looks up artist and album names. Suggestions always require your approval. No audio files are uploaded.")}</p><input id="musicbrainz-contact" class="field" type="text" placeholder="${tr("Your contact email or URL")}" aria-label="${tr("MusicBrainz client contact")}" value="${escapeHTML(options.contact)}"></div><div class="form-row"><label>${icon("folder")} ${tr("Current library")}</label><p>${escapeHTML(state.summary.library)}</p></div><div class="form-row"><label>${icon("tag")} ${tr("Editable genre rules")}</label><p>${tr("Local suggestions are stored in genre_rules.csv. Genres already present in your files are preserved.")}</p></div><div class="form-row"><label>${icon("lock")} ${tr("Preserved choices")}</label><p><button class="text-button" data-action="protection-list">${tr("View protected fields and unlock")}</button></p></div><div class="form-row"><label>${icon("download")} ${tr("More options")}</label><p><button class="text-button" data-view="advanced-downloads">${tr("Advanced downloads with review and import")}</button></p></div></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${tr("Cancel")}</button><button class="button primary" data-action="save-settings">${tr("Save preferences")}</button></div>`);
+  modal(`${modalHead(tr("Make it yours."),tr("Preferences for the next library scan."))}<div class="modal-body"><div class="form-row"><label><input type="checkbox" class="check" id="use-musicbrainz" ${options.musicbrainz?"checked":""}> ${tr("Look up MusicBrainz for genres without a local rule")}</label><p>${tr("Looks up artist and album names. Suggestions always require your approval. No audio files are uploaded.")}</p><input id="musicbrainz-contact" class="field" type="text" placeholder="${tr("Your contact email or URL")}" aria-label="${tr("MusicBrainz client contact")}" value="${escapeHTML(options.contact)}"></div><div class="form-row"><label>${icon("folder")} ${tr("Current library")}</label><p>${escapeHTML(state.summary.library)}</p></div><div class="form-row"><label>${icon("tag")} ${tr("Editable genre rules")}</label><p>${tr("Local suggestions are stored in genre_rules.csv. Genres already present in your files are preserved.")}</p></div><div class="form-row"><label>${icon("lock")} ${tr("Preserved choices")}</label><p><button class="text-button" data-action="protection-list">${tr("View protected fields and unlock")}</button></p></div><div class="form-row"><label>${icon("download")} ${tr("More options")}</label><p><button class="text-button" data-view="lyrics">${tr("Lyrics for all tracks")}</button></p><p><button class="text-button" data-view="advanced-downloads">${tr("Advanced downloads with review and import")}</button></p></div></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${tr("Cancel")}</button><button class="button primary" data-action="save-settings">${tr("Save preferences")}</button></div>`);
 }
 
 async function analyze() {
@@ -382,6 +399,7 @@ async function poll() {
     const jobKey=job?`${job.id}:${job.status}`:"";
     if(job?.status==="error"&&state.lastJob!==jobKey)toast(job.message);
     if(typeof captureLyricsJob==="function")await captureLyricsJob(job);
+    const bulkChanged=typeof captureBulkLyricsJob==="function"?await captureBulkLyricsJob(job):false;
     const simpleChanged=captureSimpleDownloadJob(job);
     if(state.view==="downloads"&&simpleChanged)await render();
     if(job?.type==="direct_download"&&state.lastJob!==jobKey&&job.status==="completed"&&job.result?.warnings?.length)toast(job.result.warnings.join(" "));
@@ -391,6 +409,7 @@ async function poll() {
     }
     const finishedLibraryJob=job&&state.lastJob!==jobKey&&["completed","error"].includes(job.status)&&["analysis","apply","restore","import"].includes(job.type);
     if(finishedLibraryJob || previous!==state.summary.analyzed_at || previousLibrary!==state.summary.library_revision || previousPolicy!==state.summary.protection_revision || previousPolicyError!==state.summary.protection_error){state.proposals=null;state.selected.clear();state.albums=(await api("/api/albums")).albums;await render();}
+    else if(state.view==="lyrics"&&bulkChanged)await render();
     state.lastJob=jobKey;
   } catch(error){if(!$('#toast').hidden)return;toast(tr("Connection lost. Check that the app is still running."));}
   finally {setTimeout(poll,2000);}

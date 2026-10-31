@@ -26,7 +26,7 @@ from staged_downloads import Downloads, clean_log, tool_status
 from library_plan import BASE, create_plan
 from library_scan import read_track
 from musicbrainz_client import MusicBrainz
-from lyrics import LyricsClient, save_lyrics, current_lyrics, lyrics_for_track, parse_lrc
+from lyrics import LyricsClient, save_lyrics, save_lyrics_batch, bulk_lookup, prepare_text, current_lyrics, lyrics_for_track, parse_lrc
 from search import GlobalSearch, LibraryIndex, normalize
 from playlists import album_order, render as render_m3u8, write_m3u8
 from download_picker import DownloadPicker
@@ -102,7 +102,18 @@ register({
     "Operation not found": "Execução não encontrada",
     "Route not found": "Rota não encontrada",
     "Page not found": "Página não encontrada",
-    "Run a scan first": "Execute uma análise primeiro"
+    "Run a scan first": "Execute uma análise primeiro",
+    "The lyrics lookup expired; start another lookup": "A busca de letras expirou; inicie outra busca",
+    "Start a lyrics lookup using the library inventory": "Inicie a busca de letras pelo inventário da biblioteca",
+    "Choose a library with 1 to 20,000 tracks for this lookup": "Escolha uma biblioteca com 1 a 20.000 faixas para esta busca",
+    "Checking tracks {current} of {total}": "Conferindo faixas {current} de {total}",
+    "The track changed during lookup; refresh the library and try again": "A faixa mudou durante a busca; atualize a biblioteca e tente novamente",
+    "Checking lyrics results {current} of {total}": "Conferindo resultados de letras {current} de {total}",
+    "No lyrics lookup is running": "Não há busca de letras em andamento",
+    "Select lyrics from the lookup results": "Selecione letras dos resultados da busca",
+    "Select only lyrics ready to save": "Selecione somente letras prontas para salvar",
+    "The track changed after lookup: {file}. Start another lookup": "A faixa mudou após a busca: {file}. Inicie outra busca",
+    "The selected tracks already have exactly these lyrics": "As faixas selecionadas já têm exatamente essas letras"
 })
 
 
@@ -163,6 +174,7 @@ class App:
         self.worker = None
         self.playlist_busy = False
         self.policy_busy = False
+        self.lyrics_busy = False
         self.library_revision = secrets.token_hex(8)
         self.incremental_paths = set()
         root_key = hashlib.sha256(str(self.root).encode()).hexdigest()[:16]
@@ -174,6 +186,10 @@ class App:
         self.global_search = GlobalSearch()
         self.lyrics_client = LyricsClient(self.state_dir / "letras")
         self.lyrics_previews = {}
+        self.bulk_lyrics = None
+        self.bulk_lyrics_hashes = {}
+        self.bulk_lyrics_previews = {}
+        self.bulk_lyrics_cancel = None
         self.plan = None
         self.plan_path = None
         self.error = None
@@ -198,12 +214,15 @@ class App:
             self.tracks = tracks
             self.by_id = {t["id"]: t for t in tracks}
             self.root = Path(plan["biblioteca"])
+            self.bulk_lyrics = None
+            self.bulk_lyrics_hashes.clear()
+            self.bulk_lyrics_previews.clear()
             self.library_revision = secrets.token_hex(8)
             self.incremental_paths.clear()
 
     def start(self, kind, operation):
         with self.lock:
-            if self.playlist_busy or self.policy_busy or (self.job and self.job["status"] == "running"):
+            if self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
                 raise ValueError(_('Wait for the current operation to finish'))
             if kind in WRITING_JOBS or kind == "direct_download":
                 protections.load(self.storage, self.root)
@@ -269,11 +288,9 @@ class App:
         text = data.get("texto")
         if not isinstance(text, str) or not text.strip() or len(text) > 100_000 or "\x00" in text:
             raise ValueError(_('Empty or invalid lyrics'))
-        text = text.replace("\r\n", "\n").strip()
-        if parse_lrc(text):
-            raise ValueError(_('Use plain lyrics without timestamps'))
+        text = prepare_text(text)
         with self.lock:
-            if self.playlist_busy or self.policy_busy or (self.job and self.job["status"] == "running"):
+            if self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
                 raise ValueError(_('Wait for the current operation to finish'))
             protections.load(self.storage, self.root)
             track = self.by_id.get(data["id"])
@@ -290,7 +307,7 @@ class App:
             self.lyrics_previews[ident] = {"id": data["id"], "arquivo": str(path), "texto": text, "sha256": before, "criado": time.monotonic()}
             while len(self.lyrics_previews) > 20:
                 self.lyrics_previews.pop(next(iter(self.lyrics_previews)))
-        return {"previa": ident, "titulo": track["titulo"], "artista": track["artista"], "atual": current, "texto": text, "arquivo": str(path)}
+        return {"previa": ident, "titulo": track["titulo"], "artista": track["artista"], "atual": current, "texto": text, "arquivo": str(path), "format": "synced" if parse_lrc(text) else "plain"}
 
     def save_lyrics(self, data):
         if set(data) != {"previa"} or not isinstance(data.get("previa"), str):
@@ -309,6 +326,155 @@ class App:
             notices = self.refresh_downloaded([{"estado": "baixado", "arquivo": draft["arquivo"]}])
             return {**result, "letra_track_id": draft["id"], "avisos": notices}
         self.start("import", save)
+
+    def bulk_lyrics_info(self, ident=None):
+        with self.lock:
+            current = self.bulk_lyrics
+            if ident is not None and (not isinstance(ident, str) or not current or ident != current["id"]):
+                raise ValueError(_("The lyrics lookup expired; start another lookup"))
+            return {"lookup": current}
+
+    def start_bulk_lyrics(self, data):
+        if data:
+            raise ValueError(_("Start a lyrics lookup using the library inventory"))
+        with self.lock:
+            if self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
+                raise ValueError(_("Wait for the current operation to finish"))
+            tracks = [dict(track) for track in self.tracks]
+            if not tracks or len(tracks) > 20_000:
+                raise ValueError(_("Choose a library with 1 to 20,000 tracks for this lookup"))
+            ident = secrets.token_hex(16)
+            cancel = threading.Event()
+            self.bulk_lyrics = {"id": ident, "rows": [], "complete": False, "cancelled": False}
+            self.bulk_lyrics_hashes = {}
+            self.bulk_lyrics_previews.clear()
+            self.bulk_lyrics_cancel = cancel
+
+            def lookup():
+                hashes, failures, valid = {}, {}, []
+                try:
+                    for index, track in enumerate(tracks):
+                        if cancel.is_set():
+                            break
+                        self.download_progress(_("Checking tracks {current} of {total}", current=index + 1, total=len(tracks)), round(index / len(tracks) * 10))
+                        try:
+                            path = readable_music(self.root, track["arquivo"])
+                            hashes[track["id"]] = sha256(path)
+                            valid.append(track)
+                        except (OSError, ValueError) as error:
+                            failures[track["id"]] = str(error)
+                    def progress(message, percent):
+                        self.download_progress(message, round(10 + (percent or 0) * .8))
+                    found = {row["id"]: row for row in bulk_lookup(valid, self.lyrics_client, progress=progress, cancel=cancel)}
+                    rows = []
+                    for index, track in enumerate(tracks):
+                        base = {"id": track["id"], "file": track["arquivo"], "title": list(track["titulo"]), "artist": list(track["artista"]),
+                                "album": list(track["album"]), "text": "", "current": "none", "status": "not_checked"}
+                        row = {**base, **found.get(track["id"], {})}
+                        if track["id"] in failures:
+                            row.update(status="error", error=failures[track["id"]])
+                        if row["status"] in ("synced", "plain"):
+                            try:
+                                path = secure_file(self.root, track["arquivo"])
+                                if row["file"] != str(path) or sha256(path) != hashes.get(track["id"]):
+                                    raise ValueError(_("The track changed during lookup; refresh the library and try again"))
+                                row["text"] = prepare_text(row["text"])
+                                row["status"] = "synced" if parse_lrc(row["text"]) else "plain"
+                            except (OSError, ValueError) as error:
+                                row.update(status="error", text="", error=str(error))
+                        rows.append(row)
+                        self.download_progress(_("Checking lyrics results {current} of {total}", current=index + 1, total=len(tracks)), round(90 + (index + 1) / len(tracks) * 10))
+                    with self.lock:
+                        self.bulk_lyrics_hashes = hashes
+                        self.bulk_lyrics = {"id": ident, "rows": rows, "complete": True, "cancelled": cancel.is_set()}
+                    return {"bulk_lyrics_id": ident, "cancelled": cancel.is_set(), "ready": sum(row["status"] in ("synced", "plain") for row in rows)}
+                except Exception as error:
+                    with self.lock:
+                        self.bulk_lyrics = {"id": ident, "rows": [], "complete": True, "cancelled": cancel.is_set(), "error": str(error)}
+                    raise
+            self.start("lyrics_lookup", lookup)
+
+    def cancel_bulk_lyrics(self, data):
+        with self.lock:
+            if data or not self.job or self.job["type"] != "lyrics_lookup" or self.job["status"] != "running" or self.bulk_lyrics_cancel is None:
+                raise ValueError(_("No lyrics lookup is running"))
+            self.bulk_lyrics_cancel.set()
+        return {"cancellation_requested": True}
+
+    def preview_bulk_lyrics(self, data):
+        if set(data) != {"lookup", "ids"} or not isinstance(data["lookup"], str):
+            raise ValueError(_("Select lyrics from the lookup results"))
+        ids = data["ids"]
+        if not isinstance(ids, list) or not ids or len(ids) > 20_000 or any(not isinstance(ident, str) for ident in ids) or len(ids) != len(set(ids)):
+            raise ValueError(_("Select lyrics from the lookup results"))
+        with self.lock:
+            if self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
+                raise ValueError(_("Wait for the current operation to finish"))
+            protections.load(self.storage, self.root)
+            lookup = self.bulk_lyrics
+            if not lookup or lookup["id"] != data["lookup"] or not lookup["complete"]:
+                raise ValueError(_("The lyrics lookup expired; start another lookup"))
+            by_id = {row["id"]: row for row in lookup["rows"]}
+            if any(ident not in by_id or (by_id[ident]["status"] not in ("synced", "plain") or by_id[ident].get("saved")) for ident in ids):
+                raise ValueError(_("Select only lyrics ready to save"))
+            chosen = [(dict(by_id[ident]), self.by_id.get(ident), self.bulk_lyrics_hashes.get(ident)) for ident in ids]
+            self.lyrics_busy = True
+        try:
+            items, sample, skipped, size = [], [], [], 0
+            for row, track, expected in chosen:
+                if track is None or track["arquivo"] != row["file"]:
+                    raise ValueError(_("The track changed in the inventory; review it again"))
+                path = secure_file(self.root, row["file"])
+                before = sha256(path)
+                if not expected or before != expected:
+                    raise ValueError(_("The track changed after lookup: {file}. Start another lookup", file=path.name))
+                text = prepare_text(row["text"])
+                current = current_lyrics(path)
+                if sha256(path) != before:
+                    raise ValueError(_("The file changed during preview; review it again"))
+                if current == [text]:
+                    skipped.append(row["id"])
+                    continue
+                items.append({"id": row["id"], "file": str(path), "text": text, "previous_sha256": before})
+                size += path.stat().st_size
+                if len(sample) < 12:
+                    sample.append({"id": row["id"], "title": row["title"], "artist": row["artist"], "format": row["status"]})
+            if not items:
+                raise ValueError(_("The selected tracks already have exactly these lyrics"))
+            ident = secrets.token_hex(20)
+            with self.lock:
+                self.bulk_lyrics_previews[ident] = {"items": items, "created": time.monotonic()}
+                while len(self.bulk_lyrics_previews) > 5:
+                    self.bulk_lyrics_previews.pop(next(iter(self.bulk_lyrics_previews)))
+            return {"preview": ident, "count": len(items), "skipped": len(skipped), "size_bytes": size, "sample": sample}
+        finally:
+            with self.lock:
+                self.lyrics_busy = False
+
+    def save_bulk_lyrics(self, data):
+        if set(data) != {"previa"} or not isinstance(data["previa"], str):
+            raise ValueError(_("Review the lyrics preview before saving"))
+        with self.lock:
+            draft = self.bulk_lyrics_previews.get(data["previa"])
+            if draft is None or time.monotonic() - draft["created"] > 900:
+                raise ValueError(_("The preview expired; review the lyrics again"))
+            def save():
+                with self.lock:
+                    self.bulk_lyrics_previews.pop(data["previa"], None)
+                    for item in draft["items"]:
+                        track = self.by_id.get(item["id"])
+                        if track is None or track["arquivo"] != item["file"]:
+                            raise ValueError(_("The track changed in the inventory; review it again"))
+                result = save_lyrics_batch(self.root, self.storage, [{key: value for key, value in item.items() if key != "id"} for item in draft["items"]])
+                skipped = set(result.get("skipped", []))
+                changed = [item for item in draft["items"] if item["file"] not in skipped]
+                notices = self.refresh_downloaded([{"estado": "baixado", "arquivo": item["file"]} for item in changed])
+                saved_ids = {item["id"] for item in draft["items"]}
+                with self.lock:
+                    if self.bulk_lyrics:
+                        self.bulk_lyrics = {**self.bulk_lyrics, "rows": [{**row, "saved": True, "current": row["status"]} if row["id"] in saved_ids else row for row in self.bulk_lyrics["rows"]]}
+                return {**result, "lyrics_track_ids": [item["id"] for item in changed], "warnings": notices}
+            self.start("import", save)
 
     def load_download_cache(self):
         try:
@@ -411,7 +577,7 @@ class App:
         if not isinstance(ids, list) or len(ids) > 10000 or any(not isinstance(i, str) for i in ids) or not isinstance(album_id, str) or bool(ids) == bool(album_id):
             raise ValueError(_('Select tracks or an album from the library'))
         with self.lock:
-            if self.playlist_busy or self.policy_busy or (self.job and self.job["status"] == "running"):
+            if self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
                 raise ValueError(_('Wait for the current operation to finish'))
             if album_id:
                 track = self.by_id.get(album_id)
@@ -491,7 +657,7 @@ class App:
 
     def playlist(self, data, write=False):
         with self.lock:
-            if self.playlist_busy or self.policy_busy or (self.job and self.job["status"] == "running"):
+            if self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
                 raise ValueError(_('Wait for the current operation to finish'))
             self.playlist_busy = True
             tracks, by_id = list(self.tracks), dict(self.by_id)
@@ -583,7 +749,7 @@ class App:
                        "arquivos_com_propostas": len({p["arquivo"] for p in proposals}),
                        "propostas_por_campo": dict(Counter(p["campo"] for p in proposals))}
             revision = hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest() if policy is not None else None
-            return {"biblioteca": str(self.root), "biblioteca_revisao": self.library_revision, "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "erro": self.error, "erro_protecoes": policy_error, "protecoes_revisao": revision, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(proposals), "reinicio_necessario": restart_required()}
+            return {"biblioteca": str(self.root), "biblioteca_revisao": self.library_revision, "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "erro": self.error, "erro_protecoes": policy_error, "protecoes_revisao": revision, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(proposals), "lyrics_tools": True, "lyrics_busy": self.lyrics_busy, "bulk_lyrics_id": self.bulk_lyrics["id"] if self.bulk_lyrics else None, "reinicio_necessario": restart_required()}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -658,6 +824,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send(200, asset.read_bytes(), mime)
         elif url.path == "/api/state":
             self.json(self.app.snapshot())
+        elif url.path == "/api/lyrics/bulk":
+            if set(query) - {"id"} or len(query.get("id", [None])) != 1:
+                raise ValueError(_("Select lyrics from the lookup results"))
+            self.json(self.app.bulk_lyrics_info(query.get("id", [None])[0]))
         elif url.path == "/api/lyrics":
             if set(query) != {"id"} or len(query["id"]) != 1:
                 raise ValueError(_('Select a track by its library ID'))
@@ -781,6 +951,16 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/api/analyze":
                 online = MusicBrainz(self.app.state_dir / "cache/musicbrainz", data.get("contato", ""), 200) if data.get("musicbrainz") else None
                 self.app.start("analysis", lambda: self.app.analyze(online))
+            elif route == "/api/lyrics/bulk/start":
+                self.app.start_bulk_lyrics(data)
+            elif route == "/api/lyrics/bulk/cancel":
+                self.json(self.app.cancel_bulk_lyrics(data))
+                return
+            elif route == "/api/lyrics/bulk/preview":
+                self.json(self.app.preview_bulk_lyrics(data))
+                return
+            elif route == "/api/lyrics/bulk/save":
+                self.app.save_bulk_lyrics(data)
             elif route == "/api/lyrics/preview":
                 self.json(self.app.preview_lyrics(data))
                 return
