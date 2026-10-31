@@ -195,9 +195,15 @@ def lyrics_for_track(path: Path, artist: str, title: str, album: str, duration: 
     return read_embedded(path) or client.lookup(artist, title, album, duration)
 
 
-def embed_plain(path: Path, letra: dict) -> bool:
-    """For NEW files: writes the plain lyrics (USLT) if the MP3 doesn't have any yet."""
-    if path.suffix.casefold() != ".mp3" or not letra.get("encontrada") or letra.get("instrumental") or not letra.get("texto"):
+def embed_lyrics(path: Path, letra: dict) -> bool:
+    """For NEW files: writes the lyrics (USLT) if the MP3 doesn't have any yet.
+
+    Synced lyrics are stored as LRC, the same as save_lyrics(); otherwise plain text.
+    """
+    if path.suffix.casefold() != ".mp3" or not letra.get("encontrada") or letra.get("instrumental"):
+        return False
+    text = format_lrc(letra["sincronizada"]) if letra.get("sincronizada") else letra.get("texto", "")
+    if not text:
         return False
     try:
         tags = ID3(path)
@@ -205,7 +211,7 @@ def embed_plain(path: Path, letra: dict) -> bool:
         tags = ID3()
     if tags.getall("USLT"):
         return False
-    tags.add(USLT(encoding=3, lang="XXX", desc="", text=letra["texto"]))
+    tags.add(USLT(encoding=3, lang="XXX", desc="", text=text))
     tags.save(path, v2_version=tags.version[1] if tags.version[1] in (3, 4) else 4)
     return True
 

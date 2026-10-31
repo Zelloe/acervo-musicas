@@ -15,7 +15,7 @@ from mutagen.id3 import ID3, TIT2, TPE1, USLT
 import downloader
 from library_import import restore_import
 from messages import language
-from lyrics import bulk_lookup, prepare_text, save_lyrics_batch, LyricsClient, embed_plain, save_lyrics, current_lyrics, read_embedded, parse_lrc
+from lyrics import bulk_lookup, prepare_text, save_lyrics_batch, LyricsClient, embed_lyrics, save_lyrics, current_lyrics, read_embedded, parse_lrc
 
 LRC = "[00:00.00] 作词 : Johnson\n[00:27.24]Back in black\n[00:31.00][01:40.50]I hit the sack\n[ar:AC/DC]\nsem tempo\n"
 
@@ -144,10 +144,14 @@ class EmbeddedLyricsTest(unittest.TestCase):
         path = self.dir / "novo.mp3"
         shutil.copy(self.mp3, path)
         found = {"encontrada": True, "instrumental": False, "texto": "Back in black", "sincronizada": []}
-        self.assertTrue(embed_plain(path, found))
-        self.assertFalse(embed_plain(path, {**found, "texto": "outra"}))
+        self.assertTrue(embed_lyrics(path, found))
+        self.assertFalse(embed_lyrics(path, {**found, "texto": "outra"}))
         self.assertEqual(ID3(path).getall("USLT")[0].text, "Back in black")
-        self.assertFalse(embed_plain(path, {**found, "instrumental": True}))
+        self.assertFalse(embed_lyrics(path, {**found, "instrumental": True}))
+        synced = self.dir / "sincronizada.mp3"
+        shutil.copy(self.mp3, synced)
+        self.assertTrue(embed_lyrics(synced, {**found, "sincronizada": [{"t": 27.24, "linha": "Back in black"}]}))
+        self.assertEqual(ID3(synced).getall("USLT")[0].text, "[00:27.24]Back in black")
 
     def test_write_lyrics_with_backup_and_exact_undo(self):
         from mutagen.id3 import APIC
