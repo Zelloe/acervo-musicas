@@ -28,7 +28,10 @@ register({
     "The lyrics service responded {code}; try again later": "O serviço de letras respondeu {code}; tente mais tarde",
     "No connection to the lyrics service": "Sem conexão com o serviço de letras",
     "Empty or invalid lyrics": "Letra vazia ou inválida",
-    "Save the lyrics without timestamps; the synced version stays in Acervo's cache": "Grave a letra sem marcações de tempo; a versão sincronizada fica no cache do Acervo",
+    "Select at least one track": "Selecione ao menos uma faixa",
+    "The selected tracks already have exactly these lyrics": "As faixas selecionadas já têm exatamente essas letras",
+    "Looking up lyrics {current} of {total}": "Buscando letras {current} de {total}",
+    "Lyrics lookup finished": "Busca de letras concluída",
     "The track already has exactly these lyrics": "A faixa já tem exatamente essa letra",
     "Invalid preview hash": "Hash da prévia inválido",
 })
@@ -216,28 +219,125 @@ def current_lyrics(path: Path) -> list[str]:
     return list(FLAC(path).get("lyrics", []))
 
 
+def format_lrc(lines: list[dict]) -> str:
+    """{"t": 62.5, "linha": "verse"} becomes "[01:02.50]verse" (the common LRC form)."""
+    return "\n".join(f"[{int(line['t'] // 60):02d}:{line['t'] % 60:05.2f}]{line['linha']}" for line in lines)
+
+
+def prepare_text(text: str) -> str:
+    """Canonical text to store: tidy LRC when it has timestamps, otherwise plain lyrics."""
+    text = (text or "").replace("\r\n", "\n").strip()
+    if not text or "\x00" in text or len(text) > 100_000:
+        raise ValueError(_("Empty or invalid lyrics"))
+    lines = parse_lrc(text)
+    if lines:
+        return format_lrc(lines)
+    plain = _clean_plain(text)
+    if not plain:
+        raise ValueError(_("Empty or invalid lyrics"))
+    return plain
+
+
+def _operation(root: Path, file: str, text: str, previous_sha256: str | None) -> dict | None:
+    from library_core import secure_file, sha256
+
+    path = secure_file(root, file)
+    text = prepare_text(text)
+    current = current_lyrics(path)
+    if current == [text]:
+        return None
+    if previous_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", str(previous_sha256)):
+        raise ValueError(_("Invalid preview hash"))
+    return {"acao": "metadados", "arquivo": str(path), "antes_sha256": previous_sha256 or sha256(path),
+            "alteracoes": {"letra": {"atual": current, "proposto": [text]}}}
+
+
 def save_lyrics(root: Path, storage: Path, file: str, text: str, previous_sha256: str | None = None) -> dict:
-    """Writes lyrics into a collection track with a backup, verification and undo from History.
+    """Writes lyrics (plain or synced LRC) into a collection track with backup, verification and undo.
 
     With previous_sha256 (the hash seen in the preview), the write is refused if the
     track has changed since then; the check happens under library_lock.
     """
-    from library_core import secure_file, sha256
     from library_import import import_reviewed
 
-    text = (text or "").replace("\r\n", "\n").strip()
-    if not text or "\x00" in text or len(text) > 100_000:
-        raise ValueError(_("Empty or invalid lyrics"))
-    if parse_lrc(text):
-        raise ValueError(_("Save the lyrics without timestamps; the synced version stays in Acervo's cache"))
     root = Path(root).resolve(strict=True)
-    path = secure_file(root, file)
-    current = current_lyrics(path)
-    if current == [text]:
+    operation = _operation(root, file, text, previous_sha256)
+    if operation is None:
         raise ValueError(_("The track already has exactly these lyrics"))
-    if previous_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", str(previous_sha256)):
-        raise ValueError(_("Invalid preview hash"))
-    operation = {"acao": "metadados", "arquivo": str(path), "antes_sha256": previous_sha256 or sha256(path),
-                 "alteracoes": {"letra": {"atual": current, "proposto": [text]}}}
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     return import_reviewed(root, Path(storage) / "backups", [operation], f"letra-{stamp}", Path(storage))
+
+
+def save_lyrics_batch(root: Path, storage: Path, items: list[dict]) -> dict:
+    """Writes lyrics into many tracks in one reviewed transaction: one backup, one undo.
+
+    items: [{"file": path, "text": lyrics, "previous_sha256": optional hash seen in the review}].
+    Tracks that already have exactly that text are skipped and reported.
+    """
+    from library_import import import_reviewed
+
+    if not isinstance(items, list) or not items or len(items) > 20_000:
+        raise ValueError(_("Select at least one track"))
+    root = Path(root).resolve(strict=True)
+    operations, skipped = [], []
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError(_("Empty or invalid lyrics"))
+        operation = _operation(root, item.get("file", ""), item.get("text", ""), item.get("previous_sha256"))
+        if operation is None:
+            skipped.append(item.get("file"))
+        else:
+            operations.append(operation)
+    if not operations:
+        raise ValueError(_("The selected tracks already have exactly these lyrics"))
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    result = import_reviewed(root, Path(storage) / "backups", operations, f"letra-lote-{stamp}", Path(storage))
+    return {**result, "skipped": skipped}
+
+
+def bulk_lookup(tracks: list[dict], client: LyricsClient, progress=None, cancel=None, max_failures: int = 5) -> list[dict]:
+    """Looks up lyrics for many tracks without writing anything.
+
+    Each result: {"id", "file", "status", "text", "current"} where status is
+    "synced", "plain" or "instrumental" (found), "not_found", "already_synced"
+    (the file already has timed lyrics) or "error"/"not_checked" when LRCLIB is
+    unavailable. A file with plain lyrics is offered the synced version if found.
+    After max_failures consecutive service errors the rest is marked not_checked.
+    """
+    progress = progress or (lambda *args: None)
+    results, failures = [], 0
+    for index, track in enumerate(tracks):
+        file = track.get("arquivo", "")
+        base = {"id": track.get("id"), "file": file, "text": "", "current": "none"}
+        if (cancel is not None and cancel.is_set()) or failures >= max_failures:
+            results.append({**base, "status": "not_checked"})
+            continue
+        progress(_("Looking up lyrics {current} of {total}", current=index + 1, total=len(tracks)), round(index / max(len(tracks), 1) * 100))
+        embedded = read_embedded(Path(file)) if file else None
+        if embedded:
+            base["current"] = "synced" if embedded["sincronizada"] else "plain"
+            if embedded["sincronizada"]:
+                results.append({**base, "status": "already_synced"})
+                continue
+        artist = " / ".join(v for v in track.get("artista") or [] if v.strip())
+        title = " / ".join(v for v in track.get("titulo") or [] if v.strip())
+        album = " / ".join(v for v in track.get("album") or [] if v.strip())
+        try:
+            found = client.lookup(artist, title, album, track.get("duracao_segundos"))
+            failures = 0
+        except RuntimeError as error:
+            failures += 1
+            results.append({**base, "status": "error", "error": str(error)})
+            continue
+        if not found.get("encontrada"):
+            results.append({**base, "status": "not_found"})
+        elif found.get("instrumental"):
+            results.append({**base, "status": "instrumental"})
+        elif found.get("sincronizada"):
+            results.append({**base, "status": "synced", "text": format_lrc(found["sincronizada"])})
+        elif base["current"] == "plain":
+            results.append({**base, "status": "not_found"})  # nothing better than what the file has
+        else:
+            results.append({**base, "status": "plain", "text": found.get("texto", "")})
+    progress(_("Lyrics lookup finished"), 100)
+    return results
