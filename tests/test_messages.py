@@ -20,14 +20,19 @@ class MessagesTest(unittest.TestCase):
         for value, expected in (("pt", "pt-BR"), ("pt_BR.UTF-8", "pt-BR"), ("PT-br", "pt-BR"), ("en_US", "en"), ("en", "en"), ("de_DE", None), ("", None), (None, None)):
             self.assertEqual(normalize_language(value), expected)
 
-    def test_environment_default(self):
+    def test_library_default_is_english_and_cli_follows_environment(self):
         with patch.dict(os.environ, {"LANGUAGE": "", "LC_ALL": "", "LC_MESSAGES": "", "LANG": "pt_BR.UTF-8"}):
-            self.assertEqual(current_language(), "pt-BR")
-            self.assertEqual(_("Done"), "Concluído")
+            self.assertEqual(current_language(), "en")  # same results on any machine
+            self.assertEqual(messages.environment_language(), "pt-BR")
+            try:
+                self.assertEqual(messages.use_environment_language(), "pt-BR")
+                self.assertEqual(_("Done"), "Concluído")
+            finally:
+                messages._default = "en"
         with patch.dict(os.environ, {"LANGUAGE": "de:en", "LC_ALL": "", "LANG": "pt_BR.UTF-8"}):
-            self.assertEqual(current_language(), "en")
+            self.assertEqual(messages.environment_language(), "en")
         with patch.dict(os.environ, {"LANGUAGE": "", "LC_ALL": "", "LC_MESSAGES": "", "LANG": "C"}):
-            self.assertEqual(current_language(), "en")
+            self.assertEqual(messages.environment_language(), "en")
 
     def test_request_language_and_placeholders(self):
         with patch.dict(os.environ, {"LANGUAGE": "", "LC_ALL": "", "LC_MESSAGES": "", "LANG": "en_US.UTF-8"}):

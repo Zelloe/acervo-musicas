@@ -9,7 +9,7 @@ import re
 import sys
 
 import downloader
-from messages import _, register
+from messages import _, register, use_environment_language
 from folders import require_folder, default_music_folder
 
 
@@ -188,6 +188,7 @@ class Menu:
 
 
 def main() -> int:
+    use_environment_language()
     parser = argparse.ArgumentParser(description=_(__doc__))
     parser.add_argument("--folder", "--pasta", dest="folder", type=Path, default=default_music_folder(), help=_("Where to save (default: the system music folder, e.g. ~/Music)"))
     args = parser.parse_args()

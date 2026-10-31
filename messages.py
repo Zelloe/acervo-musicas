@@ -1,8 +1,9 @@
 """User-facing messages: English source text with a Brazilian Portuguese catalogue.
 
-Code writes messages in English through `_()`. The language comes from the
-current request (the web interface sends it) or, on the command line, from the
-usual locale variables (LANGUAGE, LC_ALL, LC_MESSAGES, LANG).
+Code writes messages in English through `_()`. Library code defaults to
+English, so results never depend on the machine running it; entry points pick
+the language: the server per request (the web interface sends it) and the
+command line from the usual locale variables via `use_environment_language()`.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import os
 
 SUPPORTED = ("en", "pt-BR")
 _current: contextvars.ContextVar[str | None] = contextvars.ContextVar("acervo_language", default=None)
+_default = "en"
 
 # English source -> Portuguese. Placeholders use str.format names.
 PT_BR: dict[str, str] = {}
@@ -40,7 +42,14 @@ def environment_language() -> str:
 
 
 def current_language() -> str:
-    return _current.get() or environment_language()
+    return _current.get() or _default
+
+
+def use_environment_language() -> str:
+    """For command-line entry points: follow LANGUAGE/LC_ALL/LC_MESSAGES/LANG."""
+    global _default
+    _default = environment_language()
+    return _default
 
 
 @contextmanager
