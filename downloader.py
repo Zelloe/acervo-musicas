@@ -17,7 +17,7 @@ from mutagen.id3 import ID3, ID3NoHeaderError, TCON
 
 from library_plan import BASE, rules
 from library_scan import TEMP_PREFIXES, album_base, normalized
-from lyrics import LyricsClient, embed_plain
+from lyrics import LyricsClient, embed_lyrics
 from messages import _, register
 from versions import classify
 
@@ -246,7 +246,7 @@ def _download_one(item: dict, folder: Path, executable: str, genre_rules: list[d
         embedded = False
         if lyrics_client:
             try:
-                embedded = embed_plain(audio, lyrics_client.lookup(item.get("artista", ""), item.get("titulo", ""), item.get("album", ""), item.get("duracao")))
+                embedded = embed_lyrics(audio, lyrics_client.lookup(item.get("artista", ""), item.get("titulo", ""), item.get("album", ""), item.get("duracao")))
             except RuntimeError:
                 embedded = False  # without lyrics the download still counts
         final = folder / audio.name
