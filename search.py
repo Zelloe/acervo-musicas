@@ -148,10 +148,6 @@ class LibraryIndex:
             songs.append({"id": track.get("id"), "titulo": _join(track.get("titulo")), "artista": _join(track.get("artista"))})
         return {"artistas": artists[:4], "albuns": albums[:4], "musicas": songs[:limit]}
 
-    def buscar(self, consulta, limite=50):  # temporary aliases (step B)
-        return self.search(consulta, limite)
-
-    sugerir = suggest
 
 class GlobalSearch:
     """Global catalog suggestions from a spotDL process that stays open.
@@ -252,13 +248,3 @@ class GlobalSearch:
                 stream.close()
             except (OSError, ValueError):
                 pass
-
-
-    sugerir = suggest  # temporary aliases (step B)
-    fechar = close
-
-
-# Temporary aliases for server.py during the English rename (step B); remove when server.py is updated.
-normalizar = normalize
-IndiceBiblioteca = LibraryIndex
-BuscaGlobal = GlobalSearch

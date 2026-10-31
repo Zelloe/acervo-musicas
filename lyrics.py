@@ -174,13 +174,10 @@ class LyricsClient:
             pass  # without the cache, the lyrics are still shown
         return result
 
-    buscar = lookup  # temporary alias (step B)
-
 
 def lyrics_for_track(path: Path, artist: str, title: str, album: str, duration: float | None, client: LyricsClient) -> dict:
     """The file's lyrics take priority; otherwise LRCLIB's (without writing anything)."""
-    # Temporary: calls the old name so server tests that patch it keep working during step B.
-    return read_embedded(path) or client.buscar(artist, title, album, duration)
+    return read_embedded(path) or client.lookup(artist, title, album, duration)
 
 
 def embed_plain(path: Path, letra: dict) -> bool:
@@ -234,11 +231,3 @@ def save_lyrics(root: Path, storage: Path, file: str, text: str, previous_sha256
                  "alteracoes": {"letra": {"atual": current, "proposto": [text]}}}
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     return import_reviewed(root, Path(storage) / "backups", [operation], f"letra-{stamp}", Path(storage))
-
-
-# Temporary aliases for server.py during the English rename (step B); remove when server.py is updated.
-Letras = LyricsClient
-letra_da_faixa = lyrics_for_track
-letra_atual = current_lyrics
-def gravar_letra(root, storage, arquivo, texto, anterior_sha256=None):
-    return save_lyrics(root, storage, arquivo, texto, anterior_sha256)

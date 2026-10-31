@@ -1,12 +1,12 @@
 "use strict";
 
-const versionFilters = [["todas","Todos"],["estudio","Estúdio"],["ao_vivo","Ao vivo"],["acustico","Acústico"],["demo-remix","Demo / Remix"],["coletanea","Coletânea"]];
+const versionFilters = [["all","Todos"],["studio","Estúdio"],["live","Ao vivo"],["acoustic","Acústico"],["demo-remix","Demo / Remix"],["compilation","Coletânea"]];
 
 function versionMatches(version, choice) {
-  const marks=version?.marcas||[];
-  if(choice==="todas")return true;
+  const marks=version?.marks||[];
+  if(choice==="all")return true;
   if(choice==="demo-remix")return marks.includes("demo")||marks.includes("remix");
-  if(choice==="estudio")return version?.tipo==="estudio"&&!marks.includes("coletanea");
+  if(choice==="studio")return version?.type==="studio"&&!marks.includes("compilation");
   return marks.includes(choice);
 }
 
@@ -15,8 +15,8 @@ function versionChips(selected, attribute) {
 }
 
 function versionBadges(version) {
-  if(!version?.rotulos?.length)return `<span class="version-badge unknown">${tr("Sem classificação")}</span>`;
-  return `<span class="version-badges">${version.rotulos.map(label=>`<span class="version-badge ${version.marcas?.includes("ao_vivo")&&label==="Ao vivo"?"live":""}">${escapeHTML(tr(label))}</span>`).join("")}</span>`;
+  if(!version?.labels?.length)return `<span class="version-badge unknown">${tr("Sem classificação")}</span>`;
+  return `<span class="version-badges">${version.labels.map((label,index)=>`<span class="version-badge ${version.marks?.[index]==="live"?"live":""}">${escapeHTML(tr(label))}</span>`).join("")}</span>`;
 }
 
 function safePhoto(url) {
