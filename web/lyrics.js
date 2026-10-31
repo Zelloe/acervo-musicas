@@ -1,6 +1,6 @@
 "use strict";
 
-const lyricsState={track:null,serial:0,controller:null,lines:[],active:-1,cache:new Map(),returnFocus:null,result:null,editor:false,draft:"",pending:null,seenJob:null};
+const lyricsState={track:null,serial:0,controller:null,lines:[],active:-1,cache:new Map(),returnFocus:null,result:null,editor:false,manual:false,syncDraft:null,draft:"",pending:null,seenJob:null};
 const lyricLabel=message=>typeof tr==="function"?tr(message):message;
 
 function lyricsStatus(message, retry=false) {
@@ -11,6 +11,7 @@ function lyricsStatus(message, retry=false) {
 function closeLyrics() {
   lyricsState.serial++;
   lyricsState.controller?.abort();
+  lyricsState.manual=false;
   $('#lyrics-panel').hidden=true;
   $('#lyrics-toggle').setAttribute("aria-expanded","false");
   lyricsState.returnFocus?.focus?.();
@@ -19,13 +20,16 @@ function closeLyrics() {
 function setLyricsTrack(track) {
   $('#lyrics-toggle').disabled=!track;
   if(!track){closeLyrics();lyricsState.track=null;return;}
+  if(lyricsState.manual&&lyricsState.track?.id===track.id){lyricsState.track=track;return;}
+  lyricsState.manual=false;
   if(!$('#lyrics-panel').hidden)loadLyrics(track);
 }
 
 function displayLyrics(data) {
   lyricsState.result=data;
-  lyricsState.editor=false;
-  $('#lyrics-edit').disabled=false;
+  lyricsState.editor=false;lyricsState.manual=false;
+  $('#lyrics-sync').hidden=false;$('#lyrics-body').classList.remove("sync-editor");
+  $('#lyrics-edit').disabled=false;$('#lyrics-sync').disabled=false;
   $('#lyrics-edit').textContent=lyricLabel("Edit and save lyrics");
   lyricsState.lines=(data.synced||[]).filter(line=>Number.isFinite(line.t)&&line.t>=0&&typeof line.line==="string");
   lyricsState.active=-1;
@@ -54,8 +58,9 @@ async function loadLyrics(track) {
   const serial=++lyricsState.serial;
   lyricsState.controller?.abort();
   lyricsState.track=track;
-  lyricsState.editor=false;lyricsState.result=null;lyricsState.draft="";
-  $('#lyrics-edit').disabled=false;
+  lyricsState.editor=false;lyricsState.manual=false;lyricsState.result=null;lyricsState.draft="";
+  $('#lyrics-sync').hidden=false;$('#lyrics-body').classList.remove("sync-editor");
+  $('#lyrics-edit').disabled=false;$('#lyrics-sync').disabled=false;
   lyricsState.lines=[];lyricsState.active=-1;
   $('#lyrics-heading').dataset.i18nUser="true";$('#lyrics-heading').textContent=join(track.title);
   $('#lyrics-artist').dataset.i18nUser="true";$('#lyrics-artist').textContent=join(track.artist);
@@ -81,42 +86,60 @@ async function loadLyrics(track) {
 }
 
 function editLyrics() {
+  if(lyricsState.manual&&typeof leaveManualSync==="function"){leaveManualSync();return;}
   if(!lyricsState.track)return;
   lyricsState.serial++;lyricsState.controller?.abort();
   if(lyricsState.editor){displayLyrics(lyricsState.result||{found:false});return;}
   lyricsState.editor=true;
-  const text=lyricsState.draft||lyricsState.result?.text||"";
+  const text=lyricsState.draft||(lyricsState.result?.synced?.length?formatSyncedLyrics(lyricsState.result.synced):lyricsState.result?.text)||"";
+  $('#lyrics-sync').hidden=false;$('#lyrics-body').classList.remove("sync-editor");
   lyricsState.draft=text;
   $('#lyrics-edit').textContent=lyricLabel("Back to lyrics");
   $('#lyrics-follow').parentElement.hidden=true;
-  lyricsStatus("Review or paste the plain lyrics before saving.");
-  $('#lyrics-body').innerHTML=`<form id="lyrics-form"><label for="lyrics-editor">${escapeHTML(lyricLabel("Lyrics without timestamps"))}</label><textarea id="lyrics-editor" maxlength="100000" rows="12">${escapeHTML(text)}</textarea><p>${escapeHTML(lyricLabel("Saving requires confirmation and creates a full backup. Synced lyrics remain available during playback."))}</p><button type="submit" class="button primary" data-action="preview-lyrics">${escapeHTML(lyricLabel("Review before saving"))}</button></form>`;
+  lyricsStatus("Review or paste lyrics before saving.");
+  $('#lyrics-body').innerHTML=`<form id="lyrics-form"><label for="lyrics-editor">${escapeHTML(lyricLabel("Lyrics (plain text or LRC)"))}</label><textarea id="lyrics-editor" maxlength="100000" rows="12">${escapeHTML(text)}</textarea><p>${escapeHTML(lyricLabel("Lyrics and any timecodes are saved inside the file, with a full backup and undo."))}</p><button type="submit" class="button primary" data-action="preview-lyrics">${escapeHTML(lyricLabel("Review before saving"))}</button></form>`;
   setWriteControls();$('#lyrics-editor').focus();
+}
+
+function formatSyncedLyrics(lines) {
+  return lines.filter(line=>Number.isFinite(line.t)&&line.t>=0&&typeof line.line==="string").map(line=>{
+    const ticks=Math.round(line.t*100),minutes=Math.floor(ticks/6000),seconds=Math.floor(ticks%6000/100),centiseconds=ticks%100;
+    return `[${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")}.${String(centiseconds).padStart(2,"0")}]${line.line}`;
+  }).join("\n");
+}
+
+async function reviewLyricsText(text,button) {
+  if(!lyricsState.track)return;
+  const trackId=lyricsState.track.id;
+  if(button)button.disabled=true;
+  try{
+    const preview=await api("/api/lyrics/preview",{id:trackId,text});
+    if(lyricsState.track?.id!==trackId)return;
+    lyricsState.pending=preview;lyricsState.draft=preview.text;
+    const format=preview.format==="synced"?lyricLabel("Synced (LRC)"):lyricLabel("Plain text");
+    modal(`${modalHead(lyricLabel("Save lyrics to the file?"),escapeHTML(join(preview.artist)+" — "+join(preview.title)))}<div class="modal-body"><div class="backup-note">${icon("shield")}<span>${escapeHTML(lyricLabel("A full backup will be created. Lyrics and any timecodes will be saved in the file; you can undo this in History."))}</span></div><span class="chip">${escapeHTML(format)}</span><h3>${escapeHTML(lyricLabel("Reviewed lyrics"))}</h3><pre class="lyrics-review">${escapeHTML(preview.text)}</pre>${preview.current.length?`<details><summary>${escapeHTML(lyricLabel("Current lyrics in the file"))}</summary><pre class="lyrics-review">${escapeHTML(preview.current.join("\n\n"))}</pre></details>`:""}<p class="source">${escapeHTML(preview.file)}</p></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${escapeHTML(lyricLabel("Back to review"))}</button><button class="button primary" data-action="confirm-lyrics">${escapeHTML(lyricLabel("Back up and save lyrics"))}</button></div>`);
+  }catch(error){toast(error.message);}finally{if(button?.isConnected)button.disabled=false;setWriteControls();}
 }
 
 async function previewLyrics(event) {
   event.preventDefault();
-  const button=event.target.querySelector('[type="submit"]');button.disabled=true;
   lyricsState.draft=$('#lyrics-editor').value;
-  try{
-    const preview=await api("/api/lyrics/preview",{id:lyricsState.track.id,text:lyricsState.draft});
-    lyricsState.pending=preview;
-    modal(`${modalHead(lyricLabel("Save lyrics to the file?"),escapeHTML(join(preview.artist)+" — "+join(preview.title)))}<div class="modal-body"><div class="backup-note">${icon("shield")}<span>${escapeHTML(lyricLabel("A full backup will be created. Only plain lyrics will change; you can undo this in History."))}</span></div><h3>${escapeHTML(lyricLabel("Reviewed lyrics"))}</h3><pre class="lyrics-review">${escapeHTML(preview.text)}</pre>${preview.current.length?`<details><summary>${escapeHTML(lyricLabel("Current lyrics in the file"))}</summary><pre class="lyrics-review">${escapeHTML(preview.current.join("\n\n"))}</pre></details>`:""}<p class="source">${escapeHTML(preview.file)}</p></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${escapeHTML(lyricLabel("Back to review"))}</button><button class="button primary" data-action="confirm-lyrics">${escapeHTML(lyricLabel("Back up and save lyrics"))}</button></div>`);
-  }catch(error){toast(error.message);}finally{button.disabled=false;}
+  await reviewLyricsText(lyricsState.draft,event.target.querySelector('[type="submit"]'));
 }
 
 async function captureLyricsJob(job) {
-  if(!job||job.status!=="completed"||!job.result?.lyrics_track_id||lyricsState.seenJob===job.id)return;
+  if(!job||job.status!=="completed"||lyricsState.seenJob===job.id)return;
+  const ids=Array.isArray(job.result?.lyrics_track_ids)?job.result.lyrics_track_ids:job.result?.lyrics_track_id?[job.result.lyrics_track_id]:[];
+  if(!ids.length)return;
   lyricsState.seenJob=job.id;
-  const ident=job.result.lyrics_track_id;
-  for(const key of lyricsState.cache.keys())if(key.startsWith(ident+":"))lyricsState.cache.delete(key);
-  toast(lyricLabel("Lyrics saved to the file. You can undo this in History."));
-  if(!$('#lyrics-panel').hidden&&lyricsState.track?.id===ident)await loadLyrics(lyricsState.track);
+  for(const key of lyricsState.cache.keys())if(ids.some(ident=>key.startsWith(ident+":")))lyricsState.cache.delete(key);
+  if(job.result.lyrics_track_id)toast(lyricLabel("Lyrics saved to the file. You can undo this in History."));
+  if(!$('#lyrics-panel').hidden&&ids.includes(lyricsState.track?.id))await loadLyrics(lyricsState.track);
 }
 
 async function showLyrics(id) {
   if(!id)return;
-  lyricsState.returnFocus=document.activeElement;
+  lyricsState.returnFocus=document.activeElement;$('#lyrics-sync').disabled=true;
   if($('#modal').open)$('#modal').close();
   $('#lyrics-panel').hidden=false;
   $('#lyrics-toggle').setAttribute("aria-expanded","true");
@@ -144,6 +167,7 @@ function updateLyricsLine() {
 
 function refreshLyricsLanguage() {
   if($('#lyrics-panel').hidden)return;
+  if(lyricsState.manual&&typeof renderManualSync==="function"){renderManualSync();return;}
   if(lyricsState.editor){
     lyricsState.draft=$('#lyrics-editor')?.value||lyricsState.draft;
     lyricsState.editor=false;editLyrics();

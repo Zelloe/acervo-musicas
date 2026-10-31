@@ -108,6 +108,17 @@ class SaveLyricsHTTPTest(unittest.TestCase):
         self.wait_job()
         self.assertEqual(sha256(self.music), self.original)
 
+    def test_synced_preview_shows_canonical_text_and_saves_timestamps_inside_the_file(self):
+        preview = self.preview("[ar:Ignored credit]\n[00:00.080]Second verse\n[00:00.000]First <b>verse</b>")
+        expected = "[00:00.00]First <b>verse</b>\n[00:00.08]Second verse"
+        self.assertEqual((preview["text"], preview["format"]), (expected, "synced"))
+        self.assertEqual(sha256(self.music), self.original)
+        self.request("/api/lyrics/save", {"preview": preview["preview"]}, status=202)
+        self.wait_job()
+        self.assertEqual(ID3(self.music).getall("USLT")[0].text, expected)
+        self.assertEqual(self.request("/api/lyrics?id=" + self.ident)["synced"][1]["t"], .08)
+        self.assertEqual(integrity(self.music)["audio_sha256"], self.audio_hash)
+
     def test_file_changed_after_preview_is_preserved_and_save_is_refused(self):
         preview = self.preview()
         tags = ID3(self.music)
@@ -123,7 +134,7 @@ class SaveLyricsHTTPTest(unittest.TestCase):
 
     def test_invalid_inputs_missing_authentication_and_expired_preview_do_not_write(self):
         valid = {"id": self.ident, "texto": "Letra nova fictícia"}
-        for payload in ({**valid, "arquivo": str(self.music)}, {**valid, "id": "fake"}, {**valid, "texto": ""}, {**valid, "texto": []}, {**valid, "texto": "[00:01.00]verso"}, {**valid, "texto": "a\x00b"}, {**valid, "texto": "x" * 100001}):
+        for payload in ({**valid, "arquivo": str(self.music)}, {**valid, "id": "fake"}, {**valid, "texto": ""}, {**valid, "texto": []}, {**valid, "texto": "a\x00b"}, {**valid, "texto": "x" * 100001}):
             self.request("/api/lyrics/preview", payload, status=400)
         for headers in ({"X-Library-Token": "wrong"}, {"Origin": "http://evil.invalid"}, {"Host": "evil.invalid"}):
             self.request("/api/lyrics/preview", valid, status=403, **headers)
