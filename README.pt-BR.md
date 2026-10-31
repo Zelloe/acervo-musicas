@@ -11,10 +11,12 @@ A organização fica **dentro dos arquivos**, nas tags que qualquer player lê.
 O Acervo não cria pastas por gênero ou álbum, não renomeia, não move e não
 exclui músicas.
 
-> **Estado do projeto:** em desenvolvimento ativo. Veja o [ROADMAP](ROADMAP.md).
+> **Estado do projeto:** em desenvolvimento ativo. Veja o [ROADMAP](ROADMAP.pt-BR.md).
 >
-> A interface está em português e em inglês (seletor no topo; por padrão segue
-> o idioma do navegador).
+> O Acervo está em português e em inglês: a interface tem um seletor no topo
+> (por padrão segue o idioma do navegador) e a linha de comando segue o idioma
+> do sistema (`LANG`). Comandos e opções estão em inglês; os nomes antigos em
+> português (como `--pasta` e `analisar`) continuam funcionando.
 
 ## O que ele faz
 
@@ -62,9 +64,9 @@ Na primeira execução, `start.sh` e `download.sh` criam a `.venv` e instalam as
 dependências sozinhos (precisa de internet). Não há dependências de JavaScript
 nem etapa de compilação.
 
-Sem `--pasta`, o Acervo usa a pasta de músicas do sistema, a mesma que o
+Sem `--folder`, o Acervo usa a pasta de músicas do sistema, a mesma que o
 gerenciador de arquivos mostra (por exemplo `~/Música` no Linux em português ou
-`~/Music` em inglês). Se ela não existir, o programa avisa e pede `--pasta`.
+`~/Music` em inglês). Se ela não existir, o programa avisa e pede `--folder`.
 
 ## Baixar músicas
 
@@ -81,7 +83,7 @@ logo depois do download, sem precisar refazer a análise.
 **No terminal:**
 
 ```bash
-./download.sh --pasta "$HOME/Music"
+./download.sh --folder "$HOME/Música"
 ```
 
 O menu oferece três caminhos:
@@ -91,7 +93,7 @@ O menu oferece três caminhos:
 2. **Procurar música:** lista as versões encontradas com o álbum de cada uma.
 3. **Colar link do Spotify:** de música, álbum ou playlist.
 
-Na lista de faixas, as que você já tem na pasta aparecem como `[já tenho]`.
+Na lista de faixas, as que você já tem na pasta aparecem como `[já tenho]` (com o sistema em português).
 Responda com `enter` para baixar só as que faltam, `todas`, ou números como
 `1-3,5`.
 
@@ -129,7 +131,8 @@ no arquivo (ou um `.lrc` com o mesmo nome) e a do
 [LRCLIB](https://lrclib.net), um banco aberto que não exige cadastro. Para
 consultar o LRCLIB, o Acervo envia artista, título, álbum e duração. Letras
 sincronizadas destacam a linha que está tocando. Depois de conferir (e, se
-quiser, corrigir) o texto, **Salvar letra no arquivo** grava a letra simples
+quiser, corrigir) o texto, **Revisar antes de salvar** e depois **Criar backup e
+salvar letra** gravam a letra simples
 com backup completo; o Histórico desfaz a gravação. As letras consultadas ficam
 em cache local, fora da coleção. Músicas baixadas pelo Acervo já chegam com a
 letra simples embutida quando ela é encontrada.
@@ -137,7 +140,7 @@ letra simples embutida quando ela é encontrada.
 ## Uso pela interface
 
 ```bash
-./start.sh --pasta "/caminho/para/suas/musicas"
+./start.sh --folder "/caminho/para/suas/musicas"
 ```
 
 O navegador abre em <http://127.0.0.1:8765>. Mantenha o terminal aberto
@@ -147,13 +150,13 @@ Acervo, reinicie o servidor (a página avisa quando isso for necessário).
 Sem abrir o navegador automaticamente, ou com outra porta:
 
 ```bash
-.venv/bin/python acervo.py interface \
-  --pasta "/caminho/para/suas/musicas" \
-  --porta 8765 \
-  --dados "/caminho/para/dados-do-acervo"
+.venv/bin/python acervo.py serve \
+  --folder "/caminho/para/suas/musicas" \
+  --port 8765 \
+  --data "/caminho/para/dados-do-acervo"
 ```
 
-`--dados` define onde ficam relatórios, backups e downloads em revisão. Deve ser
+`--data` define onde ficam relatórios, backups e downloads em revisão. Deve ser
 uma pasta fora da coleção. O padrão é o diretório do programa.
 
 Abrir a interface, ouvir músicas e gerar análises **não modifica** a coleção.
@@ -165,10 +168,10 @@ minutos em coleções grandes.
 1. Gerar uma prévia (não grava nada):
 
    ```bash
-   .venv/bin/python acervo.py analisar \
-     --pasta "/caminho/para/suas/musicas" \
-     --normalizar-albuns \
-     --saida relatorios/minha_previa
+   .venv/bin/python acervo.py analyze \
+     --folder "/caminho/para/suas/musicas" \
+     --normalize-albums \
+     --output relatorios/minha_previa
    ```
 
 2. Abrir `relatorios/minha_previa/alteracoes.csv` e trocar a coluna `aprovar`
@@ -178,26 +181,27 @@ minutos em coleções grandes.
 3. Aplicar:
 
    ```bash
-   .venv/bin/python acervo.py aplicar \
-     --plano relatorios/minha_previa/plano.json \
-     --aprovacoes relatorios/minha_previa/alteracoes.csv
+   .venv/bin/python acervo.py apply \
+     --plan relatorios/minha_previa/plano.json \
+     --approvals relatorios/minha_previa/alteracoes.csv
    ```
 
 4. Desfazer, se necessário, com o manifesto informado na aplicação:
 
    ```bash
-   .venv/bin/python acervo.py restaurar \
-     --manifesto backups/ID_DA_EXECUCAO/manifesto.json
+   .venv/bin/python acervo.py restore \
+     --manifest backups/ID_DA_EXECUCAO/manifesto.json
    ```
 
 Opções da análise:
 
 | Opção | Efeito |
 | --- | --- |
-| `--generos ARQUIVO` | Usar outro CSV de regras de gênero |
-| `--albuns ARQUIVO` | Usar outro CSV de regras de álbum |
-| `--musicbrainz --contato "e-mail ou URL"` | Consultar o MusicBrainz para faixas sem regra local |
-| `--max-consultas N` | Limite de consultas ao MusicBrainz (padrão 200) |
+| `--genre-rules ARQUIVO` | Usar outro CSV de regras de gênero |
+| `--album-rules ARQUIVO` | Usar outro CSV de regras de álbum |
+| `--musicbrainz --contact "e-mail ou URL"` | Consultar o MusicBrainz para faixas sem regra local |
+| `--max-queries N` | Limite de consultas ao MusicBrainz (padrão 200) |
+| `--data PASTA` | Pasta de dados do programa (campos protegidos, backups) |
 
 ### Campos protegidos
 
@@ -205,15 +209,16 @@ Um campo protegido nunca é sugerido nem gravado pelo Acervo, mesmo que esteja
 vazio e mesmo que uma regra, o MusicBrainz ou um download proponham outro valor:
 
 ```bash
-.venv/bin/python acervo.py proteger \
-  --pasta "/caminho/para/suas/musicas" \
-  --arquivo "/caminho/para/suas/musicas/Artista/faixa.mp3" \
-  --campos genero,album
+.venv/bin/python acervo.py protect \
+  --folder "/caminho/para/suas/musicas" \
+  --file "/caminho/para/suas/musicas/Artista/faixa.mp3" \
+  --fields genre,album
 ```
 
-Campos aceitos: `titulo`, `artista`, `artista_album`, `album`, `genero`, `ano`,
-`faixa` e `disco`. Use `desproteger` com os mesmos argumentos para liberar e
-`protecoes --pasta ...` para listar. Na interface, proteja campos pelos
+Campos aceitos: `title`, `artist`, `album_artist`, `album`, `genre`, `year`,
+`track` e `disc` (os nomes em português `titulo`, `artista`, `genero`…
+também funcionam). Use `unprotect` com os mesmos argumentos para liberar e
+`protections --folder ...` para listar. Na interface, proteja campos pelos
 detalhes da faixa ou para um álbum inteiro.
 
 A proteção é conferida de novo no momento de gravar. Um plano ou uma importação
@@ -228,7 +233,7 @@ for movida ou renomeada por outro programa, a proteção não a acompanha. Se es
 arquivo estiver corrompido ou pertencer a outra coleção, o Acervo recusa
 qualquer gravação em vez de ignorar as proteções. Os comandos `analisar`,
 `aplicar`, `restaurar` e a interface usam a mesma pasta de dados; o padrão é o
-diretório do programa, e `--dados` escolhe outra.
+diretório do programa, e `--data` escolhe outra.
 
 ### Playlists M3U8
 
@@ -248,24 +253,24 @@ Pela linha de comando, a exportação só lê a coleção:
 
 ```bash
 .venv/bin/python acervo.py playlist \
-  --pasta "/caminho/para/suas/musicas" \
-  --genero "Progressive Rock" \
-  --nome "Progressivo" \
-  --saida "/caminho/para/suas/musicas/Playlists/Progressivo.m3u8"
+  --folder "/caminho/para/suas/musicas" \
+  --genre "Progressive Rock" \
+  --name "Progressivo" \
+  --output "/caminho/para/suas/musicas/Playlists/Progressivo.m3u8"
 ```
 
-Os filtros `--genero`, `--artista` e `--album` comparam o valor inteiro, sem
+Os filtros `--genre`, `--artist` e `--album` comparam o valor inteiro, sem
 diferenciar maiúsculas. Sem filtros, a playlist inclui a coleção toda, ordenada
 por artista do álbum, álbum, disco e faixa.
 
 O arquivo é UTF-8, sem BOM, e os caminhos são relativos à pasta da playlist.
 Se a playlist ficar dentro da pasta da coleção e as duas forem copiadas juntas
 para outro disco, os caminhos continuam válidos. Uma playlist existente não é
-substituída sem `--sobrescrever`. Para conferir se todos os caminhos ainda
+substituída sem `--overwrite`. Para conferir se todos os caminhos ainda
 resolvem:
 
 ```bash
-.venv/bin/python acervo.py playlist --validar --saida Progressivo.m3u8
+.venv/bin/python acervo.py playlist --validate --output Progressivo.m3u8
 ```
 
 ## Como as gravações são protegidas
@@ -328,7 +333,7 @@ coleção real.
 
 ## Contribuir
 
-Veja [CONTRIBUTING.pt-BR.md](CONTRIBUTING.pt-BR.md) e o [ROADMAP](ROADMAP.md).
+Veja [CONTRIBUTING.pt-BR.md](CONTRIBUTING.pt-BR.md) e o [ROADMAP](ROADMAP.pt-BR.md).
 
 ## Licença
 

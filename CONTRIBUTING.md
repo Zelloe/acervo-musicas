@@ -41,9 +41,22 @@ To check the scripts' syntax:
 for f in web/*.js; do node --check "$f"; done
 ```
 
-The code, the interface and the command line are written in Portuguese
-(identifiers, messages and option names). Please follow the surrounding style;
-new user-facing text should be added in a way that can be translated.
+## Languages
+
+Code, comments and the source text of every message are in English. Acervo
+ships in English and Brazilian Portuguese:
+
+- **Python:** write messages as `_("Text with {name}", name=value)` (from
+  `messages.py`, never an f-string inside `_()`) and add the Portuguese to the
+  module's `register({...})` catalogue. Library code always produces English;
+  only entry points choose the language (the server per request, the command
+  line from `LANG`).
+- **Web interface:** user-facing strings go through `tr()` and need an entry in
+  `web/i18n.js`. Titles, artists, albums, paths and lyrics are data and are
+  never translated.
+- **Stored data:** keys in files Acervo writes (manifests, plans, protections,
+  batches) keep their existing names, many in Portuguese, so older backups stay
+  restorable. `api_contract.py` maps them to the English HTTP API.
 
 ## Tests
 
@@ -58,7 +71,7 @@ new user-facing text should be added in a way that can be translated.
 
 | File | Responsibility |
 | --- | --- |
-| `acervo.py` | Command line: `analisar`, `aplicar`, `restaurar`, `interface`, `playlist`, `proteger`, `desproteger`, `protecoes` |
+| `acervo.py` | Command line: `analyze`, `apply`, `restore`, `serve`, `playlist`, `protect`, `unprotect`, `protections` |
 | `library_scan.py` | Reading and inventory, never writes |
 | `library_plan.py` | Rules, proposals and the approval plan |
 | `library_core.py` | Validated writes, backups and restore |
@@ -71,10 +84,12 @@ new user-facing text should be added in a way that can be translated.
 | `lyrics.py` | Lyrics from the file and LRCLIB; saving with backup |
 | `protections.py` | Protected fields |
 | `playlists.py` | M3U8 playlists |
+| `messages.py` | Message catalogue and language selection |
+| `api_contract.py` | Maps stored data keys to the English HTTP API |
 | `musicbrainz_client.py` | Optional MusicBrainz client, with cache and limits |
 | `server.py` and `web/` | Local server and interface |
 
-Planned features are listed in [ROADMAP.md](ROADMAP.md) (Portuguese). Only mark
+Planned features are listed in [ROADMAP.md](ROADMAP.md). Only mark
 an item as done once it meets the criteria described there.
 
 ## Genre and album rules
