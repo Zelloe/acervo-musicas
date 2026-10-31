@@ -11,13 +11,12 @@ Organisation lives **inside the files**, in the tags any player can read.
 Acervo does not create genre or album folders, and it never renames, moves or
 deletes your music.
 
-> **Project status:** under active development. See the [ROADMAP](ROADMAP.md)
-> (in Portuguese).
+> **Project status:** under active development. See the [ROADMAP](ROADMAP.md).
 >
-> The web interface is available in English and Portuguese (switch at the top;
-> it follows your browser language by default). Some error messages from the
-> server and the command line are still in Portuguese, and commands and options
-> keep their Portuguese names (for example `--pasta` means "folder").
+> Acervo is available in English and Portuguese: the web interface has a
+> switch at the top (it follows your browser language by default), and the
+> command line follows your system language (`LANG`). Commands and options are
+> in English; the older Portuguese names (such as `--pasta`) still work.
 
 ## What it does
 
@@ -65,9 +64,9 @@ On first run, `start.sh` and `download.sh` create the `.venv` and install the
 dependencies on their own (internet required). There are no JavaScript
 dependencies and no build step.
 
-Without `--pasta`, Acervo uses the system music folder, the same one your file
+Without `--folder`, Acervo uses the system music folder, the same one your file
 manager shows (for example `~/Music`, or `~/Música` on a Portuguese system). If
-it does not exist, the program says so and asks for `--pasta`.
+it does not exist, the program says so and asks for `--folder`.
 
 ## Downloading music
 
@@ -76,8 +75,7 @@ Requires [spotDL](https://github.com/spotDL/spotify-downloader)
 Premium subscription are needed. There are two ways to use it, with the same
 behaviour.
 
-**In the browser:** open the interface (`./start.sh`) and go to **Baixar**
-("Download"). Pick the Artist, Song or Link tab, check the destination folder
+**In the browser:** open the interface (`./start.sh`) and go to **Download**. Pick the Artist, Song or Link tab, check the destination folder
 and tick the tracks. Missing tracks come pre-selected; the ones you already
 have are left unticked. When the destination is inside the open library, new
 songs show up in the Library right after the download, without a new analysis.
@@ -85,7 +83,7 @@ songs show up in the Library right after the download, without a new analysis.
 **In the terminal:**
 
 ```bash
-./download.sh --pasta "$HOME/Music"
+./download.sh --folder "$HOME/Music"
 ```
 
 The menu offers three paths:
@@ -96,8 +94,8 @@ The menu offers three paths:
 3. **Paste a Spotify link:** to a song, album or playlist.
 
 In the track list, songs you already have in the folder are marked
-`[já tenho]` ("already have"). Press `enter` to download only the missing ones,
-type `todas` ("all"), or numbers such as `1-3,5`.
+`[already have]`. Press `enter` to download only the missing ones, type `all`,
+or numbers such as `1-3,5`.
 
 Each track becomes `Artist - Title.mp3` directly in the chosen folder, with
 title, artist, album, year, track number and cover art from spotDL. Since
@@ -120,10 +118,10 @@ the right to download in your country.
 suggestions (artists, albums and songs) appear as you type, ignoring accents,
 case and punctuation and tolerating small typos (`metalica`, `acdc`). Enter
 lists the songs by relevance. In Global mode, suggestions come from spotDL's
-catalogue, and choosing an artist opens the **Baixar** page; nothing is
+catalogue, and choosing an artist opens the **Download** page; nothing is
 downloaded until you choose.
 
-**Recording filters:** the Library and Baixar show a label on every song or
+**Recording filters:** the Library and the Download page show a label on every song or
 album, plus **Studio, Live, Acoustic, Demo/Remix and Compilation** filters.
 Classification only looks at title qualifiers (`- Live`, `(Acoustic Version)`)
 and the album name (`Holy Live`, `Live in São Paulo`), so "Live and Learn" and
@@ -135,14 +133,14 @@ in the file (or a `.lrc` file with the same name) and lyrics from
 [LRCLIB](https://lrclib.net), an open database that needs no account. To query
 LRCLIB, Acervo sends the artist, title, album and duration. Synced lyrics
 highlight the current line. After checking (and, if you want, correcting) the
-text, **Salvar letra no arquivo** ("save lyrics to file") writes the plain
-lyrics with a full backup; History can undo it. Looked-up lyrics are cached
+text, **Review before saving** and then **Back up and save lyrics** write the
+plain lyrics with a full backup; History can undo it. Looked-up lyrics are cached
 locally, outside your collection.
 
 ## Using the interface
 
 ```bash
-./start.sh --pasta "/path/to/your/music"
+./start.sh --folder "/path/to/your/music"
 ```
 
 The browser opens at <http://127.0.0.1:8765>. Keep the terminal open while you
@@ -152,13 +150,13 @@ server (the page warns you when that is needed).
 Without opening the browser automatically, or on another port:
 
 ```bash
-.venv/bin/python acervo.py interface \
-  --pasta "/path/to/your/music" \
-  --porta 8765 \
-  --dados "/path/to/acervo-data"
+.venv/bin/python acervo.py serve \
+  --folder "/path/to/your/music" \
+  --port 8765 \
+  --data "/path/to/acervo-data"
 ```
 
-`--dados` ("data") sets where reports, backups and review downloads are kept.
+`--data` sets where reports, backups and review downloads are kept.
 It must be outside the collection. The default is the program folder.
 
 Opening the interface, playing music and running analyses **does not modify**
@@ -170,10 +168,10 @@ can take a few minutes on large collections.
 1. Create a preview (writes nothing):
 
    ```bash
-   .venv/bin/python acervo.py analisar \
-     --pasta "/path/to/your/music" \
-     --normalizar-albuns \
-     --saida relatorios/my_preview
+   .venv/bin/python acervo.py analyze \
+     --folder "/path/to/your/music" \
+     --normalize-albums \
+     --output relatorios/my_preview
    ```
 
 2. Open `relatorios/my_preview/alteracoes.csv` and set the `aprovar`
@@ -183,26 +181,27 @@ can take a few minutes on large collections.
 3. Apply:
 
    ```bash
-   .venv/bin/python acervo.py aplicar \
-     --plano relatorios/my_preview/plano.json \
-     --aprovacoes relatorios/my_preview/alteracoes.csv
+   .venv/bin/python acervo.py apply \
+     --plan relatorios/my_preview/plano.json \
+     --approvals relatorios/my_preview/alteracoes.csv
    ```
 
 4. Undo if needed, with the manifest printed when applying:
 
    ```bash
-   .venv/bin/python acervo.py restaurar \
-     --manifesto backups/RUN_ID/manifesto.json
+   .venv/bin/python acervo.py restore \
+     --manifest backups/RUN_ID/manifesto.json
    ```
 
 Analysis options:
 
 | Option | Effect |
 | --- | --- |
-| `--generos FILE` | Use another genre rules CSV |
-| `--albuns FILE` | Use another album rules CSV |
-| `--musicbrainz --contato "email or URL"` | Query MusicBrainz for tracks without a local rule |
-| `--max-consultas N` | MusicBrainz query limit (default 200) |
+| `--genre-rules FILE` | Use another genre rules CSV |
+| `--album-rules FILE` | Use another album rules CSV |
+| `--musicbrainz --contact "email or URL"` | Query MusicBrainz for tracks without a local rule |
+| `--max-queries N` | MusicBrainz query limit (default 200) |
+| `--data FOLDER` | Program data folder (protected fields, backups) |
 
 ### Protected fields
 
@@ -210,16 +209,16 @@ A protected field is never suggested or written by Acervo, even when it is
 empty and even if a rule, MusicBrainz or a download proposes another value:
 
 ```bash
-.venv/bin/python acervo.py proteger \
-  --pasta "/path/to/your/music" \
-  --arquivo "/path/to/your/music/Artist/track.mp3" \
-  --campos genero,album
+.venv/bin/python acervo.py protect \
+  --folder "/path/to/your/music" \
+  --file "/path/to/your/music/Artist/track.mp3" \
+  --fields genre,album
 ```
 
-Accepted fields: `titulo` (title), `artista` (artist), `artista_album` (album
-artist), `album`, `genero` (genre), `ano` (year), `faixa` (track) and `disco`
-(disc). Use `desproteger` with the same arguments to unlock, and
-`protecoes --pasta ...` to list. In the interface, protect fields from the
+Accepted fields: `title`, `artist`, `album_artist`, `album`, `genre`, `year`,
+`track` and `disc` (the Portuguese names `titulo`, `artista`, `genero`… work
+too). Use `unprotect` with the same arguments to unlock, and
+`protections --folder ...` to list. In the interface, protect fields from the
 track details or for a whole album.
 
 Protection is checked again at write time. A plan or import prepared before
@@ -235,7 +234,7 @@ of ignoring the protections.
 
 ### M3U8 playlists
 
-In the interface, use **Exportar M3U8** in the Library (exports every track of
+In the interface, use **Export M3U8** in the Library (exports every track of
 the current search and filter, including other pages) or on an album card. A
 preview shows the destination and the first tracks before saving. Playlists go
 to the collection's `Playlists/` folder, the only place where the interface
@@ -250,22 +249,22 @@ From the command line, exporting only reads the collection:
 
 ```bash
 .venv/bin/python acervo.py playlist \
-  --pasta "/path/to/your/music" \
-  --genero "Progressive Rock" \
-  --nome "Progressive" \
-  --saida "/path/to/your/music/Playlists/Progressive.m3u8"
+  --folder "/path/to/your/music" \
+  --genre "Progressive Rock" \
+  --name "Progressive" \
+  --output "/path/to/your/music/Playlists/Progressive.m3u8"
 ```
 
-`--genero`, `--artista` and `--album` match the whole value, case-insensitive.
+`--genre`, `--artist` and `--album` match the whole value, case-insensitive.
 Without filters the playlist contains the whole collection, ordered by album
 artist, album, disc and track. Files are UTF-8 without BOM, with paths relative
 to the playlist folder, so they keep working when the collection and its
 playlists are copied together to another disk. An existing playlist is not
-replaced without `--sobrescrever` ("overwrite"). To check that every path still
+replaced without `--overwrite`. To check that every path still
 resolves:
 
 ```bash
-.venv/bin/python acervo.py playlist --validar --saida Progressive.m3u8
+.venv/bin/python acervo.py playlist --validate --output Progressive.m3u8
 ```
 
 ## How writes are protected
@@ -298,10 +297,10 @@ recordings by audio fingerprint.
 
 ## Advanced downloads
 
-The **Baixar** menu uses the direct flow described in
+The **Download** page uses the direct flow described in
 [Downloading music](#downloading-music). If you prefer to review before any
-file enters the collection, an advanced flow lives under **Preferências →
-Downloads avançados** (Preferences → Advanced downloads):
+file enters the collection, an advanced flow lives under **Preferences →
+Advanced downloads with review and import**:
 
 1. Enter a link or search and see the source catalogue.
 2. Compare with local files and choose tracks.

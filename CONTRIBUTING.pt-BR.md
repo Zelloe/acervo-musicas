@@ -40,6 +40,24 @@ Para conferir a sintaxe dos scripts:
 for f in web/*.js; do node --check "$f"; done
 ```
 
+## Idiomas
+
+Código, comentários e o texto-fonte de todas as mensagens ficam em inglês. O
+Acervo é distribuído em inglês e em português do Brasil:
+
+- **Python:** escreva mensagens como `_("Text with {name}", name=valor)` (de
+  `messages.py`, nunca com f-string dentro de `_()`) e acrescente o português
+  no catálogo `register({...})` do módulo. O núcleo sempre produz inglês; só os
+  pontos de entrada escolhem o idioma (o servidor por requisição, a linha de
+  comando pelo `LANG`).
+- **Interface web:** textos para o usuário passam por `tr()` e precisam de uma
+  entrada em `web/i18n.js`. Títulos, artistas, álbuns, caminhos e letras são
+  dados e nunca são traduzidos.
+- **Dados gravados:** as chaves dos arquivos que o Acervo grava (manifestos,
+  planos, proteções, lotes) mantêm os nomes atuais, muitos em português, para
+  que backups antigos continuem restauráveis. O `api_contract.py` traduz essas
+  chaves para a API HTTP em inglês.
+
 ## Testes
 
 - **Nunca use a sua coleção real nos testes.** Gere arquivos temporários com
@@ -53,7 +71,7 @@ for f in web/*.js; do node --check "$f"; done
 
 | Arquivo | Responsabilidade |
 | --- | --- |
-| `acervo.py` | Linha de comando: `analisar`, `aplicar`, `restaurar`, `interface`, `playlist`, `proteger`, `desproteger`, `protecoes` |
+| `acervo.py` | Linha de comando: `analyze`, `apply`, `restore`, `serve`, `playlist`, `protect`, `unprotect`, `protections` (os nomes em português também funcionam) |
 | `library_scan.py` | Leitura e inventário, sem gravar |
 | `library_plan.py` | Regras, propostas e plano de aprovação |
 | `library_core.py` | Gravação validada, backups e restauração |
@@ -66,10 +84,12 @@ for f in web/*.js; do node --check "$f"; done
 | `lyrics.py` | Letras do arquivo e do LRCLIB; gravação com backup |
 | `protections.py` | Campos protegidos |
 | `playlists.py` | Playlists M3U8 |
+| `messages.py` | Catálogo de mensagens e escolha de idioma |
+| `api_contract.py` | Traduz as chaves dos dados gravados para a API HTTP em inglês |
 | `musicbrainz_client.py` | Cliente MusicBrainz opcional, com cache e limite |
 | `server.py` e `web/` | Servidor local e interface |
 
-O planejamento das próximas funcionalidades está em [ROADMAP.md](ROADMAP.md).
+O planejamento das próximas funcionalidades está em [ROADMAP.pt-BR.md](ROADMAP.pt-BR.md).
 Só marque um item como concluído depois de cumprir o critério descrito lá.
 
 ## Regras de gênero e álbum
