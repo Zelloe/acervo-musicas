@@ -1,5 +1,7 @@
 """Local Acervo interface, listening exclusively on the loopback address."""
 
+from messages import _, current_language, language, normalize_language, register
+
 from collections import Counter, defaultdict
 import csv
 from datetime import datetime, timezone
@@ -30,6 +32,78 @@ from playlists import album_order, render as render_m3u8, write_m3u8
 from download_picker import DownloadPicker
 import protections
 from versions import classify
+
+
+register({
+    "Library: {folder}": "Biblioteca: {folder}",
+    "Invalid or symbolic music path": "Caminho de música inválido ou simbólico",
+    "Missing or invalid file; refresh the library": "Arquivo ausente ou inválido; atualize a biblioteca",
+    "The library must be a folder": "A biblioteca deve ser uma pasta",
+    "Application data must stay outside the music library": "Os dados do programa devem ficar fora da biblioteca musical",
+    "Preparing…": "Preparando…",
+    "Select a track by its ID and review the lyrics": "Selecione uma faixa pelo identificador e confira a letra",
+    "Empty or invalid lyrics": "Letra vazia ou inválida",
+    "Use plain lyrics without timestamps": "Use a letra simples, sem marcações de tempo",
+    "Review the lyrics preview before saving": "Confira a prévia da letra antes de salvar",
+    "Could not load new tracks; refresh the library: {error}": "Não foi possível carregar novas faixas; atualize a biblioteca: {error}",
+    "Select tracks by their library IDs": "Selecione faixas pelos identificadores da biblioteca",
+    "Choose valid fields and whether to protect or unlock them": "Escolha campos válidos e se deseja protegê-los ou desbloqueá-los",
+    "Select tracks or an album from the library": "Selecione faixas ou um álbum da biblioteca",
+    "Use up to 200 characters in the search": "Use até 200 caracteres na busca",
+    "Choose to search the library or the global catalog": "Escolha buscar na biblioteca ou no catálogo global",
+    "Invalid library filter": "Filtro de biblioteca inválido",
+    "Invalid version filter": "Filtro de versão inválido",
+    "Invalid artist or album filter": "Filtro de artista ou álbum inválido",
+    "Enter a playlist name": "Informe um nome para a playlist",
+    "Use a simple name without slashes, special characters or line breaks": "Use um nome simples, sem barras, caracteres especiais ou quebras de linha",
+    "Invalid album": "Álbum inválido",
+    "No songs selected for the playlist": "Nenhuma música selecionada para a playlist",
+    "The Playlists folder and playlist cannot be symbolic links": "A pasta Playlists e a playlist não podem ser links simbólicos",
+    "The existing playlist must be a regular file without hard links": "A playlist existente deve ser um arquivo comum, sem hard links",
+    "Replacing a playlist requires an explicit choice": "A substituição da playlist exige uma escolha explícita",
+    "The playlist already exists. Choose another name or approve replacement": "A playlist já existe. Escolha outro nome ou aprove a substituição",
+    "The playlist changed since preview; review it again": "A playlist mudou desde a prévia; revise novamente",
+    "\nInterface closed.": "\nInterface encerrada.",
+    "Wait for the current operation to finish": "Aguarde a operação atual terminar",
+    "Could not clear the new-track cache: {error}": "Não foi possível limpar o cache de novas faixas: {error}",
+    "Song not found": "Música não encontrada",
+    "The track already has exactly these lyrics": "A faixa já tem exatamente essa letra",
+    "The file changed during preview; review it again": "O arquivo mudou durante a prévia; confira novamente",
+    "The preview expired; review the lyrics again": "A prévia expirou; confira a letra novamente",
+    "Incompatible cache of new tracks": "Cache de novas faixas incompatível",
+    "Album not found; refresh the library": "Álbum não encontrado; atualize a biblioteca",
+    "The library is busy with another write; wait and try again": "A biblioteca está ocupada por outra gravação; aguarde e tente novamente",
+    "The playlist backup folder cannot be a symbolic link": "A pasta de backup de playlists não pode ser simbólica",
+    "The playlist changed during backup; review it again": "A playlist mudou durante o backup; revise novamente",
+    "Host not allowed": "Host não permitido",
+    "Unauthorized request": "Requisição não autorizada",
+    "Invalid request": "Requisição inválida",
+    "The request body must be a JSON object": "O corpo da requisição deve ser um objeto JSON",
+    "\nWaiting for the current write to finish so files are not left incomplete…": "\nAguardando a gravação em andamento terminar para não deixar arquivos pela metade…",
+    "{done} of {total} · {name}": "{done} de {total} · {name}",
+    "The track changed in the inventory; review it again": "A faixa mudou no inventário; confira novamente",
+    "The file changed while being read": "O arquivo mudou durante a leitura",
+    "Download saved, but the track was not added to the inventory: {file_name}. {error}": "Download salvo, mas a faixa não entrou no inventário: {file_name}. {error}",
+    "Downloads saved; refresh the library after restarting: {error}": "Downloads salvos; atualize a biblioteca após reiniciar: {error}",
+    "Invalid track selection; refresh the library": "Seleção de faixas inválida; atualize a biblioteca",
+    "Asset not found": "Recurso não encontrado",
+    "Operation completed": "Operação concluída",
+    "Select a track by its library ID": "Selecione uma música pelo identificador da biblioteca",
+    "Track not found": "Faixa não encontrada",
+    "No log available.": "Sem registro disponível.",
+    "Invalid selection": "Seleção inválida",
+    "No lookup or download is running": "Não há consulta ou download em andamento",
+    "Creating backups and validating approved files…": "Criando backups e validando os arquivos aprovados…",
+    "Creating full backups and validating tags…": "Criando backups completos e validando as tags…",
+    "Select changes to approve": "Selecione alterações para aprovar",
+    "Scan the library first": "Analise a biblioteca primeiro",
+    "The selection is outdated; reload the page": "A seleção está desatualizada; recarregue a página",
+    "Validating backups and restoring files…": "Validando backups e restaurando os arquivos…",
+    "Operation not found": "Execução não encontrada",
+    "Route not found": "Rota não encontrada",
+    "Page not found": "Página não encontrada",
+    "Run a scan first": "Execute uma análise primeiro"
+})
 
 
 WRITING_JOBS = {"import", "apply", "restore"}
@@ -66,10 +140,10 @@ def version_matches(version, choice):
 def readable_music(root, value):
     path = Path(value)
     if not path.is_absolute() or path.is_symlink() or path.resolve() != path:
-        raise ValueError("Caminho de música inválido ou simbólico")
+        raise ValueError(_('Invalid or symbolic music path'))
     path.relative_to(root)
     if not path.is_file() or path.suffix.casefold() not in (".mp3", ".flac"):
-        raise ValueError("Arquivo ausente ou inválido; atualize a biblioteca")
+        raise ValueError(_('Missing or invalid file; refresh the library'))
     return path
 
 
@@ -77,10 +151,10 @@ class App:
     def __init__(self, root: Path, storage: Path | None = None):
         self.root = root.expanduser().resolve(strict=True)
         if not self.root.is_dir():
-            raise ValueError("A biblioteca deve ser uma pasta")
+            raise ValueError(_('The library must be a folder'))
         self.storage = (storage or BASE).expanduser().resolve()
         if self.storage == self.root or self.root in self.storage.parents:
-            raise ValueError("Os dados do programa devem ficar fora da biblioteca musical")
+            raise ValueError(_('Application data must stay outside the music library'))
         self.state_dir = self.storage / ".biblioteca"
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
@@ -130,20 +204,22 @@ class App:
     def start(self, kind, operation):
         with self.lock:
             if self.playlist_busy or self.policy_busy or (self.job and self.job["status"] == "running"):
-                raise ValueError("Aguarde a operação atual terminar")
+                raise ValueError(_('Wait for the current operation to finish'))
             if kind in WRITING_JOBS or kind == "direct_download":
                 protections.load(self.storage, self.root)
             self.error = None
-            self.job = {"id": secrets.token_hex(8), "type": kind, "status": "running", "message": "Preparando…", "progress": None}
+            self.job = {"id": secrets.token_hex(8), "type": kind, "status": "running", "message": _('Preparing…'), "progress": None}
+        job_language = current_language()
         def run():
-            try:
-                result = operation()
-                with self.lock:
-                    self.job.update(status="completed", message="Operação concluída", progress=100, result=result)
-            except Exception as error:
-                with self.lock:
-                    self.error = str(error)
-                    self.job.update(status="error", message=str(error), progress=None)
+            with language(job_language):
+                try:
+                    result = operation()
+                    with self.lock:
+                        self.job.update(status="completed", message=_('Operation completed'), progress=100, result=result)
+                except Exception as error:
+                    with self.lock:
+                        self.error = str(error)
+                        self.job.update(status="error", message=str(error), progress=None)
         self.worker = threading.Thread(target=run, daemon=True)
         self.worker.start()
 
@@ -162,13 +238,13 @@ class App:
         output = self.storage / "relatorios" / datetime.now().strftime("previa_%Y%m%d_%H%M%S_%f")
         def progress(done, total, name):
             with self.lock:
-                self.job.update(message=f"{done} de {total} · {name}", progress=round(done / total * 100) if total else 0)
+                self.job.update(message=_('{done} of {total} · {name}', done=done, total=total, name=name), progress=round(done / total * 100) if total else 0)
         result = create_plan(self.root, output, normalize_albums=True, online=online, progress=progress, storage=self.storage)
         self.load(Path(result["plano"]))
         try:
             self.download_cache.unlink(missing_ok=True)
         except OSError as error:
-            result["avisos"] = [f"Não foi possível limpar o cache de novas faixas: {error}"]
+            result["avisos"] = [_('Could not clear the new-track cache: {error}', error=error)]
         return result
 
     def inventory_snapshot(self):
@@ -179,7 +255,7 @@ class App:
         with self.lock:
             track = self.by_id.get(ident)
             if track is None:
-                raise ValueError("Música não encontrada")
+                raise ValueError(_('Song not found'))
             path = readable_music(self.root, track["arquivo"])
             artist = " / ".join(track["artista"] or track["artista_album"])
             title = " / ".join(track["titulo"])
@@ -189,27 +265,27 @@ class App:
 
     def preview_lyrics(self, data):
         if set(data) != {"id", "texto"} or not isinstance(data.get("id"), str):
-            raise ValueError("Selecione uma faixa pelo identificador e confira a letra")
+            raise ValueError(_('Select a track by its ID and review the lyrics'))
         text = data.get("texto")
         if not isinstance(text, str) or not text.strip() or len(text) > 100_000 or "\x00" in text:
-            raise ValueError("Letra vazia ou inválida")
+            raise ValueError(_('Empty or invalid lyrics'))
         text = text.replace("\r\n", "\n").strip()
         if parse_lrc(text):
-            raise ValueError("Use a letra simples, sem marcações de tempo")
+            raise ValueError(_('Use plain lyrics without timestamps'))
         with self.lock:
             if self.playlist_busy or self.policy_busy or (self.job and self.job["status"] == "running"):
-                raise ValueError("Aguarde a operação atual terminar")
+                raise ValueError(_('Wait for the current operation to finish'))
             protections.load(self.storage, self.root)
             track = self.by_id.get(data["id"])
             if track is None:
-                raise ValueError("Música não encontrada")
+                raise ValueError(_('Song not found'))
             path = secure_file(self.root, track["arquivo"])
             before = sha256(path)
             current = current_lyrics(path)
             if current == [text]:
-                raise ValueError("A faixa já tem exatamente essa letra")
+                raise ValueError(_('The track already has exactly these lyrics'))
             if sha256(path) != before:
-                raise ValueError("O arquivo mudou durante a prévia; confira novamente")
+                raise ValueError(_('The file changed during preview; review it again'))
             ident = secrets.token_hex(20)
             self.lyrics_previews[ident] = {"id": data["id"], "arquivo": str(path), "texto": text, "sha256": before, "criado": time.monotonic()}
             while len(self.lyrics_previews) > 20:
@@ -218,17 +294,17 @@ class App:
 
     def save_lyrics(self, data):
         if set(data) != {"previa"} or not isinstance(data.get("previa"), str):
-            raise ValueError("Confira a prévia da letra antes de salvar")
+            raise ValueError(_('Review the lyrics preview before saving'))
         with self.lock:
             draft = self.lyrics_previews.get(data["previa"])
             if draft is None or time.monotonic() - draft["criado"] > 900:
-                raise ValueError("A prévia expirou; confira a letra novamente")
+                raise ValueError(_('The preview expired; review the lyrics again'))
         def save():
             with self.lock:
                 self.lyrics_previews.pop(data["previa"], None)
                 track = self.by_id.get(draft["id"])
                 if track is None or track["arquivo"] != draft["arquivo"]:
-                    raise ValueError("A faixa mudou no inventário; confira novamente")
+                    raise ValueError(_('The track changed in the inventory; review it again'))
             result = save_lyrics(self.root, self.storage, draft["arquivo"], draft["texto"], draft["sha256"])
             notices = self.refresh_downloaded([{"estado": "baixado", "arquivo": draft["arquivo"]}])
             return {**result, "letra_track_id": draft["id"], "avisos": notices}
@@ -238,14 +314,14 @@ class App:
         try:
             data = json.loads(self.download_cache.read_text(encoding="utf-8"))
             if not isinstance(data, dict) or data.get("biblioteca") != str(self.root) or not isinstance(data.get("arquivos"), list) or any(not isinstance(p, str) for p in data["arquivos"]):
-                raise ValueError("Cache de novas faixas incompatível")
+                raise ValueError(_('Incompatible cache of new tracks'))
             notices = self.refresh_downloaded([{"estado": "baixado", "arquivo": p} for p in data["arquivos"]], persist=False)
             if notices:
                 self.error = " ".join(notices)
         except FileNotFoundError:
             pass
         except (OSError, ValueError) as error:
-            self.error = f"Não foi possível carregar novas faixas; atualize a biblioteca: {error}"
+            self.error = _('Could not load new tracks; refresh the library: {error}', error=error)
 
     def refresh_downloaded(self, results, persist=True):
         updates, paths, notices = {}, set(), []
@@ -260,11 +336,11 @@ class App:
                 readable_music(self.root, str(path))
                 track = read_track(path)
                 if not track["arquivo_estavel_durante_leitura"]:
-                    raise ValueError("O arquivo mudou durante a leitura")
+                    raise ValueError(_('The file changed while being read'))
                 track["id"] = hashlib.sha256(str(path).encode()).hexdigest()[:24]
                 updates[track["id"]] = track
             except Exception as error:
-                notices.append(f"Download salvo, mas a faixa não entrou no inventário: {path.name}. {error}")
+                notices.append(_('Download saved, but the track was not added to the inventory: {file_name}. {error}', file_name=path.name, error=error))
         if not paths:
             return notices
         with self.lock:
@@ -277,7 +353,7 @@ class App:
             try:
                 atomic_json(self.download_cache, {"biblioteca": str(self.root), "arquivos": cached})
             except OSError as error:
-                notices.append(f"Downloads salvos; atualize a biblioteca após reiniciar: {error}")
+                notices.append(_('Downloads saved; refresh the library after restarting: {error}', error=error))
         return notices
 
     def read_protections(self):
@@ -319,7 +395,7 @@ class App:
         if album_id:
             track = by_id.get(album_id)
             if track is None:
-                raise ValueError("Álbum não encontrado; atualize a biblioteca")
+                raise ValueError(_('Album not found; refresh the library'))
             members = [t for t in tracks if album_key(t) == album_key(track)]
             result["album"] = {"id": album_id, "titulo": track["album"], "artista": track["artista_album"] or track["artista"],
                                "faixas": len(members), "campos": {f: sum(f in protections.protected(policy, self.root, t["arquivo"]) for t in members) for f in protections.FIELDS}}
@@ -327,24 +403,24 @@ class App:
 
     def change_protections(self, data):
         if "arquivos" in data or "arquivo" in data:
-            raise ValueError("Selecione faixas pelos identificadores da biblioteca")
+            raise ValueError(_('Select tracks by their library IDs'))
         fields, enabled = data.get("campos"), data.get("proteger")
         if not isinstance(enabled, bool) or not isinstance(fields, list) or not fields or any(not isinstance(f, str) or f not in protections.FIELDS for f in fields):
-            raise ValueError("Escolha campos válidos e se deseja protegê-los ou desbloqueá-los")
+            raise ValueError(_('Choose valid fields and whether to protect or unlock them'))
         ids, album_id = data.get("ids", []), data.get("album_id", "")
         if not isinstance(ids, list) or len(ids) > 10000 or any(not isinstance(i, str) for i in ids) or not isinstance(album_id, str) or bool(ids) == bool(album_id):
-            raise ValueError("Selecione faixas ou um álbum da biblioteca")
+            raise ValueError(_('Select tracks or an album from the library'))
         with self.lock:
             if self.playlist_busy or self.policy_busy or (self.job and self.job["status"] == "running"):
-                raise ValueError("Aguarde a operação atual terminar")
+                raise ValueError(_('Wait for the current operation to finish'))
             if album_id:
                 track = self.by_id.get(album_id)
                 if track is None:
-                    raise ValueError("Álbum não encontrado; atualize a biblioteca")
+                    raise ValueError(_('Album not found; refresh the library'))
                 chosen = [t for t in self.tracks if album_key(t) == album_key(track)]
             else:
                 if len(ids) != len(set(ids)) or any(i not in self.by_id for i in ids):
-                    raise ValueError("Seleção de faixas inválida; atualize a biblioteca")
+                    raise ValueError(_('Invalid track selection; refresh the library'))
                 chosen = [self.by_id[i] for i in ids]
             self.policy_busy = True
         try:
@@ -357,9 +433,9 @@ class App:
     @staticmethod
     def search_query(needle, scope="biblioteca"):
         if not isinstance(needle, str) or len(needle) > 200 or any(ord(c) < 32 for c in needle):
-            raise ValueError("Use até 200 caracteres na busca")
+            raise ValueError(_('Use up to 200 characters in the search'))
         if scope not in ("biblioteca", "global"):
-            raise ValueError("Escolha buscar na biblioteca ou no catálogo global")
+            raise ValueError(_('Choose to search the library or the global catalog'))
         return needle.strip()
 
     def library_index(self, tracks=None):
@@ -385,18 +461,18 @@ class App:
     def library(self, needle="", kind="todas", tracks=None, artist="", album_id="", version="todas"):
         needle = self.search_query(needle)
         if kind not in ("todas", "sem-genero", "flac", "versoes"):
-            raise ValueError("Filtro de biblioteca inválido")
+            raise ValueError(_('Invalid library filter'))
         if version not in ("todas", "estudio", "ao_vivo", "acustico", "demo-remix", "coletanea"):
-            raise ValueError("Filtro de versão inválido")
+            raise ValueError(_('Invalid version filter'))
         if not isinstance(artist, str) or len(artist) > 200 or not isinstance(album_id, str):
-            raise ValueError("Filtro de artista ou álbum inválido")
+            raise ValueError(_('Invalid artist or album filter'))
         with self.lock:
             rows = self.tracks if tracks is None else tracks
             index = self.library_index(rows)
         if album_id:
             selected = next((t for t in rows if t["id"] == album_id), None)
             if selected is None:
-                raise ValueError("Álbum não encontrado; atualize a biblioteca")
+                raise ValueError(_('Album not found; refresh the library'))
             rows = [t for t in rows if album_key(t) == album_key(selected)]
         if artist:
             rows = [t for t in rows if normalize(artist) in {normalize(a) for a in t["artista"] + t["artista_album"]}]
@@ -416,14 +492,14 @@ class App:
     def playlist(self, data, write=False):
         with self.lock:
             if self.playlist_busy or self.policy_busy or (self.job and self.job["status"] == "running"):
-                raise ValueError("Aguarde a operação atual terminar")
+                raise ValueError(_('Wait for the current operation to finish'))
             self.playlist_busy = True
             tracks, by_id = list(self.tracks), dict(self.by_id)
         try:
             with library_lock(self.root):
                 return self._playlist(data, tracks, by_id, write)
         except BlockingIOError as error:
-            raise ValueError("A biblioteca está ocupada por outra gravação; aguarde e tente novamente") from error
+            raise ValueError(_('The library is busy with another write; wait and try again')) from error
         finally:
             with self.lock:
                 self.playlist_busy = False
@@ -431,32 +507,32 @@ class App:
     def _playlist(self, data, tracks, by_id, write):
         name = data.get("nome", "")
         if not isinstance(name, str):
-            raise ValueError("Informe um nome para a playlist")
+            raise ValueError(_('Enter a playlist name'))
         name = name.strip()
         if name.casefold().endswith(".m3u8"):
             name = name[:-5].strip()
         if not name or name in (".", "..") or re.search(r'[\\/:*?"<>|\x00-\x1f\x7f]', name) or len(name.encode("utf-8")) > 240:
-            raise ValueError("Use um nome simples, sem barras, caracteres especiais ou quebras de linha")
+            raise ValueError(_('Use a simple name without slashes, special characters or line breaks'))
         album_id = data.get("album_id", "")
         if not isinstance(album_id, str):
-            raise ValueError("Álbum inválido")
+            raise ValueError(_('Invalid album'))
         rows = self.library(data.get("q", ""), data.get("filter", "todas"), tracks, data.get("artista", ""), album_id, data.get("versao", "todas"))
         if album_id:
             track = by_id.get(album_id)
             if track is None:
-                raise ValueError("Álbum não encontrado; atualize a biblioteca")
+                raise ValueError(_('Album not found; refresh the library'))
             rows = [t for t in rows if album_key(t) == album_key(track)]
         rows = sorted(rows, key=album_order)
         if not rows:
-            raise ValueError("Nenhuma música selecionada para a playlist")
+            raise ValueError(_('No songs selected for the playlist'))
         for track in rows:
             readable_music(self.root, track["arquivo"])
         folder = self.root / "Playlists"
         path = folder / (name + ".m3u8")
         if folder.resolve() != folder or path.is_symlink() or path.resolve() != path:
-            raise ValueError("A pasta Playlists e a playlist não podem ser links simbólicos")
+            raise ValueError(_('The Playlists folder and playlist cannot be symbolic links'))
         if path.exists() and (not path.is_file() or path.stat().st_nlink != 1):
-            raise ValueError("A playlist existente deve ser um arquivo comum, sem hard links")
+            raise ValueError(_('The existing playlist must be a regular file without hard links'))
         # Validate all paths before creating even the Playlists directory.
         render_m3u8(path, rows, name)
         exists = path.exists()
@@ -467,22 +543,22 @@ class App:
             return preview
         overwrite = data.get("sobrescrever", False)
         if not isinstance(overwrite, bool):
-            raise ValueError("A substituição da playlist exige uma escolha explícita")
+            raise ValueError(_('Replacing a playlist requires an explicit choice'))
         if exists and not overwrite:
-            raise ValueError("A playlist já existe. Escolha outro nome ou aprove a substituição")
+            raise ValueError(_('The playlist already exists. Choose another name or approve replacement'))
         if overwrite and (not exists or data.get("anterior_sha256") != previous):
-            raise ValueError("A playlist mudou desde a prévia; revise novamente")
+            raise ValueError(_('The playlist changed since preview; review it again'))
         backup = None
         if overwrite:
             backup_folder = self.storage / "backups/playlists"
             if backup_folder.resolve() != backup_folder:
-                raise ValueError("A pasta de backup de playlists não pode ser simbólica")
+                raise ValueError(_('The playlist backup folder cannot be a symbolic link'))
             backup_folder.mkdir(parents=True, exist_ok=True)
             short_name = name.encode("utf-8")[:120].decode("utf-8", errors="ignore")
             backup = backup_folder / (datetime.now().strftime("%Y%m%d_%H%M%S_") + short_name + "_" + secrets.token_hex(8) + ".m3u8")
             durable_copy(path, backup)
             if sha256(backup) != previous or sha256(path) != previous:
-                raise ValueError("A playlist mudou durante o backup; revise novamente")
+                raise ValueError(_('The playlist changed during backup; review it again'))
         return {**write_m3u8(path, rows, name, overwrite=overwrite), "backup": str(backup) if backup else None}
 
     def history(self):
@@ -544,13 +620,18 @@ class Handler(BaseHTTPRequestHandler):
         with self.app.lock:
             track = getattr(self.app, "by_id", {}).get(query.get("id", [""])[0])
             if track is None:
-                raise ValueError("Música não encontrada")
+                raise ValueError(_('Song not found'))
             readable_music(self.app.root, track["arquivo"])
             return track
 
     def do_GET(self):
+        requested = self.headers.get("X-Acervo-Language") or self.headers.get("Accept-Language")
+        with language(normalize_language(requested) or "en"):
+            self.handle_get()
+
+    def handle_get(self):
         if not self.trusted():
-            self.json({"erro": "Host não permitido"}, 403)
+            self.json({"erro": _('Host not allowed')}, 403)
             return
         try:
             self.get_route()
@@ -571,7 +652,7 @@ class Handler(BaseHTTPRequestHandler):
             web = BASE / "web"
             asset = web / url.path[1:]
             if web.is_symlink() or asset.is_symlink() or not asset.is_file() or asset.resolve().parent != web.resolve():
-                self.send(404, b"Recurso nao encontrado", "text/plain; charset=utf-8")
+                self.send(404, _('Asset not found').encode(), "text/plain; charset=utf-8")
                 return
             mime = "text/javascript; charset=utf-8" if url.path.endswith(".js") else "text/css; charset=utf-8"
             self.send(200, asset.read_bytes(), mime)
@@ -579,7 +660,7 @@ class Handler(BaseHTTPRequestHandler):
             self.json(self.app.snapshot())
         elif url.path == "/api/lyrics":
             if set(query) != {"id"} or len(query["id"]) != 1:
-                raise ValueError("Selecione uma música pelo identificador da biblioteca")
+                raise ValueError(_('Select a track by its library ID'))
             self.json(self.app.lyrics(query["id"][0]))
         elif url.path == "/api/protections":
             self.json(self.app.protection_info(query.get("album_id", [""])[0]))
@@ -594,9 +675,9 @@ class Handler(BaseHTTPRequestHandler):
             batch = self.app.downloads.load(query.get("id", [""])[0])
             row_id = query.get("faixa", [""])[0]
             if row_id and row_id not in {r["id"] for r in batch["faixas"]}:
-                raise ValueError("Faixa não encontrada")
+                raise ValueError(_('Track not found'))
             path = self.app.downloads.path(batch["id"]) / (row_id + ".log" if row_id else "catalogo.log")
-            self.json({"registro": clean_log(path.read_text(errors="replace")) if path.is_file() else "Sem registro disponível."})
+            self.json({"registro": clean_log(path.read_text(errors="replace")) if path.is_file() else _('No log available.')})
         elif url.path == "/api/suggestions" or (url.path == "/api/search" and query.get("escopo", ["biblioteca"])[0] == "global"):
             self.json(self.app.suggestions(query.get("q", [""])[0], query.get("escopo", ["biblioteca"])[0]))
         elif url.path in ("/api/library", "/api/search"):
@@ -673,24 +754,29 @@ class Handler(BaseHTTPRequestHandler):
                     remaining -= len(chunk)
         elif url.path == "/api/export":
             if self.app.plan_path is None:
-                raise ValueError("Execute uma análise primeiro")
-            self.send(200, (self.app.plan_path.parent / "alteracoes.csv").read_bytes(), "text/csv; charset=utf-8", {"Content-Disposition": 'attachment; filename="alteracoes.csv"'})
+                raise ValueError(_('Run a scan first'))
+            self.send(200, (self.app.plan_path.parent / "alteracoes.csv").read_bytes(), "text/csv; charset=utf-8", {"Content-Disposition": 'attachment; filename="changes.csv"'})
         else:
-            self.send(404, b"Pagina nao encontrada", "text/plain; charset=utf-8")
+            self.send(404, _('Page not found').encode(), "text/plain; charset=utf-8")
 
     def do_POST(self):
+        requested = self.headers.get("X-Acervo-Language") or self.headers.get("Accept-Language")
+        with language(normalize_language(requested) or "en"):
+            self.handle_post()
+
+    def handle_post(self):
         origin = self.headers.get("Origin")
         host = self.headers.get("Host")
         if not self.trusted() or origin != "http://" + host or not secrets.compare_digest(self.headers.get("X-Library-Token", ""), self.app.token):
-            self.json({"erro": "Requisição não autorizada"}, 403)
+            self.json({"erro": _('Unauthorized request')}, 403)
             return
         try:
             size = int(self.headers.get("Content-Length", 0))
             if size < 0 or size > 1024 * 1024 or self.headers.get_content_type() != "application/json":
-                raise ValueError("Requisição inválida")
+                raise ValueError(_('Invalid request'))
             data = from_api(json.loads(self.rfile.read(size)))
             if not isinstance(data, dict):
-                raise ValueError("O corpo da requisição deve ser um objeto JSON")
+                raise ValueError(_('The request body must be a JSON object'))
             route = urlsplit(self.path).path
             if route == "/api/analyze":
                 online = MusicBrainz(self.app.state_dir / "cache/musicbrainz", data.get("contato", ""), 200) if data.get("musicbrainz") else None
@@ -721,11 +807,11 @@ class Handler(BaseHTTPRequestHandler):
                 ident, ids = data.get("id", ""), data.get("faixas", [])
                 self.app.downloads.load(ident)
                 if not isinstance(ids, list) or any(not isinstance(i, str) for i in ids):
-                    raise ValueError("Seleção inválida")
+                    raise ValueError(_('Invalid selection'))
                 self.app.start("download", lambda: self.app.downloads.download(ident, ids))
             elif route == "/api/downloads/cancel":
                 if not self.app.job or self.app.job["status"] != "running" or self.app.job["type"] not in ("download", "catalog"):
-                    raise ValueError("Não há consulta ou download em andamento")
+                    raise ValueError(_('No lookup or download is running'))
                 self.app.downloads.runner.cancelled.set()
                 self.json({"cancelamento_solicitado": True})
                 return
@@ -736,7 +822,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.json({"operacoes": operations})
                     return
                 def import_downloads():
-                    self.app.download_progress("Criando backups e validando os arquivos aprovados…", None)
+                    self.app.download_progress(_('Creating backups and validating approved files…'), None)
                     result = self.app.downloads.import_batch(ident, selections)
                     self.app.analyze()
                     return result
@@ -744,14 +830,14 @@ class Handler(BaseHTTPRequestHandler):
             elif route == "/api/apply":
                 ids = set(data.get("ids", []))
                 if not ids or any(not isinstance(i, str) for i in ids):
-                    raise ValueError("Selecione alterações para aprovar")
+                    raise ValueError(_('Select changes to approve'))
                 plan_path = self.app.plan_path
                 if plan_path is None:
-                    raise ValueError("Analise a biblioteca primeiro")
+                    raise ValueError(_('Scan the library first'))
                 plan = load_plan(plan_path)
                 known = {c["id"] for t in plan["arquivos"] for c in t["alteracoes"]}
                 if not ids <= known:
-                    raise ValueError("A seleção está desatualizada; recarregue a página")
+                    raise ValueError(_('The selection is outdated; reload the page'))
                 def apply():
                     path = self.app.state_dir / ("aprovacoes_" + secrets.token_hex(8) + ".csv")
                     with (plan_path.parent / "alteracoes.csv").open(encoding="utf-8-sig", newline="") as handle:
@@ -764,7 +850,7 @@ class Handler(BaseHTTPRequestHandler):
                         writer = csv.DictWriter(handle, fieldnames=fields)
                         writer.writeheader()
                         writer.writerows(rows)
-                    self.app.job["message"] = "Criando backups completos e validando as tags…"
+                    self.app.job["message"] = _('Creating full backups and validating tags…')
                     result = apply_plan(plan_path, path, self.app.storage / "backups", storage=self.app.storage)
                     self.app.analyze()
                     return result
@@ -772,15 +858,15 @@ class Handler(BaseHTTPRequestHandler):
             elif route == "/api/restore":
                 ident = data.get("id", "")
                 if ident not in {r["id"] for r in self.app.history()}:
-                    raise ValueError("Execução não encontrada")
+                    raise ValueError(_('Operation not found'))
                 def undo():
-                    self.app.job["message"] = "Validando backups e restaurando os arquivos…"
+                    self.app.job["message"] = _('Validating backups and restoring files…')
                     result = restore(self.app.storage / "backups" / ident / "manifesto.json", storage=self.app.storage)
                     self.app.analyze()
                     return result
                 self.app.start("restore", undo)
             else:
-                self.json({"erro": "Rota não encontrada"}, 404)
+                self.json({"erro": _('Route not found')}, 404)
                 return
             self.json({"iniciado": True}, 202)
         except (ValueError, OSError, TypeError) as error:
@@ -792,7 +878,7 @@ def serve(root: Path, port: int = 8765, storage: Path | None = None, open_browse
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     server.app = app
     print(f"Acervo · http://127.0.0.1:{port}", flush=True)
-    print(f"Biblioteca: {app.root}", flush=True)
+    print(_('Library: {folder}', folder=app.root), flush=True)
     if app.plan is None:
         app.start("analysis", app.analyze)
     if open_browser:
@@ -803,12 +889,12 @@ def serve(root: Path, port: int = 8765, storage: Path | None = None, open_browse
     except KeyboardInterrupt:
         server.server_close()
         while app.writing():
-            print("\nAguardando a gravação em andamento terminar para não deixar arquivos pela metade…", flush=True)
+            print(_('\nWaiting for the current write to finish so files are not left incomplete…'), flush=True)
             try:
                 app.worker.join()
             except KeyboardInterrupt:
                 continue
-        print("\nInterface encerrada.")
+        print(_('\nInterface closed.'))
     finally:
         server.server_close()
         app.global_search.close()

@@ -21,7 +21,7 @@ class GenreIdentityTest(unittest.TestCase):
         with patch.object(self.client, "get", side_effect=[self.artist, {"release-groups": [self.group, second]}]) as get:
             result = self.client.genre("Thorns", "60 Cycle Hum")
         self.assertNotIn("genero", result)
-        self.assertIn("ambíguo", result["revisao"])
+        self.assertIn("ambiguous", result["revisao"])
         self.assertEqual(get.call_count, 2)
 
     def test_confirmed_album_genre_has_priority_without_fetching_artist_genres(self):
@@ -36,7 +36,7 @@ class GenreIdentityTest(unittest.TestCase):
             result = self.client.genre("Thorns", "60 Cycle Hum")
         self.assertEqual(result["genero"], "Thrash Metal")
         self.assertEqual(result["fonte"], "https://musicbrainz.org/artist/artist")
-        self.assertIn("correspondência de álbum", result["criterio"])
+        self.assertIn("matching an album", result["criterio"])
         self.assertEqual(get.call_count, 4)
 
 

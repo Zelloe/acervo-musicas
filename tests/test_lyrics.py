@@ -13,6 +13,7 @@ from mutagen.id3 import ID3, TIT2, TPE1, USLT
 
 import downloader
 from library_import import restore_import
+from messages import language
 from lyrics import LyricsClient, embed_plain, save_lyrics, current_lyrics, read_embedded, parse_lrc
 
 LRC = "[00:00.00] 作词 : Johnson\n[00:27.24]Back in black\n[00:31.00][01:40.50]I hit the sack\n[ar:AC/DC]\nsem tempo\n"
@@ -78,7 +79,10 @@ class LyricsTest(unittest.TestCase):
         self.assertTrue(self.client(fake).lookup("AC/DC", "Back In Black", "", 255)["encontrada"])
         cached = len(list((self.dir / "cache").glob("*.json")))
         fake = FakeLRCLIB(*[urllib.error.URLError("sem rede")] * 4)
-        with self.assertRaisesRegex(RuntimeError, "Sem conexão"):
+        with self.assertRaisesRegex(RuntimeError, "No connection"):
+            self.client(fake).lookup("Kyuss", "Gardenia", "", 413)
+        fake = FakeLRCLIB(*[urllib.error.URLError("sem rede")] * 4)
+        with language("pt-BR"), self.assertRaisesRegex(RuntimeError, "^Sem conexão com o serviço de letras$"):
             self.client(fake).lookup("Kyuss", "Gardenia", "", 413)
         self.assertEqual(len(list((self.dir / "cache").glob("*.json"))), cached)  # a failure is not cached
         fake = FakeLRCLIB(404, [])
@@ -165,13 +169,13 @@ class EmbeddedLyricsTest(unittest.TestCase):
         self.assertEqual(ID3(mp3).getall("TIT2")[0].text, ["Back In Black"])
         save_lyrics(library, storage, str(mp3), "Letra corrigida")  # replace existing lyrics
         self.assertEqual(current_lyrics(mp3), ["Letra corrigida"])
-        with self.assertRaisesRegex(ValueError, "exatamente"):
+        with self.assertRaisesRegex(ValueError, "exactly these lyrics"):
             save_lyrics(library, storage, str(mp3), "Letra corrigida")
-        with self.assertRaisesRegex(ValueError, "marcações de tempo"):
+        with self.assertRaisesRegex(ValueError, "without timestamps"):
             save_lyrics(library, storage, str(flac), "[00:01.00]verso")
         restore_import(Path(manifests[1]))
         self.assertEqual(flac.read_bytes(), originals[flac])
-        with self.assertRaisesRegex(ValueError, "posteriores"):
+        with self.assertRaisesRegex(ValueError, "later edits"):
             restore_import(Path(manifests[0]))  # the lyrics changed afterwards; does not overwrite
         self.assertEqual(current_lyrics(mp3), ["Letra corrigida"])
         with self.assertRaises(ValueError):
@@ -188,10 +192,10 @@ class EmbeddedLyricsTest(unittest.TestCase):
         tags.add(TIT2(encoding=3, text=["Editada por outro programa"]))
         tags.save(track)
         edited = track.read_bytes()
-        with self.assertRaisesRegex(ValueError, "mudou desde a prévia"):
+        with self.assertRaisesRegex(ValueError, "changed since the preview"):
             save_lyrics(library, storage, str(track), "Letra", previous_sha256=seen)
         self.assertEqual(track.read_bytes(), edited)
-        with self.assertRaisesRegex(ValueError, "Hash"):
+        with self.assertRaisesRegex(ValueError, "preview hash"):
             save_lyrics(library, storage, str(track), "Letra", previous_sha256="../x")
         save_lyrics(library, storage, str(track), "Letra", previous_sha256=sha256(track))
         self.assertEqual(current_lyrics(track), ["Letra"])

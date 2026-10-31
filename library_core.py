@@ -15,6 +15,44 @@ import uuid
 
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, TPE2, TDRC, TYER, TRCK, TPOS, TXXX, USLT
+from messages import _, register
+
+register({
+    "Invalid ID3 header": "Cabeçalho ID3 inválido",
+    "Writing is limited to ID3v2.3/v2.4; file sent for review": "Gravação restrita a ID3v2.3/v2.4; arquivo encaminhado para revisão",
+    "Unsupported format": "Formato não suportado",
+    "Invalid FLAC header": "Cabeçalho FLAC inválido",
+    "Truncated FLAC block": "Bloco FLAC truncado",
+    "Unsupported change fields": "Campos de alteração não suportados",
+    "Invalid proposed value": "Valor proposto inválido",
+    "Current lyrics differ from the plan": "Valor atual de letra difere do plano",
+    "Current value of {field} differs from the plan": "Valor atual de {field} difere do plano",
+    "Validation rejected a change to {field}": "Validação recusou mudança em {field}",
+    "Validation rejected a change to tag {key}": "Validação recusou mudança na tag {key}",
+    "Could not confirm that the lyrics were written": "Não foi possível confirmar a gravação de letra",
+    "Could not confirm that {field} was written": "Não foi possível confirmar a gravação de {field}",
+    "Edition information was not preserved": "Informação da edição não foi preservada",
+    "Invalid path or symbolic link: {path}": "Caminho inválido ou simbólico: {path}",
+    "Invalid file: {path}": "Arquivo inválido: {path}",
+    "File with hard links requires review: {path}": "Arquivo com hard links exige revisão: {path}",
+    "The plan was modified; run a new analysis": "O plano foi alterado; gere outra análise",
+    "Incompatible plan version": "Versão de plano incompatível",
+    "Approvals contain an unknown or repeated ID": "Aprovações contêm ID desconhecido ou repetido",
+    "Edit only the aprovar column; values differ from the plan": "Edite apenas a coluna aprovar; valores diferem do plano",
+    "Use yes or no in the aprovar column": "Use sim ou não na coluna aprovar",
+    "No rows approved; the library remains unchanged": "Nenhuma linha aprovada; a biblioteca continua sem alterações",
+    "Backups must be kept outside the library": "Backups devem ficar fora da biblioteca",
+    "File changed since the analysis: {path}": "Arquivo mudou desde a análise: {path}",
+    "Not enough space for full backups and a temporary file": "Espaço insuficiente para backups completos e arquivo temporário",
+    "Not enough space in the library for a temporary file": "Espaço insuficiente na biblioteca para arquivo temporário",
+    "Backup does not match the plan: {source}": "Backup não corresponde ao plano: {source}",
+    "File modified by another program: {source}": "Arquivo alterado por outro programa: {source}",
+    "Run interrupted. Check or restore {manifest_path}: {error}": "Execução interrompida. Consulte/restaure {manifest_path}: {error}",
+    "Incompatible manifest": "Manifesto incompatível",
+    "Damaged backup: {backup}": "Backup danificado: {backup}",
+    "There are later edits; restore refused: {source}": "Há edições posteriores; restauração recusada: {source}",
+    "File or backup changed during the restore: {source}": "Arquivo ou backup mudou durante a restauração: {source}",
+})
 
 
 ORIGINAL_MP3 = "BibliotecaMusical:AlbumAnterior"
@@ -45,7 +83,7 @@ def metadata_values(path: Path) -> dict:
         tags = ID3(path, translate=False)
         result = {}
         for field in TAG_FIELDS:
-            key, _ = id3_field(field, tags.version[1])
+            key = id3_field(field, tags.version[1])[0]
             result[field] = [str(v) for f in tags.getall(key) for v in (f.genres if field == "genero" else f.text)]
         return result
     audio = FLAC(path)
@@ -89,7 +127,7 @@ def id3_size(handle) -> int:
     if header[:3] != b"ID3":
         return 0
     if len(header) != 10 or any(v & 128 for v in header[6:10]):
-        raise ValueError("Cabeçalho ID3 inválido")
+        raise ValueError(_("Invalid ID3 header"))
     return 10 + sum(v << (7 * (3 - i)) for i, v in enumerate(header[6:10]))
 
 
@@ -112,7 +150,7 @@ def integrity(path: Path) -> dict:
     if path.suffix.casefold() == ".mp3":
         tags = ID3(path, translate=False)
         if tags.version[:2] not in ((2, 3), (2, 4)):
-            raise ValueError("Gravação restrita a ID3v2.3/v2.4; arquivo encaminhado para revisão")
+            raise ValueError(_("Writing is limited to ID3v2.3/v2.4; file sent for review"))
         with path.open("rb") as handle:
             offset = id3_size(handle)
         return {
@@ -122,7 +160,7 @@ def integrity(path: Path) -> dict:
             "audio_sha256": sha256(path, offset),
         }
     if path.suffix.casefold() != ".flac":
-        raise ValueError("Formato não suportado")
+        raise ValueError(_("Unsupported format"))
     audio = FLAC(path)
     with path.open("rb") as handle:
         offset = id3_size(handle)
@@ -130,17 +168,17 @@ def integrity(path: Path) -> dict:
         prefix = hashlib.sha256(handle.read(offset)).hexdigest()
         handle.seek(offset)
         if handle.read(4) != b"fLaC":
-            raise ValueError("Cabeçalho FLAC inválido")
+            raise ValueError(_("Invalid FLAC header"))
         blocks = []
         while True:
             header = handle.read(4)
             if len(header) != 4:
-                raise ValueError("Bloco FLAC truncado")
+                raise ValueError(_("Truncated FLAC block"))
             kind = header[0] & 127
             size = int.from_bytes(header[1:], "big")
             data = handle.read(size)
             if len(data) != size:
-                raise ValueError("Bloco FLAC truncado")
+                raise ValueError(_("Truncated FLAC block"))
             if kind not in (1, 4):  # padding and Vorbis Comments may change
                 blocks.append([kind, hashlib.sha256(data).hexdigest()])
             if header[0] & 128:
@@ -165,11 +203,11 @@ def previous_album(path: Path) -> list[str]:
 def write_validated(path: Path, changes: dict) -> dict:
     """Must only receive a temporary copy. Aborts if anything unapproved changes."""
     if not changes or set(changes) - TAG_FIELDS.keys() - EXTRA_FIELDS.keys():
-        raise ValueError("Campos de alteração não suportados")
+        raise ValueError(_("Unsupported change fields"))
     for change in changes.values():
         proposed = change["proposto"]
         if not isinstance(proposed, list) or not proposed or any(not isinstance(v, str) or not v.strip() or "\x00" in v for v in proposed):
-            raise ValueError("Valor proposto inválido")
+            raise ValueError(_("Invalid proposed value"))
     before = integrity(path)
     allowed = set()
     album_history = previous_album(path)
@@ -184,7 +222,7 @@ def write_validated(path: Path, changes: dict) -> dict:
             if field == "letra":
                 old = [f.text for f in tags.getall("USLT")]
                 if old != change["atual"]:
-                    raise ValueError("Valor atual de letra difere do plano")
+                    raise ValueError(_("Current lyrics differ from the plan"))
                 allowed.update(k for k in tags.keys() if k.startswith("USLT"))
                 tags.delall("USLT")
                 tags.add(USLT(encoding=1 if tags.version[1] == 3 else 3, lang="XXX", desc="", text=change["proposto"][0]))
@@ -193,7 +231,7 @@ def write_validated(path: Path, changes: dict) -> dict:
             key, frame = id3_field(field, tags.version[1])
             old = [str(v) for f in tags.getall(key) for v in (f.genres if field == "genero" else f.text)]
             if old != change["atual"]:
-                raise ValueError(f"Valor atual de {field} difere do plano")
+                raise ValueError(_("Current value of {field} differs from the plan", field=field))
             tags.add(frame(encoding=1 if tags.version[1] == 3 else 3, text=change["proposto"]))
             allowed.add(key)
             if field == "album" and old:
@@ -213,7 +251,7 @@ def write_validated(path: Path, changes: dict) -> dict:
             key = EXTRA_FIELDS[field] if field in EXTRA_FIELDS else TAG_FIELDS[field][2]
             old = list(audio.get(key, []))
             if old != change["atual"]:
-                raise ValueError(f"Valor atual de {field} difere do plano")
+                raise ValueError(_("Current value of {field} differs from the plan", field=field))
             audio[key] = change["proposto"]
             allowed.add(key)
             if field == "album" and old:
@@ -224,30 +262,30 @@ def write_validated(path: Path, changes: dict) -> dict:
     after = integrity(path)
     for field in before.keys() | after.keys():
         if field != "tags" and before.get(field) != after.get(field):
-            raise ValueError(f"Validação recusou mudança em {field}")
+            raise ValueError(_("Validation rejected a change to {field}", field=field))
     for key in before["tags"].keys() | after["tags"].keys():
         if key not in allowed and before["tags"].get(key) != after["tags"].get(key):
-            raise ValueError(f"Validação recusou mudança na tag {key}")
+            raise ValueError(_("Validation rejected a change to tag {key}", key=key))
     # Checks the written values, including the preserved edition.
     if after["formato"] == "MP3":
         saved = ID3(path, translate=False)
         for field, change in changes.items():
             if field == "letra":
                 if [f.text for f in saved.getall("USLT")] != change["proposto"]:
-                    raise ValueError("Não foi possível confirmar a gravação de letra")
+                    raise ValueError(_("Could not confirm that the lyrics were written"))
                 continue
-            key, _ = id3_field(field, saved.version[1])
+            key = id3_field(field, saved.version[1])[0]
             actual = [str(v) for f in saved.getall(key) for v in (f.genres if field == "genero" else f.text)]
             if actual != change["proposto"]:
-                raise ValueError(f"Não foi possível confirmar a gravação de {field}")
+                raise ValueError(_("Could not confirm that {field} was written", field=field))
     else:
         saved = FLAC(path)
         for field, change in changes.items():
             key = EXTRA_FIELDS[field] if field in EXTRA_FIELDS else TAG_FIELDS[field][2]
             if list(saved.get(key, [])) != change["proposto"]:
-                raise ValueError(f"Não foi possível confirmar a gravação de {field}")
+                raise ValueError(_("Could not confirm that {field} was written", field=field))
     if "album" in changes and previous_album(path) != expected_history:
-        raise ValueError("Informação da edição não foi preservada")
+        raise ValueError(_("Edition information was not preserved"))
     with path.open("rb") as handle:
         os.fsync(handle.fileno())
     return after
@@ -256,12 +294,12 @@ def write_validated(path: Path, changes: dict) -> dict:
 def secure_file(root: Path, value: str) -> Path:
     path = Path(value)
     if not path.is_absolute() or path.is_symlink() or path.resolve() != path:
-        raise ValueError(f"Caminho inválido ou simbólico: {path}")
+        raise ValueError(_("Invalid path or symbolic link: {path}", path=path))
     path.relative_to(root)
     if not path.is_file() or path.suffix.casefold() not in (".mp3", ".flac"):
-        raise ValueError(f"Arquivo inválido: {path}")
+        raise ValueError(_("Invalid file: {path}", path=path))
     if path.stat().st_nlink > 1:
-        raise ValueError(f"Arquivo com hard links exige revisão: {path}")
+        raise ValueError(_("File with hard links requires review: {path}", path=path))
     return path
 
 
@@ -278,10 +316,10 @@ def library_lock(root: Path):
 def load_plan(path: Path) -> dict:
     expected = path.with_suffix(".sha256").read_text().strip()
     if sha256(path) != expected:
-        raise ValueError("O plano foi alterado; gere outra análise")
+        raise ValueError(_("The plan was modified; run a new analysis"))
     plan = json.loads(path.read_text())
     if plan.get("schema") != 1:
-        raise ValueError("Versão de plano incompatível")
+        raise ValueError(_("Incompatible plan version"))
     return plan
 
 
@@ -293,15 +331,15 @@ def approved_changes(plan: dict, csv_path: Path) -> dict:
         for row in csv.DictReader(handle):
             ident = row.get("id")
             if ident not in known or ident in seen:
-                raise ValueError("Aprovações contêm ID desconhecido ou repetido")
+                raise ValueError(_("Approvals contain an unknown or repeated ID"))
             seen.add(ident)
             track, change = known[ident]
             fixed = {"arquivo": track["arquivo"], "campo": change["campo"], "atual": json.dumps(change["atual"], ensure_ascii=False), "proposto": json.dumps(change["proposto"], ensure_ascii=False)}
             if any(row.get(k) != v for k, v in fixed.items()):
-                raise ValueError("Edite apenas a coluna aprovar; valores diferem do plano")
+                raise ValueError(_("Edit only the aprovar column; values differ from the plan"))
             answer = row.get("aprovar", "").strip().casefold()
             if answer not in ("", "nao", "não", "no", "sim", "yes"):
-                raise ValueError("Use sim ou não na coluna aprovar")
+                raise ValueError(_("Use yes or no in the aprovar column"))
             if answer in ("sim", "yes"):
                 selected.setdefault(track["arquivo"], {"sha256": track["sha256"], "alteracoes": {}})["alteracoes"][change["campo"]] = change
     return selected
@@ -320,26 +358,26 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Pat
     root = Path(plan["biblioteca"]).resolve(strict=True)
     selected = approved_changes(plan, approvals)
     if not selected:
-        raise ValueError("Nenhuma linha aprovada; a biblioteca continua sem alterações")
+        raise ValueError(_("No rows approved; the library remains unchanged"))
     backup_root = backup_root.expanduser().resolve()
     if backup_root == root or root in backup_root.parents:
-        raise ValueError("Backups devem ficar fora da biblioteca")
+        raise ValueError(_("Backups must be kept outside the library"))
     with library_lock(root):
         # The current policy applies even to plans generated before the protection.
         policy = protections.load(storage or backup_root.parent, root)
         for name, entry in selected.items():
             path = secure_file(root, name)
             if sha256(path) != entry["sha256"]:
-                raise ValueError(f"Arquivo mudou desde a análise: {path}")
+                raise ValueError(_("File changed since the analysis: {path}", path=path))
             protections.require_unprotected(policy, root, name, entry["alteracoes"])
         total = sum(Path(name).stat().st_size for name in selected)
         largest = max(Path(name).stat().st_size for name in selected)
         backup_root.mkdir(parents=True, exist_ok=True)
         same_device = backup_root.stat().st_dev == root.stat().st_dev
         if shutil.disk_usage(backup_root).free < total + (largest if same_device else 0):
-            raise ValueError("Espaço insuficiente para backups completos e arquivo temporário")
+            raise ValueError(_("Not enough space for full backups and a temporary file"))
         if shutil.disk_usage(root).free < largest:
-            raise ValueError("Espaço insuficiente na biblioteca para arquivo temporário")
+            raise ValueError(_("Not enough space in the library for a temporary file"))
         transaction = backup_root / uuid.uuid4().hex
         transaction.mkdir(mode=0o700)
         originals = transaction / "originais"
@@ -354,7 +392,7 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Pat
                 backup = originals / (f"{index:06d}" + source.suffix)
                 durable_copy(source, backup)
                 if sha256(backup) != entry["sha256"] or sha256(source) != entry["sha256"]:
-                    raise ValueError(f"Backup não corresponde ao plano: {source}")
+                    raise ValueError(_("Backup does not match the plan: {source}", source=source))
                 manifest["arquivos"].append({"arquivo": name, "backup": str(backup.relative_to(transaction)), "antes_sha256": entry["sha256"], "depois_sha256": None, "estado": "backup_confirmado", "alteracoes": entry["alteracoes"]})
                 atomic_json(manifest_path, manifest)
             manifest["estado"] = "aplicando"
@@ -373,7 +411,7 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Pat
                     entry["estado"] = "pronto_para_substituir"
                     atomic_json(manifest_path, manifest)
                     if sha256(source) != entry["antes_sha256"]:
-                        raise ValueError(f"Arquivo alterado por outro programa: {source}")
+                        raise ValueError(_("File modified by another program: {source}", source=source))
                     os.replace(temp, source)
                     sync_dir(source.parent)
                     entry["estado"] = "aplicado"
@@ -385,7 +423,7 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Pat
             manifest["estado"] = "interrompido"
             manifest["erro"] = f"{type(error).__name__}: {error}"
             atomic_json(manifest_path, manifest)
-            raise RuntimeError(f"Execução interrompida. Consulte/restaure {manifest_path}: {error}") from error
+            raise RuntimeError(_("Run interrupted. Check or restore {manifest_path}: {error}", manifest_path=manifest_path, error=error)) from error
         atomic_json(manifest_path, manifest)
         return {"manifesto": str(manifest_path), "arquivos_alterados": len(selected), "estado": manifest["estado"]}
 
@@ -400,7 +438,7 @@ def restore(manifest_path: Path, storage: Path | None = None) -> dict:
         from library_import import restore_import
         return restore_import(manifest_path, storage)
     if manifest.get("schema") != 1:
-        raise ValueError("Manifesto incompatível")
+        raise ValueError(_("Incompatible manifest"))
     transaction = manifest_path.parent
     root = Path(manifest["biblioteca"]).resolve(strict=True)
     with library_lock(root):
@@ -412,12 +450,12 @@ def restore(manifest_path: Path, storage: Path | None = None) -> dict:
             backup = (transaction / entry["backup"]).resolve(strict=True)
             backup.relative_to(transaction)
             if sha256(backup) != entry["antes_sha256"]:
-                raise ValueError(f"Backup danificado: {backup}")
+                raise ValueError(_("Damaged backup: {backup}", backup=backup))
             current = sha256(source)
             if current == entry["antes_sha256"]:
                 continue
             if current != entry["depois_sha256"]:
-                raise ValueError(f"Há edições posteriores; restauração recusada: {source}")
+                raise ValueError(_("There are later edits; restore refused: {source}", source=source))
             protections.require_same_protected(policy, root, entry["arquivo"], source, backup)
             work.append((entry, source, backup))
         for entry, source, backup in work:
@@ -427,7 +465,7 @@ def restore(manifest_path: Path, storage: Path | None = None) -> dict:
             try:
                 durable_copy(backup, temp)
                 if sha256(temp) != entry["antes_sha256"] or sha256(source) != entry["depois_sha256"]:
-                    raise ValueError(f"Arquivo ou backup mudou durante a restauração: {source}")
+                    raise ValueError(_("File or backup changed during the restore: {source}", source=source))
                 os.replace(temp, source)
                 sync_dir(source.parent)
                 entry["estado"] = "restaurado"

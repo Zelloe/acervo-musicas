@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101211">
   <meta name="library-token" content="__TOKEN__">
-  <title>Acervo — Sua biblioteca musical</title>
+  <title>Acervo — Your music library</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%231ed760'/%3E%3Ccircle cx='20' cy='20' r='12' fill='%230b1710'/%3E%3Ccircle cx='20' cy='20' r='4' fill='%231ed760'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/style.css">
   <script src="/i18n.js" defer></script>
@@ -48,45 +48,45 @@
   </defs></svg>
 
   <aside class="sidebar">
-    <a class="brand" href="#inicio" aria-label="Acervo, início"><span class="brand-mark"><svg><use href="#i-disc"/></svg></span>acervo<span class="brand-period">.</span></a>
-    <div class="workspace-label">SEU ESPAÇO MUSICAL</div>
-    <nav aria-label="Navegação principal">
-      <button class="nav-item active" data-view="home"><svg><use href="#i-home"/></svg>Visão geral</button>
-      <button class="nav-item" data-view="library"><svg><use href="#i-library"/></svg>Biblioteca<span class="nav-counter" id="library-count">—</span></button>
-      <button class="nav-item" data-view="downloads" title="Baixar músicas"><svg><use href="#i-download"/></svg>Baixar</button>
-      <button class="nav-item" data-view="review"><svg><use href="#i-edit"/></svg>Revisar alterações<span class="nav-dot" id="review-dot"></span></button>
-      <button class="nav-item" data-view="albums"><svg><use href="#i-disc"/></svg>Álbuns</button>
-      <button class="nav-item" data-view="history"><svg><use href="#i-history"/></svg>Histórico</button>
+    <a class="brand" href="#inicio" aria-label="Acervo, home"><span class="brand-mark"><svg><use href="#i-disc"/></svg></span>acervo<span class="brand-period">.</span></a>
+    <div class="workspace-label">YOUR MUSIC SPACE</div>
+    <nav aria-label="Main navigation">
+      <button class="nav-item active" data-view="home"><svg><use href="#i-home"/></svg>Overview</button>
+      <button class="nav-item" data-view="library"><svg><use href="#i-library"/></svg>Library<span class="nav-counter" id="library-count">—</span></button>
+      <button class="nav-item" data-view="downloads" title="Download music"><svg><use href="#i-download"/></svg>Download</button>
+      <button class="nav-item" data-view="review"><svg><use href="#i-edit"/></svg>Review changes<span class="nav-dot" id="review-dot"></span></button>
+      <button class="nav-item" data-view="albums"><svg><use href="#i-disc"/></svg>Albums</button>
+      <button class="nav-item" data-view="history"><svg><use href="#i-history"/></svg>History</button>
     </nav>
     <div class="sidebar-divider"></div>
-    <div class="sidebar-note"><span class="tiny-label">FEITO PARA A SUA COLEÇÃO</span><p>Mais música.<br>Menos bagunça.</p><span>Seus arquivos, no lugar de sempre.</span></div>
+    <div class="sidebar-note"><span class="tiny-label">MADE FOR YOUR COLLECTION</span><p>More music.<br>Less clutter.</p><span>Your files, right where they belong.</span></div>
     <div class="sidebar-bottom">
-      <button class="settings-button" id="settings"><svg><use href="#i-settings"/></svg>Preferências</button>
-      <div class="library-location"><span class="location-icon"><svg><use href="#i-folder"/></svg></span><div><strong>Biblioteca local <i class="status-dot"></i></strong><span id="folder-label">Carregando…</span></div></div>
+      <button class="settings-button" id="settings"><svg><use href="#i-settings"/></svg>Preferences</button>
+      <div class="library-location"><span class="location-icon"><svg><use href="#i-folder"/></svg></span><div><strong>Local library <i class="status-dot"></i></strong><span id="folder-label">Loading…</span></div></div>
     </div>
   </aside>
 
   <main class="shell">
     <header class="topbar">
       <div class="search-area" id="search-area">
-        <div class="search-scopes" role="group" aria-label="Onde pesquisar"><button type="button" data-search-scope="library" aria-pressed="true">Sua biblioteca</button><button type="button" data-search-scope="global" aria-pressed="false">Global</button></div>
-        <form id="search-form" role="search" autocomplete="off"><div class="search-box"><svg><use href="#i-search"/></svg><input id="search" type="search" maxlength="200" placeholder="Buscar músicas, artistas ou álbuns" aria-label="Buscar músicas, artistas ou álbuns" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-suggestions"><kbd>/</kbd><button class="search-submit icon-button" type="submit" aria-label="Pesquisar"><svg><use href="#i-arrow"/></svg></button></div></form>
-        <div id="search-suggestions" class="search-suggestions" role="listbox" aria-label="Sugestões de pesquisa" hidden></div>
+        <div class="search-scopes" role="group" aria-label="Where to search"><button type="button" data-search-scope="library" aria-pressed="true">Your library</button><button type="button" data-search-scope="global" aria-pressed="false">Global</button></div>
+        <form id="search-form" role="search" autocomplete="off"><div class="search-box"><svg><use href="#i-search"/></svg><input id="search" type="search" maxlength="200" placeholder="Search tracks, artists or albums" aria-label="Search tracks, artists or albums" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-suggestions"><kbd>/</kbd><button class="search-submit icon-button" type="submit" aria-label="Search"><svg><use href="#i-arrow"/></svg></button></div></form>
+        <div id="search-suggestions" class="search-suggestions" role="listbox" aria-label="Search suggestions" hidden></div>
       </div>
-      <div class="topbar-actions"><select id="language-select" class="language-select" aria-label="Idioma"><option value="pt-BR" lang="pt-BR" aria-label="Português">PT</option><option value="en" lang="en" aria-label="English">EN</option></select><span class="local-badge"><i class="status-dot"></i>Biblioteca local</span><button class="icon-button mobile-settings" id="top-settings" data-action="preferences" title="Preferências" aria-label="Preferências"><svg><use href="#i-settings"/></svg></button><button class="icon-button" id="top-refresh" title="Analisar biblioteca novamente" aria-label="Analisar biblioteca novamente"><svg><use href="#i-refresh"/></svg></button><span class="avatar" title="Acervo">A</span></div>
+      <div class="topbar-actions"><select id="language-select" class="language-select" aria-label="Language"><option value="pt-BR" lang="pt-BR" aria-label="Português">PT</option><option value="en" lang="en" aria-label="English">EN</option></select><span class="local-badge"><i class="status-dot"></i>Local library</span><button class="icon-button mobile-settings" id="top-settings" data-action="preferences" title="Preferences" aria-label="Preferences"><svg><use href="#i-settings"/></svg></button><button class="icon-button" id="top-refresh" title="Scan library again" aria-label="Scan library again"><svg><use href="#i-refresh"/></svg></button><span class="avatar" title="Acervo">A</span></div>
     </header>
-    <div class="job-banner" id="job-banner" hidden><span class="spinner"></span><span id="job-label">Analisando biblioteca…</span><span id="job-percent"></span><div class="job-track"><div id="job-progress"></div></div></div>
-    <div class="restart-notice" id="restart-notice" role="status" hidden>O Acervo foi atualizado. Reinicie o servidor e recarregue esta página para concluir a atualização.</div>
-    <div id="content" class="content" aria-live="polite"><div class="loading-state"><span class="spinner"></span>Carregando sua coleção…</div></div>
-    <footer class="content-footer"><span>Feito para quem gosta de ouvir o álbum inteiro.</span><span>ACERVO <i class="footer-dot"></i> BIBLIOTECA PESSOAL</span></footer>
+    <div class="job-banner" id="job-banner" hidden><span class="spinner"></span><span id="job-label">Scanning library…</span><span id="job-percent"></span><div class="job-track"><div id="job-progress"></div></div></div>
+    <div class="restart-notice" id="restart-notice" role="status" hidden>Acervo has been updated. Restart the server and reload this page to finish updating.</div>
+    <div id="content" class="content" aria-live="polite"><div class="loading-state"><span class="spinner"></span>Loading your collection…</div></div>
+    <footer class="content-footer"><span>Made for those who love listening to the whole album.</span><span>ACERVO <i class="footer-dot"></i> PERSONAL LIBRARY</span></footer>
   </main>
 
-  <aside id="lyrics-panel" class="lyrics-panel" aria-labelledby="lyrics-heading" hidden><header class="lyrics-header"><div><span class="section-kicker">LETRA</span><h2 id="lyrics-heading">Escolha uma música</h2><p id="lyrics-artist"></p></div><button class="icon-button" id="lyrics-close" aria-label="Fechar letra"><svg><use href="#i-close"/></svg></button></header><div id="lyrics-status" class="lyrics-status" role="status"></div><div id="lyrics-body" class="lyrics-body"></div><footer class="lyrics-footer"><span id="lyrics-source"></span><button class="text-button" id="lyrics-edit" data-action="edit-lyrics" disabled>Editar e salvar letra</button><label><input id="lyrics-follow" class="check" type="checkbox" checked> Seguir reprodução</label></footer></aside>
+  <aside id="lyrics-panel" class="lyrics-panel" aria-labelledby="lyrics-heading" hidden><header class="lyrics-header"><div><span class="section-kicker">LYRICS</span><h2 id="lyrics-heading">Choose a track</h2><p id="lyrics-artist"></p></div><button class="icon-button" id="lyrics-close" aria-label="Close lyrics"><svg><use href="#i-close"/></svg></button></header><div id="lyrics-status" class="lyrics-status" role="status"></div><div id="lyrics-body" class="lyrics-body"></div><footer class="lyrics-footer"><span id="lyrics-source"></span><button class="text-button" id="lyrics-edit" data-action="edit-lyrics" disabled>Edit and save lyrics</button><label><input id="lyrics-follow" class="check" type="checkbox" checked> Follow playback</label></footer></aside>
 
-  <section class="player" aria-label="Reprodutor de música">
-    <div class="now-playing"><div class="player-cover" id="player-cover"><svg><use href="#i-disc"/></svg></div><div class="now-playing-text"><strong id="player-title">A próxima faixa é sua.</strong><span id="player-artist">Escolha uma música da coleção</span></div><span class="playing-dot" id="playing-dot" hidden></span><button class="icon-button player-lyrics" id="lyrics-toggle" title="Letra" aria-label="Mostrar letra" aria-controls="lyrics-panel" aria-expanded="false" disabled><svg><use href="#i-lyrics"/></svg></button></div>
-    <div class="player-middle"><div class="player-controls"><button class="icon-button" id="previous" aria-label="Faixa anterior" disabled><svg><use href="#i-prev"/></svg></button><button class="play-main" id="play-toggle" aria-label="Reproduzir" disabled><svg><use href="#i-play"/></svg></button><button class="icon-button" id="next" aria-label="Próxima faixa" disabled><svg><use href="#i-next"/></svg></button></div><div class="seek-row"><span id="time-current">0:00</span><input type="range" id="seek" aria-label="Posição da música" min="0" max="1000" value="0" disabled><span id="time-total">0:00</span></div></div>
-    <div class="player-right"><span class="audio-quality" id="audio-quality">ÁUDIO ORIGINAL</span><svg><use href="#i-volume"/></svg><input type="range" id="volume" aria-label="Volume" min="0" max="100" value="70"></div>
+  <section class="player" aria-label="Music player">
+    <div class="now-playing"><div class="player-cover" id="player-cover"><svg><use href="#i-disc"/></svg></div><div class="now-playing-text"><strong id="player-title">Your next track awaits.</strong><span id="player-artist">Choose a track from your collection</span></div><span class="playing-dot" id="playing-dot" hidden></span><button class="icon-button player-lyrics" id="lyrics-toggle" title="Lyrics" aria-label="Show lyrics" aria-controls="lyrics-panel" aria-expanded="false" disabled><svg><use href="#i-lyrics"/></svg></button></div>
+    <div class="player-middle"><div class="player-controls"><button class="icon-button" id="previous" aria-label="Previous track" disabled><svg><use href="#i-prev"/></svg></button><button class="play-main" id="play-toggle" aria-label="Play" disabled><svg><use href="#i-play"/></svg></button><button class="icon-button" id="next" aria-label="Next track" disabled><svg><use href="#i-next"/></svg></button></div><div class="seek-row"><span id="time-current">0:00</span><input type="range" id="seek" aria-label="Playback position" min="0" max="1000" value="0" disabled><span id="time-total">0:00</span></div></div>
+    <div class="player-right"><span class="audio-quality" id="audio-quality">ORIGINAL AUDIO</span><svg><use href="#i-volume"/></svg><input type="range" id="volume" aria-label="Volume" min="0" max="100" value="70"></div>
     <audio id="audio" preload="metadata"></audio>
   </section>
   <dialog id="modal"><div id="modal-content"></div></dialog>

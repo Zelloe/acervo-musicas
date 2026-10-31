@@ -57,7 +57,7 @@ class VersionHTTPTest(unittest.TestCase):
     def request(self, route, params=None, data=None, status=200):
         if params:
             route += "?" + urlencode(to_api(params))
-        headers = {"Origin": self.url, "X-Library-Token": self.app.token, "Content-Type": "application/json"}
+        headers = {"Origin": self.url, "X-Acervo-Language": "pt-BR", "X-Library-Token": self.app.token, "Content-Type": "application/json"}
         request = Request(self.url + route, None if data is None else json.dumps(to_api(data)).encode(), headers)
         try:
             response = urlopen(request, timeout=5)

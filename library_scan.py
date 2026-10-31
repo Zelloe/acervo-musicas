@@ -23,6 +23,30 @@ from mutagen import File
 from mutagen.flac import FLAC
 from mutagen.mp3 import MP3
 
+from messages import _, register, use_environment_language
+
+register({
+    "File not recognized as MP3/FLAC": "Arquivo não reconhecido como MP3/FLAC",
+    "The report output must be outside the library": "A saída dos relatórios deve ficar fora da biblioteca",
+    "The output folder already exists; choose a new one to keep the existing reports": "A pasta de saída já existe; escolha uma nova para preservar os relatórios",
+    "symbolic link to a folder": "diretório simbólico",
+    "Acervo temporary copy": "cópia temporária do Acervo",
+    "symbolic link to a file": "arquivo simbólico",
+    "review required; recording not identified": "revisão obrigatória; sem identificação da gravação",
+    "text similarity; does not confirm Release Group, Release or Recording": "semelhança textual; não confirma Release Group, Release ou Recording",
+    "The inventory is not a restorable backup of the metadata.": "O inventário não é um backup restaurável dos metadados.",
+    "Stability compares size, mtime, ctime, device and inode; it does not hash the full audio.": "A estabilidade compara tamanho, mtime, ctime, dispositivo e inode; não calcula hash integral do áudio.",
+    "Reading may update atime, depending on the file system configuration.": "A leitura pode atualizar atime conforme a configuração do sistema de arquivos.",
+    "Version markers and album groups are heuristics for human review.": "Marcadores de versão e grupos de álbum são heurísticas para revisão humana.",
+    "It does not identify recordings, detect duplicates or approve changes.": "Não identifica gravações, não detecta duplicatas e não aprova alterações.",
+    "This program made no external queries.": "Nenhuma consulta externa foi feita por este programa.",
+    "Source library; read only": "Biblioteca de origem; somente leitura",
+    "New reports folder, outside the library": "Nova pasta de relatórios, fora da biblioteca",
+    "Music folder does not exist: {root}": "Pasta de músicas inexistente: {root}",
+    "Error: {error}": "Erro: {error}",
+    "Reports: {output}": "Relatórios: {output}",
+})
+
 
 FIELDS = {
     "titulo": ("TIT2", "title"),
@@ -43,6 +67,7 @@ VERSION = re.compile(
     r"acoustic|ac[uú]stic[ao]|instrumental|rehearsal|ensaio|outtake|edit|"
     r"version|vers[aã]o)\b", re.I
 )
+
 EDITION = re.compile(r"\b(remaster(?:ed)?|deluxe|expanded|anniversary|box set)\b", re.I)
 
 
@@ -83,7 +108,7 @@ def read_track(path: Path) -> dict:
     before = signature(path)
     audio = File(path)
     if not isinstance(audio, (MP3, FLAC)):
-        raise ValueError("Arquivo não reconhecido como MP3/FLAC")
+        raise ValueError(_("File not recognized as MP3/FLAC"))
     tags = audio.tags
     is_mp3 = isinstance(audio, MP3)
 
@@ -144,9 +169,9 @@ def write_csv(path: Path, rows: list[dict], fields: list[str]) -> None:
 def scan(root: Path, output: Path) -> dict:
     # Never writes reports into the library nor allows overwriting a previous run.
     if output == root or root in output.parents:
-        raise ValueError("A saída dos relatórios deve ficar fora da biblioteca")
+        raise ValueError(_("The report output must be outside the library"))
     if output.exists():
-        raise ValueError("A pasta de saída já existe; escolha uma nova para preservar os relatórios")
+        raise ValueError(_("The output folder already exists; choose a new one to keep the existing reports"))
 
     tracks, errors, skipped = [], [], []
     walk_errors = []
@@ -155,16 +180,16 @@ def scan(root: Path, output: Path) -> dict:
         for name in list(dirs):
             directory = Path(folder) / name
             if directory.is_symlink():
-                skipped.append({"arquivo": str(directory), "motivo": "diretório simbólico"})
+                skipped.append({"arquivo": str(directory), "motivo": _("symbolic link to a folder")})
                 dirs.remove(name)
         for name in names:
             path = Path(folder) / name
             if path.suffix.casefold() not in (".mp3", ".flac"):
                 continue
             if name.startswith(TEMP_PREFIXES):
-                skipped.append({"arquivo": str(path), "motivo": "cópia temporária do Acervo"})
+                skipped.append({"arquivo": str(path), "motivo": _("Acervo temporary copy")})
             elif path.is_symlink():
-                skipped.append({"arquivo": str(path), "motivo": "arquivo simbólico"})
+                skipped.append({"arquivo": str(path), "motivo": _("symbolic link to a file")})
             else:
                 files.append(path)
     for error in walk_errors:
@@ -202,8 +227,8 @@ def scan(root: Path, output: Path) -> dict:
                 "album_atual": row["album"], "titulo": row["titulo"],
                 "faixa": row["faixa"], "disco": row["disco"],
                 "arquivo": row["arquivo"], "marcadores_versao": row["marcadores_versao"],
-                "status": "revisão obrigatória; sem identificação da gravação",
-                "evidencia": "semelhança textual; não confirma Release Group, Release ou Recording",
+                "status": _("review required; recording not identified"),
+                "evidencia": _("text similarity; does not confirm Release Group, Release or Recording"),
             })
 
     formats = Counter(row["formato"] for row in tracks)
@@ -219,12 +244,12 @@ def scan(root: Path, output: Path) -> dict:
         "erros": errors, "ignorados": skipped, "arquivos_com_mudanca_detectada": changed,
         "somente_leitura": True,
         "limites": [
-            "O inventário não é um backup restaurável dos metadados.",
-            "A estabilidade compara tamanho, mtime, ctime, dispositivo e inode; não calcula hash integral do áudio.",
-            "A leitura pode atualizar atime conforme a configuração do sistema de arquivos.",
-            "Marcadores de versão e grupos de álbum são heurísticas para revisão humana.",
-            "Não identifica gravações, não detecta duplicatas e não aprova alterações.",
-            "Nenhuma consulta externa foi feita por este programa.",
+            _("The inventory is not a restorable backup of the metadata."),
+            _("Stability compares size, mtime, ctime, device and inode; it does not hash the full audio."),
+            _("Reading may update atime, depending on the file system configuration."),
+            _("Version markers and album groups are heuristics for human review."),
+            _("It does not identify recordings, detect duplicates or approve changes."),
+            _("This program made no external queries."),
         ],
     }
     output.mkdir(parents=True, exist_ok=False)
@@ -238,21 +263,22 @@ def scan(root: Path, output: Path) -> dict:
 
 
 def main() -> int:
+    use_environment_language()
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pasta", type=Path, required=True, help="Biblioteca de origem; somente leitura")
-    parser.add_argument("--saida", type=Path, required=True, help="Nova pasta de relatórios, fora da biblioteca")
+    parser.add_argument("--pasta", type=Path, required=True, help=_("Source library; read only"))
+    parser.add_argument("--saida", type=Path, required=True, help=_("New reports folder, outside the library"))
     args = parser.parse_args()
     root = args.pasta.expanduser().resolve()
     output = args.saida.expanduser().resolve()
     if not root.is_dir():
-        parser.error(f"Pasta de músicas inexistente: {root}")
+        parser.error(_("Music folder does not exist: {root}", root=root))
     try:
         summary = scan(root, output)
     except (OSError, ValueError) as error:
-        print(f"Erro: {error}", file=sys.stderr)
+        print(_("Error: {error}", error=error), file=sys.stderr)
         return 1
     print(json.dumps(summary, ensure_ascii=False, indent=2))
-    print(f"Relatórios: {output}")
+    print(_("Reports: {output}", output=output))
     return 2 if summary["erros"] or summary["arquivos_com_mudanca_detectada"] else 0
 
 

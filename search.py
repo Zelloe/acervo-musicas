@@ -12,8 +12,18 @@ import threading
 import time
 import unicodedata
 
+from messages import _, register
+
 FIELDS = {"titulo": 3.0, "artista": 2.5, "album": 2.0, "genero": 1.0}
-LABELS = {"titulo": "título", "artista": "artista", "album": "álbum", "genero": "gênero"}
+LABELS = {"titulo": "title", "artista": "artist", "album": "album", "genero": "genre"}
+
+register({
+    "title": "título", "artist": "artista", "album": "álbum", "genre": "gênero",
+    "The global search stopped unexpectedly": "A busca global foi encerrada inesperadamente",
+    "The global search took too long; try again": "A busca global demorou demais; tente de novo",
+    "The global search failed: {details}": "A busca global falhou: {details}",
+    "no details": "sem detalhes",
+})
 
 
 def normalize(text: str) -> str:
@@ -136,7 +146,7 @@ class LibraryIndex:
         self.album_matcher = _Matcher([{"album": a["titulo"], "artista": a["artista"]} for a in self.albums])
 
     def search(self, query: str, limit: int = 50) -> list[dict]:
-        return [{"id": self.tracks[index].get("id"), "pontuacao": score, "motivo": LABELS[field]}
+        return [{"id": self.tracks[index].get("id"), "pontuacao": score, "motivo": _(LABELS[field])}
                 for score, index, field in self.songs.rank(query, limit)]
 
     def suggest(self, query: str, limit: int = 8) -> dict:
@@ -194,17 +204,17 @@ class GlobalSearch:
             process.stdin.flush()
         except (OSError, ValueError):
             self.close()
-            raise RuntimeError("A busca global foi encerrada inesperadamente") from None
+            raise RuntimeError(_("The global search stopped unexpectedly")) from None
         deadline = time.monotonic() + self.timeout
         while True:
             try:
                 line = lines.get(timeout=max(0.0, deadline - time.monotonic()))
             except queue.Empty:
                 self.close()  # a stuck process cannot answer the next query
-                raise RuntimeError("A busca global demorou demais; tente de novo") from None
+                raise RuntimeError(_("The global search took too long; try again")) from None
             if line is None:
                 self.close()
-                raise RuntimeError("A busca global foi encerrada inesperadamente")
+                raise RuntimeError(_("The global search stopped unexpectedly"))
             try:
                 answer = json.loads(line)
             except json.JSONDecodeError:
@@ -212,7 +222,7 @@ class GlobalSearch:
             if not isinstance(answer, dict) or answer.get("id") != self.counter:
                 continue  # a stray warning or a late answer to an earlier query
             if not answer.get("ok"):
-                raise RuntimeError(f"A busca global falhou: {answer.get('erro', 'sem detalhes')}")
+                raise RuntimeError(_("The global search failed: {details}", details=answer.get("erro") or _("no details")))
             return answer.get("dados")
 
     def suggest(self, query: str) -> dict:

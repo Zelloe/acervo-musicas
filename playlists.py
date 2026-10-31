@@ -8,6 +8,15 @@ import re
 import tempfile
 
 from library_scan import TEMP_PREFIXES, read_track
+from messages import _, register
+
+register({
+    "A path with a line break does not fit in M3U8: {path}": "Caminho com quebra de linha não cabe em M3U8: {path}",
+    "The playlist must have the .m3u8 extension": "A playlist deve ter a extensão .m3u8",
+    "No songs selected for the playlist": "Nenhuma música selecionada para a playlist",
+    "The playlist already exists: {playlist}": "A playlist já existe: {playlist}",
+    "The saved playlist does not match the preview: {playlist}": "A playlist gravada não confere com a prévia: {playlist}",
+})
 
 
 def _text(values) -> str:
@@ -60,7 +69,7 @@ def render(playlist: Path, tracks: list[dict], name: str | None = None) -> str:
         path = Path(track["arquivo"]).resolve()
         relative = os.path.relpath(path, base).replace(os.sep, "/")
         if any(c in relative for c in "\r\n"):
-            raise ValueError(f"Caminho com quebra de linha não cabe em M3U8: {path}")
+            raise ValueError(_("A path with a line break does not fit in M3U8: {path}", path=path))
         if relative.startswith("#"):
             relative = "./" + relative  # lines starting with # are comments
         label = " - ".join(part for part in (_text(track.get("artista")), _text(track.get("titulo"))) if part) or path.stem
@@ -100,13 +109,13 @@ def _publish_exclusive(temp: Path, playlist: Path, data: bytes) -> None:
 
 def write_m3u8(playlist: Path, tracks: list[dict], name: str | None = None, overwrite: bool = False) -> dict:
     if playlist.suffix.casefold() != ".m3u8":
-        raise ValueError("A playlist deve ter a extensão .m3u8")
+        raise ValueError(_("The playlist must have the .m3u8 extension"))
     if not tracks:
-        raise ValueError("Nenhuma música selecionada para a playlist")
+        raise ValueError(_("No songs selected for the playlist"))
     data = render(playlist, tracks, name).encode("utf-8")
     playlist.parent.mkdir(parents=True, exist_ok=True)
     if not overwrite and os.path.lexists(playlist):
-        raise FileExistsError(f"A playlist já existe: {playlist}")
+        raise FileExistsError(_("The playlist already exists: {playlist}", playlist=playlist))
     fd, temp_name = tempfile.mkstemp(prefix=".acervo-playlist-", suffix=".tmp", dir=playlist.parent)
     temp = Path(temp_name)
     try:
@@ -122,7 +131,7 @@ def write_m3u8(playlist: Path, tracks: list[dict], name: str | None = None, over
     finally:
         temp.unlink(missing_ok=True)
     if playlist.read_bytes() != data:
-        raise ValueError(f"A playlist gravada não confere com a prévia: {playlist}")
+        raise ValueError(_("The saved playlist does not match the preview: {playlist}", playlist=playlist))
     return {"playlist": str(playlist), "faixas": len(tracks), **validate_m3u8(playlist)}
 
 

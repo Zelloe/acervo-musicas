@@ -54,7 +54,7 @@ class SearchHTTPTest(unittest.TestCase):
     def request(self, route, params=None, status=200, data=None, host=None):
         if params:
             route += "?" + urlencode(to_api(params))
-        headers = {"Origin": self.url, "X-Library-Token": self.app.token, "Content-Type": "application/json"}
+        headers = {"Origin": self.url, "X-Acervo-Language": "pt-BR", "X-Library-Token": self.app.token, "Content-Type": "application/json"}
         if host:
             headers["Host"] = host
         request = Request(self.url + route, None if data is None else json.dumps(to_api(data)).encode(), headers)

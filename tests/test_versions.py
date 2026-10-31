@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 
 import downloader
+from messages import language
 from versions import classify
 
 
@@ -29,7 +30,14 @@ class VersionTest(unittest.TestCase):
         self.assertEqual(self.labels("Time - 2011 Remaster"), ["estudio", "remaster"])
         self.assertEqual(self.labels("Lisbon", "Anything", "compilation"), ["estudio", "coletanea"])
         self.assertEqual(self.labels("Carry On", "The Best Of Angra"), ["estudio", "coletanea"])
-        self.assertEqual(classify("Carry On", "Holy Live")["rotulos"], ["Ao vivo"])
+        self.assertEqual(classify("Carry On", "Holy Live")["rotulos"], ["Live"])
+
+    def test_labels_follow_the_language(self):
+        self.assertEqual(classify("Time - 2011 Remaster", "Greatest Hits")["rotulos"], ["Studio", "Remaster", "Compilation"])
+        with language("pt-BR"):
+            self.assertEqual(classify("Time - 2011 Remaster", "Greatest Hits")["rotulos"], ["Estúdio", "Remaster", "Coletânea"])
+            self.assertEqual(classify("Carry On", "Holy Live")["marcas"], ["ao_vivo"])
+            self.assertEqual(classify("Carry On", "Holy Live")["rotulos"], ["Ao vivo"])
 
     def test_search_results_get_version_and_only_safe_photos(self):
         rows = [{"titulo": "Heroes Of Sand - Ao Vivo", "album": "Live in São Paulo", "tipo_album": "album", "capa": "https://i.scdn.co/image/abc"},

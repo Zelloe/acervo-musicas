@@ -1,6 +1,7 @@
 "use strict";
 
-const versionFilters = [["all","Todos"],["studio","Estúdio"],["live","Ao vivo"],["acoustic","Acústico"],["demo-remix","Demo / Remix"],["compilation","Coletânea"]];
+const versionFilters = [["all","All"],["studio","Studio"],["live","Live"],["acoustic","Acoustic"],["demo-remix","Demo / Remix"],["compilation","Compilation"]];
+const recordingLabels = {studio:"Studio",live:"Live",acoustic:"Acoustic",demo:"Demo",remix:"Remix",instrumental:"Instrumental",remaster:"Remaster",compilation:"Compilation",special_edition:"Special edition"};
 
 function versionMatches(version, choice) {
   const marks=version?.marks||[];
@@ -11,12 +12,13 @@ function versionMatches(version, choice) {
 }
 
 function versionChips(selected, attribute) {
-  return `<div class="version-filters" role="group" aria-label="${tr("Tipo de gravação")}">${versionFilters.map(([key,label])=>`<button type="button" class="version-filter" ${attribute}="${key}" aria-pressed="${key===selected}">${tr(label)}</button>`).join("")}</div>`;
+  return `<div class="version-filters" role="group" aria-label="${tr("Recording type")}">${versionFilters.map(([key,label])=>`<button type="button" class="version-filter" ${attribute}="${key}" aria-pressed="${key===selected}">${tr(label)}</button>`).join("")}</div>`;
 }
 
 function versionBadges(version) {
-  if(!version?.labels?.length)return `<span class="version-badge unknown">${tr("Sem classificação")}</span>`;
-  return `<span class="version-badges">${version.labels.map((label,index)=>`<span class="version-badge ${version.marks?.[index]==="live"?"live":""}">${escapeHTML(tr(label))}</span>`).join("")}</span>`;
+  const marks=(version?.marks||[]).filter(mark=>Object.hasOwn(recordingLabels,mark));
+  if(!marks.length)return `<span class="version-badge unknown">${tr("Unclassified")}</span>`;
+  return `<span class="version-badges">${marks.map(mark=>`<span class="version-badge ${mark==="live"?"live":""}">${escapeHTML(tr(recordingLabels[mark]))}</span>`).join("")}</span>`;
 }
 
 function safePhoto(url) {

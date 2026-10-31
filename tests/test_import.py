@@ -56,7 +56,7 @@ class ImportTest(unittest.TestCase):
         return {"acao": "adicionar", "arquivo": str(target), "origem": str(source), "origem_sha256": sha256(source), "alteracoes": {}}
 
     def manifest(self, error: RuntimeError) -> Path:
-        return Path(str(error).split("restaurar: ")[1].split(". ")[0])
+        return Path(str(error).split("restoring: ")[1].split(". ")[0])
 
     def test_add_and_undo_archives_copy(self):
         source = self.mp3(self.staging, "nova.mp3", "download.mp3", "Nova", "200")

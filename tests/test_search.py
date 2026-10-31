@@ -53,7 +53,7 @@ class LibrarySearchTest(unittest.TestCase):
     def test_genre_search_and_reason(self):
         result = self.index.search("thrash", 5)
         self.assertEqual([r["id"] for r in result], ["4"])
-        self.assertEqual(result[0]["motivo"], "gênero")
+        self.assertEqual(result[0]["motivo"], "genre")
 
     def test_suggestions_group_artists_albums_and_songs(self):
         suggestions = self.index.suggest("ac")
@@ -114,9 +114,9 @@ class GlobalSearchTest(unittest.TestCase):
         self.assertEqual(self.search.suggest("k"), {"termos": [], "artistas": []})
 
     def test_errors_and_timeouts_recover(self):
-        with self.assertRaisesRegex(RuntimeError, "sem rede"):
+        with self.assertRaisesRegex(RuntimeError, "failed: sem rede"):
             self.search.suggest("falha")
-        with self.assertRaisesRegex(RuntimeError, "demorou"):
+        with self.assertRaisesRegex(RuntimeError, "took too long"):
             self.search.suggest("lento")
         self.assertIsNone(self.search.process)
         self.assertEqual(self.search.suggest("depois")["chamadas"], 1)  # a new process

@@ -21,7 +21,17 @@ import urllib.request
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3, ID3NoHeaderError, USLT
 
+from messages import _, register
 from search import normalize
+
+register({
+    "The lyrics service responded {code}; try again later": "O serviço de letras respondeu {code}; tente mais tarde",
+    "No connection to the lyrics service": "Sem conexão com o serviço de letras",
+    "Empty or invalid lyrics": "Letra vazia ou inválida",
+    "Save the lyrics without timestamps; the synced version stays in Acervo's cache": "Grave a letra sem marcações de tempo; a versão sincronizada fica no cache do Acervo",
+    "The track already has exactly these lyrics": "A faixa já tem exatamente essa letra",
+    "Invalid preview hash": "Hash da prévia inválido",
+})
 
 API = "https://lrclib.net/api"
 USER_AGENT = "Acervo (https://github.com/Zelloe/acervo-musicas)"
@@ -129,10 +139,10 @@ class LyricsClient:
                 if error.code == 404:
                     return None
                 if error.code not in (429, 500, 502, 503, 504) or attempt == self.retries:
-                    raise RuntimeError(f"O serviço de letras respondeu {error.code}; tente mais tarde") from error
+                    raise RuntimeError(_("The lyrics service responded {code}; try again later", code=error.code)) from error
             except (urllib.error.URLError, TimeoutError, OSError) as error:
                 if attempt == self.retries:
-                    raise RuntimeError("Sem conexão com o serviço de letras") from error
+                    raise RuntimeError(_("No connection to the lyrics service")) from error
             self.sleep(delay)
             delay *= 2
 
@@ -217,16 +227,16 @@ def save_lyrics(root: Path, storage: Path, file: str, text: str, previous_sha256
 
     text = (text or "").replace("\r\n", "\n").strip()
     if not text or "\x00" in text or len(text) > 100_000:
-        raise ValueError("Letra vazia ou inválida")
+        raise ValueError(_("Empty or invalid lyrics"))
     if parse_lrc(text):
-        raise ValueError("Grave a letra sem marcações de tempo; a versão sincronizada fica no cache do Acervo")
+        raise ValueError(_("Save the lyrics without timestamps; the synced version stays in Acervo's cache"))
     root = Path(root).resolve(strict=True)
     path = secure_file(root, file)
     current = current_lyrics(path)
     if current == [text]:
-        raise ValueError("A faixa já tem exatamente essa letra")
+        raise ValueError(_("The track already has exactly these lyrics"))
     if previous_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", str(previous_sha256)):
-        raise ValueError("Hash da prévia inválido")
+        raise ValueError(_("Invalid preview hash"))
     operation = {"acao": "metadados", "arquivo": str(path), "antes_sha256": previous_sha256 or sha256(path),
                  "alteracoes": {"letra": {"atual": current, "proposto": [text]}}}
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")

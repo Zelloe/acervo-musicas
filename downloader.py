@@ -18,7 +18,33 @@ from mutagen.id3 import ID3, ID3NoHeaderError, TCON
 from library_plan import BASE, rules
 from library_scan import TEMP_PREFIXES, album_base, normalized
 from lyrics import LyricsClient, embed_plain
+from messages import _, register
 from versions import classify
+
+register({
+    "spotDL not found. Install it with: pipx install spotdl": "spotDL não encontrado. Instale com: pipx install spotdl",
+    "Could not find spotDL's Python in {executable}": "Não foi possível descobrir o Python do spotDL em {executable}",
+    "The spotDL search failed: {detail}": "A busca no spotDL falhou: {detail}",
+    "no details": "sem detalhes",
+    "Enter the artist name": "Informe o nome do artista",
+    "Enter the album name": "Informe o nome do álbum",
+    "Enter what to search for": "Informe o que procurar",
+    "Enter a Spotify link": "Informe um link do Spotify",
+    "Use a Spotify track, album or playlist link": "Use um link do Spotify de música, álbum ou playlist",
+    "ffmpeg not found; it is required by spotDL and to validate the audio": "ffmpeg não encontrado; ele é necessário para o spotDL e para validar o áudio",
+    "Invalid track link": "Link de faixa inválido",
+    "Timed out": "Tempo esgotado",
+    "spotDL exited with code {code}": "spotDL terminou com código {code}",
+    "spotDL produced more than one file": "O spotDL gerou mais de um arquivo",
+    "The downloaded audio is corrupted or incomplete": "O áudio baixado está corrompido ou incompleto",
+    "A file with this name already exists in the folder": "Já existe um arquivo com esse nome na pasta",
+    "The destination folder does not exist: {folder}": "A pasta de destino não existe: {folder}",
+    "Invalid bitrate": "Bitrate inválido",
+    "Downloading {current} of {total} · {label}": "Baixando {current} de {total} · {label}",
+    "Stopped after the previous error": "Interrompido após o erro anterior",
+    "Downloads finished": "Downloads concluídos",
+})
+
 
 ADAPTER = BASE / "spotdl_search.py"
 TEMPLATE = "{artist} - {title}.{output-ext}"
@@ -29,7 +55,7 @@ def spotdl_executable() -> str:
     # When launched from the system menu, PATH may not include ~/.local/bin (pipx).
     found = shutil.which("spotdl") or str(Path.home() / ".local/bin/spotdl")
     if not Path(found).is_file():
-        raise RuntimeError("spotDL não encontrado. Instale com: pipx install spotdl")
+        raise RuntimeError(_("spotDL not found. Install it with: pipx install spotdl"))
     return found
 
 
@@ -42,7 +68,7 @@ def spotdl_python() -> list[str]:
         first = ""
     command = shlex.split(first[2:]) if first.startswith("#!") else []
     if not command or not any("python" in Path(part).name for part in command):
-        raise RuntimeError(f"Não foi possível descobrir o Python do spotDL em {executable}")
+        raise RuntimeError(_("Could not find spotDL's Python in {executable}", executable=executable))
     return command
 
 
@@ -52,13 +78,13 @@ def _adapter(command: str, *args: str, timeout: int = 120) -> list[dict]:
         process = subprocess.run([*spotdl_python(), "-I", str(ADAPTER), command, str(output), *args], capture_output=True, text=True, timeout=timeout)
         if process.returncode or not output.is_file():
             detail = (process.stderr or process.stdout).strip().splitlines()
-            raise RuntimeError(f"A busca no spotDL falhou: {detail[-1] if detail else 'sem detalhes'}")
+            raise RuntimeError(_("The spotDL search failed: {detail}", detail=detail[-1] if detail else _("no details")))
         return json.loads(output.read_text(encoding="utf-8"))
 
 
-def _text(value: str, name: str) -> str:
+def _text(value: str, message: str) -> str:
     if not isinstance(value, str) or not value.strip() or len(value) > 300 or value.strip().startswith("-"):
-        raise ValueError(f"Informe {name}")
+        raise ValueError(message)
     return value.strip()
 
 
@@ -80,21 +106,21 @@ def _enrich(items: list[dict], title_key: str | None, album_key: str, kind_key: 
 
 
 def search_albums(artist: str) -> list[dict]:
-    return _enrich(_adapter("albuns", _text(artist, "o nome do artista")), None, "titulo", "tipo")
+    return _enrich(_adapter("albuns", _text(artist, _("Enter the artist name"))), None, "titulo", "tipo")
 
 
 def editions(artist: str, album: str) -> list[dict]:
-    return _enrich(_adapter("edicoes", _text(artist, "o nome do artista"), _text(album, "o nome do álbum")), None, "titulo", "tipo")
+    return _enrich(_adapter("edicoes", _text(artist, _("Enter the artist name")), _text(album, _("Enter the album name"))), None, "titulo", "tipo")
 
 
 def search_songs(text: str) -> list[dict]:
-    return _enrich(_adapter("musicas", _text(text, "o que procurar")), "titulo", "album", "tipo_album")
+    return _enrich(_adapter("musicas", _text(text, _("Enter what to search for"))), "titulo", "album", "tipo_album")
 
 
 def tracks(url: str) -> list[dict]:
-    url = _text(url, "um link do Spotify")
+    url = _text(url, _("Enter a Spotify link"))
     if not re.fullmatch(r"https://open\.spotify\.com/(?:intl-[a-z-]+/)?(track|album|playlist)/[A-Za-z0-9]+(?:\?\S*)?", url):
-        raise ValueError("Use um link do Spotify de música, álbum ou playlist")
+        raise ValueError(_("Use a Spotify track, album or playlist link"))
     return _enrich(_adapter("faixas", url, timeout=300), "titulo", "album", "tipo_album")
 
 
@@ -159,7 +185,7 @@ def _fill_genre(path: Path, genre: str) -> bool:
 def _valid_audio(path: Path) -> bool:
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
-        raise RuntimeError("ffmpeg não encontrado; ele é necessário para o spotDL e para validar o áudio")
+        raise RuntimeError(_("ffmpeg not found; it is required by spotDL and to validate the audio"))
     # Without -xerror ffmpeg exits with 0 even on decoding errors.
     process = subprocess.run([ffmpeg, "-v", "error", "-xerror", "-nostdin", "-i", str(path), "-map", "0:a:0", "-f", "null", "-"], capture_output=True, timeout=180)
     return process.returncode == 0
@@ -197,7 +223,7 @@ def _publish(source: Path, final: Path) -> None:
 def _download_one(item: dict, folder: Path, executable: str, genre_rules: list[dict], bitrate: str, lyrics_client: LyricsClient | None = None) -> dict:
     url = item.get("url", "")
     if not re.fullmatch(r"https://open\.spotify\.com/track/[A-Za-z0-9]+", url.split("?")[0]):
-        return {**item, "estado": "erro", "mensagem": "Link de faixa inválido"}
+        return {**item, "estado": "erro", "mensagem": _("Invalid track link")}
     with tempfile.TemporaryDirectory(prefix="acervo-download-") as work:
         work = Path(work)
         # Relative template with cwd in the folder: spotDL sanitizes absolute paths.
@@ -206,15 +232,15 @@ def _download_one(item: dict, folder: Path, executable: str, genre_rules: list[d
         try:
             process = subprocess.run(command, cwd=work, capture_output=True, text=True, timeout=600)
         except subprocess.TimeoutExpired:
-            return {**item, "estado": "erro", "mensagem": "Tempo esgotado"}
+            return {**item, "estado": "erro", "mensagem": _("Timed out")}
         produced = [p for p in work.iterdir() if p.suffix.casefold() == ".mp3" and p.is_file() and not p.is_symlink()]
         lines = [line for line in (process.stdout + process.stderr).splitlines() if line.strip()]
         if process.returncode or len(produced) != 1:
-            reason = lines[-1][:300] if lines else f"spotDL terminou com código {process.returncode}"
-            return {**item, "estado": "erro", "mensagem": reason if process.returncode or not produced else "O spotDL gerou mais de um arquivo"}
+            reason = lines[-1][:300] if lines else _("spotDL exited with code {code}", code=process.returncode)
+            return {**item, "estado": "erro", "mensagem": reason if process.returncode or not produced else _("spotDL produced more than one file")}
         audio = produced[0]
         if not _valid_audio(audio):
-            return {**item, "estado": "erro", "mensagem": "O áudio baixado está corrompido ou incompleto"}
+            return {**item, "estado": "erro", "mensagem": _("The downloaded audio is corrupted or incomplete")}
         genre = genre_from_rules(item.get("artista_album") or item.get("artista", ""), item.get("album", ""), genre_rules)
         filled = _fill_genre(audio, genre)
         embedded = False
@@ -227,7 +253,7 @@ def _download_one(item: dict, folder: Path, executable: str, genre_rules: list[d
         try:
             _publish(audio, final)
         except FileExistsError:
-            return {**item, "estado": "ja_existia", "arquivo": str(final), "mensagem": "Já existe um arquivo com esse nome na pasta"}
+            return {**item, "estado": "ja_existia", "arquivo": str(final), "mensagem": _("A file with this name already exists in the folder")}
         return {**item, "estado": "baixado", "arquivo": str(final), "genero_preenchido": genre if filled else "", "letra": embedded}
 
 
@@ -240,9 +266,9 @@ def download(items: list[dict], folder: Path, progress=None, bitrate: str = "320
     """
     folder = Path(folder).expanduser()
     if not folder.is_dir():
-        raise ValueError(f"A pasta de destino não existe: {folder}")
+        raise ValueError(_("The destination folder does not exist: {folder}", folder=folder))
     if bitrate not in ("128k", "192k", "256k", "320k"):
-        raise ValueError("Bitrate inválido")
+        raise ValueError(_("Invalid bitrate"))
     progress = progress or (lambda *args: None)
     genre_rules = rules(BASE / "genre_rules.csv")
     executable = spotdl_executable()
@@ -250,14 +276,14 @@ def download(items: list[dict], folder: Path, progress=None, bitrate: str = "320
     results = []
     for index, item in enumerate(items):
         label = f"{item.get('artista', '')} - {item.get('titulo', '')}"
-        progress(f"Baixando {index + 1} de {len(items)} · {label}", round(index / len(items) * 100))
+        progress(_("Downloading {current} of {total} · {label}", current=index + 1, total=len(items), label=label), round(index / len(items) * 100))
         try:
             results.append(_download_one(item, folder, executable, genre_rules, bitrate, lyrics))
         except Exception as error:
             results.append({**item, "estado": "erro", "mensagem": f"{type(error).__name__}: {error}"[:300]})
             # Without ffmpeg, or without space/write access at the destination, the next ones would fail the same way.
             if isinstance(error, RuntimeError) or (isinstance(error, OSError) and error.errno in (errno.ENOSPC, errno.EROFS, errno.EDQUOT, errno.EACCES)):
-                results.extend({**rest, "estado": "nao_baixado", "mensagem": "Interrompido após o erro anterior"} for rest in items[index + 1:])
+                results.extend({**rest, "estado": "nao_baixado", "mensagem": _("Stopped after the previous error")} for rest in items[index + 1:])
                 break
-    progress("Downloads concluídos", 100)
+    progress(_("Downloads finished"), 100)
     return results

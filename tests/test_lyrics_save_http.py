@@ -64,7 +64,7 @@ class SaveLyricsHTTPTest(unittest.TestCase):
         self.app.global_search.close()
 
     def request(self, route, data=None, status=200, **headers):
-        defaults = {"Content-Type": "application/json", "Origin": self.url, "X-Library-Token": self.app.token}
+        defaults = {"Content-Type": "application/json", "Origin": self.url, "X-Acervo-Language": "pt-BR", "X-Library-Token": self.app.token}
         defaults.update(headers)
         request = Request(self.url + route, None if data is None else json.dumps(to_api(data)).encode(), defaults)
         try:

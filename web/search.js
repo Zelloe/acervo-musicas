@@ -24,12 +24,12 @@ function searchMessage(message) {
 function showSearchSuggestions(data) {
   const global=searchState.scope==="global";
   const groups=global ? [
-    [tr("Artistas"),(data.artists||[]).map(a=>({type:"global-artist",photo:a.photo,label:a.name,detail:tr("Ver álbuns para baixar"),name:"music"}))],
-    [tr("Sugestões de busca"),(data.terms||[]).map(text=>({type:"global-term",label:text,detail:tr("Buscar músicas no catálogo global"),name:"search"}))]
+    [tr("Artists"),(data.artists||[]).map(a=>({type:"global-artist",photo:a.photo,label:a.name,detail:tr("Browse albums to download"),name:"music"}))],
+    [tr("Search suggestions"),(data.terms||[]).map(text=>({type:"global-term",label:text,detail:tr("Search tracks in the global catalog"),name:"search"}))]
   ] : [
-    [tr("Artistas"),(data.artists||[]).map(a=>({type:"artist",label:a.name,detail:`${number(a.tracks)} ${tr("faixas na biblioteca")}`,name:"music"}))],
-    [tr("Álbuns"),(data.albums||[]).map(a=>({type:"album",label:a.title,detail:a.artist,id:a.track_id,name:"disc"}))],
-    [tr("Músicas"),(data.tracks||[]).map(t=>({type:"song",label:t.title,detail:t.artist,id:t.id,name:"music"}))]
+    [tr("Artists"),(data.artists||[]).map(a=>({type:"artist",label:a.name,detail:`${number(a.tracks)} ${tr("tracks in your library")}`,name:"music"}))],
+    [tr("Albums"),(data.albums||[]).map(a=>({type:"album",label:a.title,detail:a.artist,id:a.track_id,name:"disc"}))],
+    [tr("Tracks"),(data.tracks||[]).map(t=>({type:"song",label:t.title,detail:t.artist,id:t.id,name:"music"}))]
   ];
   searchState.items=[];
   searchState.active=-1;
@@ -37,7 +37,7 @@ function showSearchSuggestions(data) {
     const index=searchState.items.push(item)-1;
     return `<button type="button" role="option" aria-selected="false" tabindex="-1" id="search-option-${index}" data-search-option="${index}">${item.type==="global-artist"?catalogPhoto(item.photo,true):icon(item.name)}<span><strong>${escapeHTML(item.label)}</strong><small>${escapeHTML(item.detail)}</small></span>${icon("arrow")}</button>`;
   }).join("")}`).join("");
-  if(!html){searchMessage(global?tr("Sem sugestões. Pressione Enter para buscar músicas."):tr("Nenhuma sugestão. Pressione Enter para ver os resultados."));return;}
+  if(!html){searchMessage(global?tr("No suggestions. Press Enter to search tracks."):tr("No suggestions. Press Enter to see results."));return;}
   searchPanel.innerHTML=html;
   searchPanel.hidden=false;
   searchInput.setAttribute("aria-expanded","true");
@@ -51,19 +51,19 @@ function scheduleSuggestions() {
   const serial=searchState.serial;
   const scope=searchState.scope;
   searchState.timer=setTimeout(async()=>{
-    searchMessage(scope==="global"?tr("Buscando sugestões no catálogo global…"):tr("Buscando na sua biblioteca…"));
+    searchMessage(scope==="global"?tr("Finding suggestions in the global catalog…"):tr("Searching your library…"));
     const controller=new AbortController();
     searchState.controller=controller;
     try {
       const params=new URLSearchParams({q:query,scope:scope});
-      const response=await fetch(`/api/suggestions?${params}`,{signal:controller.signal});
+      const response=await fetch(`/api/suggestions?${params}`,{signal:controller.signal,headers:languageHeaders()});
       const data=await response.json();
       if(serial!==searchState.serial || scope!==searchState.scope || query!==searchInput.value.trim())return;
-      if(!response.ok)throw new Error(data.error||tr("Não foi possível carregar sugestões."));
+      if(!response.ok)throw new Error(data.error||tr("Could not load suggestions."));
       showSearchSuggestions(data);
     }catch(error){
       if(error.name==="AbortError" || serial!==searchState.serial)return;
-      searchMessage(error.message+" "+tr("Você pode tentar a busca com Enter."));
+      searchMessage(error.message+" "+tr("You can try searching with Enter."));
     }
   },scope==="global"?350:150);
 }
@@ -72,7 +72,7 @@ function setSearchScope(scope) {
   closeSearch();
   searchState.scope=scope;
   document.querySelectorAll('[data-search-scope]').forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.searchScope===scope)));
-  const label=scope==="global"?tr("Buscar músicas ou artistas no catálogo global"):tr("Buscar músicas, artistas ou álbuns");
+  const label=scope==="global"?tr("Search tracks or artists in the global catalog"):tr("Search tracks, artists or albums");
   searchInput.placeholder=label;
   searchInput.setAttribute("aria-label",label);
   searchInput.focus();
