@@ -15,7 +15,7 @@ from mutagen.id3 import ID3, TIT2, TPE1, USLT
 import downloader
 from library_import import restore_import
 from messages import language
-from lyrics import bulk_lookup, save_lyrics_batch, LyricsClient, embed_plain, save_lyrics, current_lyrics, read_embedded, parse_lrc
+from lyrics import bulk_lookup, prepare_text, save_lyrics_batch, LyricsClient, embed_plain, save_lyrics, current_lyrics, read_embedded, parse_lrc
 
 LRC = "[00:00.00] 作词 : Johnson\n[00:27.24]Back in black\n[00:31.00][01:40.50]I hit the sack\n[ar:AC/DC]\nsem tempo\n"
 
@@ -193,6 +193,11 @@ class EmbeddedLyricsTest(unittest.TestCase):
             self.assertEqual(embedded["sincronizada"], [{"t": 27.24, "linha": "Back in black"}, {"t": 100.5, "linha": "I hit the sack"}])
             self.assertEqual(embedded["texto"], "Back in black\nI hit the sack")
 
+    def test_lrc_formatting_is_idempotent_at_minute_boundaries(self):
+        once = prepare_text("[00:59.999]Boundary verse\n[01:59.995]Next")
+        self.assertEqual(once, "[01:00.00]Boundary verse\n[02:00.00]Next")
+        self.assertEqual(prepare_text(once), once)
+
     def test_batch_save_is_one_transaction_with_one_undo(self):
         library, storage = self.dir / "musicas", self.dir / "dados"
         library.mkdir()
@@ -252,13 +257,20 @@ class EmbeddedLyricsTest(unittest.TestCase):
         client = Client()
         missing = library / "missing.mp3"
         shutil.copy(self.mp3, missing)
-        rows = [track(synced, "Already"), track(plain, "Plain upgrade"), track(missing, "Text only"), track(missing, "Orion"), track(missing, "Missing")]
+        in_tag = library / "in_tag.mp3"
+        shutil.copy(self.mp3, in_tag)
+        tags = ID3()
+        tags.add(USLT(encoding=3, lang="eng", desc="", text="[00:02.00]Dentro da tag"))
+        tags.save(in_tag)
+        rows = [track(in_tag, "Already"), track(synced, "Sidecar"), track(plain, "Plain upgrade"), track(missing, "Text only"), track(missing, "Orion"), track(missing, "Missing")]
         rows += [track(missing, f"Down {i}") for i in range(3)] + [track(missing, "Text only")]
         result = bulk_lookup(rows, client, max_failures=3)
-        self.assertEqual([r["status"] for r in result], ["already_synced", "synced", "plain", "instrumental", "not_found", "error", "error", "error", "not_checked"])
-        self.assertEqual(result[1]["text"], "[00:01.00]Verso")
-        self.assertEqual(result[1]["current"], "plain")
+        self.assertEqual([r["status"] for r in result], ["already_synced", "synced", "synced", "plain", "instrumental", "not_found", "error", "error", "error", "not_checked"])
+        self.assertEqual((result[1]["text"], result[1]["source"], result[1]["current"]), ("[00:01.00]Já sincronizada", "lrc_file", "none"))
+        self.assertEqual(result[2]["text"], "[00:01.00]Verso")
+        self.assertEqual(result[2]["current"], "plain")
         self.assertNotIn("Already", client.calls)
+        self.assertNotIn("Sidecar", client.calls)
         cancel = threading.Event()
         cancel.set()
         self.assertEqual({r["status"] for r in bulk_lookup(rows[:2], client, cancel=cancel)}, {"not_checked"})
