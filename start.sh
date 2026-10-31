@@ -3,4 +3,4 @@ set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 source ./setup_env.sh
 acervo_preparar
-exec .venv/bin/python acervo.py interface --abrir "$@"
+exec .venv/bin/python acervo.py serve --open "$@"

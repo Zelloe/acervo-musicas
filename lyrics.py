@@ -152,10 +152,10 @@ class LyricsClient:
         return _result(exact.get("syncedLyrics") or "", exact.get("plainLyrics") or "", exact.get("instrumental"),
                        "lrclib", f"https://lrclib.net/api/get/{exact['id']}" if exact.get("id") else "")
 
-    def lookup(self, artista: str, titulo: str, album: str = "", duracao: float | None = None) -> dict:
-        if not (artista or "").strip() or not (titulo or "").strip():
+    def lookup(self, artist: str, title: str, album: str = "", duration: float | None = None) -> dict:
+        if not (artist or "").strip() or not (title or "").strip():
             return {"encontrada": False}
-        path = self._key(artista, titulo, album, duracao)
+        path = self._key(artist, title, album, duration)
         try:
             cached = json.loads(path.read_text(encoding="utf-8"))
             age = time.time() - cached.get("_salvo", 0)
@@ -164,7 +164,7 @@ class LyricsClient:
         except (OSError, ValueError, AttributeError):
             pass
         with self.lock:
-            result = self._lookup(artista, titulo, album, duracao)
+            result = self._lookup(artist, title, album, duration)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             temp = path.with_suffix(".tmp")
@@ -177,10 +177,10 @@ class LyricsClient:
     buscar = lookup  # temporary alias (step B)
 
 
-def lyrics_for_track(path: Path, artista: str, titulo: str, album: str, duracao: float | None, cliente: LyricsClient) -> dict:
+def lyrics_for_track(path: Path, artist: str, title: str, album: str, duration: float | None, client: LyricsClient) -> dict:
     """The file's lyrics take priority; otherwise LRCLIB's (without writing anything)."""
     # Temporary: calls the old name so server tests that patch it keep working during step B.
-    return read_embedded(path) or cliente.buscar(artista, titulo, album, duracao)
+    return read_embedded(path) or client.buscar(artist, title, album, duration)
 
 
 def embed_plain(path: Path, letra: dict) -> bool:
@@ -209,29 +209,29 @@ def current_lyrics(path: Path) -> list[str]:
     return list(FLAC(path).get("lyrics", []))
 
 
-def save_lyrics(root: Path, storage: Path, arquivo: str, texto: str, anterior_sha256: str | None = None) -> dict:
+def save_lyrics(root: Path, storage: Path, file: str, text: str, previous_sha256: str | None = None) -> dict:
     """Writes lyrics into a collection track with a backup, verification and undo from History.
 
-    With anterior_sha256 (the hash seen in the preview), the write is refused if the
+    With previous_sha256 (the hash seen in the preview), the write is refused if the
     track has changed since then; the check happens under library_lock.
     """
     from library_core import secure_file, sha256
     from library_import import import_reviewed
 
-    texto = (texto or "").replace("\r\n", "\n").strip()
-    if not texto or "\x00" in texto or len(texto) > 100_000:
+    text = (text or "").replace("\r\n", "\n").strip()
+    if not text or "\x00" in text or len(text) > 100_000:
         raise ValueError("Letra vazia ou inválida")
-    if parse_lrc(texto):
+    if parse_lrc(text):
         raise ValueError("Grave a letra sem marcações de tempo; a versão sincronizada fica no cache do Acervo")
     root = Path(root).resolve(strict=True)
-    path = secure_file(root, arquivo)
+    path = secure_file(root, file)
     current = current_lyrics(path)
-    if current == [texto]:
+    if current == [text]:
         raise ValueError("A faixa já tem exatamente essa letra")
-    if anterior_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", str(anterior_sha256)):
+    if previous_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", str(previous_sha256)):
         raise ValueError("Hash da prévia inválido")
-    operation = {"acao": "metadados", "arquivo": str(path), "antes_sha256": anterior_sha256 or sha256(path),
-                 "alteracoes": {"letra": {"atual": current, "proposto": [texto]}}}
+    operation = {"acao": "metadados", "arquivo": str(path), "antes_sha256": previous_sha256 or sha256(path),
+                 "alteracoes": {"letra": {"atual": current, "proposto": [text]}}}
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     return import_reviewed(root, Path(storage) / "backups", [operation], f"letra-{stamp}", Path(storage))
 
@@ -240,4 +240,5 @@ def save_lyrics(root: Path, storage: Path, arquivo: str, texto: str, anterior_sh
 Letras = LyricsClient
 letra_da_faixa = lyrics_for_track
 letra_atual = current_lyrics
-gravar_letra = save_lyrics
+def gravar_letra(root, storage, arquivo, texto, anterior_sha256=None):
+    return save_lyrics(root, storage, arquivo, texto, anterior_sha256)

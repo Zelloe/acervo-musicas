@@ -38,24 +38,24 @@ ALBUM = {
 }
 
 
-def qualifiers(titulo: str) -> list[str]:
+def qualifiers(title: str) -> list[str]:
     """Parts of the title inside parentheses/brackets and after " - "."""
-    parts = [a or b for a, b in re.findall(r"\(([^)]*)\)|\[([^\]]*)\]", titulo)]
-    plain = re.sub(r"\([^)]*\)|\[[^\]]*\]", " ", titulo)
+    parts = [a or b for a, b in re.findall(r"\(([^)]*)\)|\[([^\]]*)\]", title)]
+    plain = re.sub(r"\([^)]*\)|\[[^\]]*\]", " ", title)
     parts += plain.split(" - ")[1:]
     return [normalize(p) for p in parts if p.strip()]
 
 
-def classify(titulo: str = "", album: str = "", tipo_album: str = "") -> dict:
+def classify(title: str = "", album: str = "", album_kind: str = "") -> dict:
     marks = set()
-    for part in qualifiers(titulo or ""):
+    for part in qualifiers(title or ""):
         marks.update(name for name, pattern in QUALIFIER.items() if pattern.search(part))
     album_text = normalize(album or "")
     if album_text:
         marks.update(name for name, pattern in ALBUM.items() if pattern.search(album_text))
         for part in qualifiers(album):
             marks.update(name for name, pattern in QUALIFIER.items() if pattern.search(part))
-    if (tipo_album or "").casefold() == "compilation":
+    if (album_kind or "").casefold() == "compilation":
         marks.add("coletanea")
     kind = next((t for t in KINDS if t in marks), "estudio")
     marks.add(kind)

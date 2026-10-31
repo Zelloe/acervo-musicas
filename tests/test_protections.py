@@ -81,6 +81,9 @@ class ProtectionTest(unittest.TestCase):
         self.assertEqual(protections.load(self.data, self.lib)["faixas"], {})
         with self.assertRaises(ValueError):
             self.protect("capa")
+        self.protect("genre", "album_artist")  # English names are stored with the file-format names
+        self.assertEqual(protections.protected(protections.load(self.data, self.lib), self.lib, str(self.track)), {"genero", "artista_album"})
+        protections.unprotect(self.data, self.lib, [str(self.track)], ["genero", "artista_album"])
         outside = self.base / "fora.mp3"
         shutil.copy(self.sample, outside)
         with self.assertRaises(ValueError):
