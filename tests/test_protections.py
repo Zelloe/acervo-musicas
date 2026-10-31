@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from mutagen.id3 import ID3, TCON, TIT2, TPE1
 
+from messages import language
 import protections
 from library_core import apply_plan, library_lock, metadata_values, restore, sha256
 from staged_downloads import changes_for
@@ -93,12 +94,12 @@ class ProtectionTest(unittest.TestCase):
         self.protect("genero")
         path = protections.policy_path(self.data, self.lib)
         path.write_text("{quebrado")
-        with self.assertRaisesRegex(ValueError, "ilegível"):
+        with self.assertRaisesRegex(ValueError, "Unreadable"):
             protections.load(self.data, self.lib)
-        with self.assertRaisesRegex(ValueError, "ilegível"):
+        with self.assertRaisesRegex(ValueError, "Unreadable"):
             create_plan(self.lib, self.base / "plano", storage=self.data)
         path.write_text(json.dumps({"schema": 1, "biblioteca": "/outra/colecao", "faixas": {}}))
-        with self.assertRaisesRegex(ValueError, "outra biblioteca"):
+        with self.assertRaisesRegex(ValueError, "another library"):
             protections.load(self.data, self.lib)
 
     def test_unreadable_or_odd_policy_files_fail_closed(self):
@@ -108,19 +109,19 @@ class ProtectionTest(unittest.TestCase):
                     {"schema": 1, "biblioteca": str(self.lib.resolve()), "faixas": {"acdc.mp3": ["genero"]}},
                     {"schema": 1, "biblioteca": str(self.lib.resolve()), "faixas": {"../fora.mp3": {"campos": ["genero"]}}}):
             path.write_text(json.dumps(bad))
-            with self.assertRaisesRegex(ValueError, "incompatível"):
+            with self.assertRaisesRegex(ValueError, "Incompatible"):
                 protections.load(self.data, self.lib)
         path.unlink()
         path.symlink_to(self.base / "inexistente.json")
-        with self.assertRaisesRegex(ValueError, "arquivo comum"):
+        with self.assertRaisesRegex(ValueError, "regular file"):
             protections.load(self.data, self.lib)
         path.unlink()
         path.mkdir()
-        with self.assertRaisesRegex(ValueError, "arquivo comum"):
+        with self.assertRaisesRegex(ValueError, "regular file"):
             protections.load(self.data, self.lib)
         path.rmdir()
         with patch.object(Path, "lstat", side_effect=PermissionError("negado")):
-            with self.assertRaisesRegex(ValueError, "Não foi possível ler"):
+            with self.assertRaisesRegex(ValueError, "Could not read"):
                 protections.load(self.data, self.lib)
 
     def test_each_library_has_its_own_policy(self):
@@ -132,7 +133,7 @@ class ProtectionTest(unittest.TestCase):
 
     def test_busy_library_gives_clear_error(self):
         with library_lock(self.lib):
-            with self.assertRaisesRegex(ValueError, "ocupada"):
+            with self.assertRaisesRegex(ValueError, "busy"):
                 self.protect("genero")
 
     # Proposals
@@ -144,7 +145,14 @@ class ProtectionTest(unittest.TestCase):
         result = create_plan(self.lib, self.base / "plano2", storage=self.data)
         self.assertEqual(json.loads(Path(result["plano"]).read_text())["arquivos"], [])
         self.assertEqual(result["resumo"]["alteracoes_propostas"], 0)
-        self.assertIn("Campo protegido: genero", (self.base / "plano2" / "revisao.csv").read_text(encoding="utf-8-sig"))
+        self.assertIn("Protected field: genero", (self.base / "plano2" / "revisao.csv").read_text(encoding="utf-8-sig"))
+
+    def test_messages_follow_the_requested_language(self):
+        with self.assertRaisesRegex(ValueError, "Invalid fields; use: titulo"):
+            protections.protect(self.data, self.lib, [str(self.track)], ["inexistente"])
+        with language("pt-BR"):
+            with self.assertRaisesRegex(ValueError, "Campos inválidos; use: titulo"):
+                protections.protect(self.data, self.lib, [str(self.track)], ["inexistente"])
 
     def test_download_changes_skip_protected_fields(self):
         current = {"genero": [], "album": ["Velho"]}
@@ -157,7 +165,7 @@ class ProtectionTest(unittest.TestCase):
         before = self.track.read_bytes()
         plan, approvals, _ = self.plan()
         self.protect("genero")
-        with self.assertRaisesRegex(ValueError, "Campo protegido"):
+        with self.assertRaisesRegex(ValueError, "Protected field"):
             apply_plan(plan, approvals, self.data / "backups", self.data)
         self.assertEqual(self.track.read_bytes(), before)
         self.assertFalse((self.data / "backups").exists())
@@ -165,7 +173,7 @@ class ProtectionTest(unittest.TestCase):
     def test_default_storage_matches_backup_parent(self):
         plan, approvals, _ = self.plan()
         self.protect("genero")
-        with self.assertRaisesRegex(ValueError, "Campo protegido"):
+        with self.assertRaisesRegex(ValueError, "Protected field"):
             apply_plan(plan, approvals, self.data / "backups")
 
     def test_restore_refuses_to_change_protected_field(self):
@@ -173,7 +181,7 @@ class ProtectionTest(unittest.TestCase):
         result = apply_plan(plan, approvals, self.data / "backups", self.data)
         applied = self.track.read_bytes()
         self.protect("genero")
-        with self.assertRaisesRegex(ValueError, "campo protegido"):
+        with self.assertRaisesRegex(ValueError, "protected field"):
             restore(Path(result["manifesto"]))
         self.assertEqual(self.track.read_bytes(), applied)
         protections.unprotect(self.data, self.lib, [str(self.track)], ["genero"])
@@ -198,7 +206,7 @@ class ProtectionTest(unittest.TestCase):
     def test_import_refuses_protected_change(self):
         self.protect("genero")
         op = self.operation("metadados", {"genero": {"atual": [], "proposto": ["Hard Rock"]}})
-        with self.assertRaisesRegex(ValueError, "Campo protegido"):
+        with self.assertRaisesRegex(ValueError, "Protected field"):
             import_reviewed(self.lib, self.data / "backups", [op], "lote", self.data)
 
     def test_replacement_keeps_protected_values(self):
@@ -217,7 +225,7 @@ class ProtectionTest(unittest.TestCase):
         op = self.operation("metadados", {"genero": {"atual": [], "proposto": ["Hard Rock"]}})
         result = import_reviewed(self.lib, self.data / "backups", [op], "lote", self.data)
         self.protect("genero")
-        with self.assertRaisesRegex(ValueError, "campo protegido"):
+        with self.assertRaisesRegex(ValueError, "protected field"):
             restore_import(Path(result["manifesto"]))
         self.assertEqual(metadata_values(self.track)["genero"], ["Hard Rock"])
 

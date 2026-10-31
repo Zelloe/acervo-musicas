@@ -48,7 +48,7 @@ class LyricsHTTPTest(unittest.TestCase):
 
     def get(self, params=None, status=200, host=None, route="/api/lyrics"):
         route += "?" + urlencode(to_api(params if params is not None else {"id": "fixture"}))
-        request = Request(self.url + route, headers={} if host is None else {"Host": host})
+        request = Request(self.url + route, headers={"X-Acervo-Language": "pt-BR", **({} if host is None else {"Host": host})})
         try:
             response = urlopen(request, timeout=5)
         except HTTPError as error:

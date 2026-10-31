@@ -14,6 +14,22 @@ from urllib.request import Request, urlopen
 
 from library_scan import album_base, normalized
 from library_core import atomic_json
+from messages import _, register
+
+register({
+    "Enter a real contact in --contact to identify the MusicBrainz client": "Informe um contato real em --contato para identificar o cliente MusicBrainz",
+    "Online lookups suspended or limit reached; review pending": "Consultas online suspensas ou limite atingido; revisão pendente",
+    "Online lookup limit reached": "Limite de consultas online atingido",
+    "MusicBrainz unavailable (HTTP {code}); lookups suspended": "MusicBrainz indisponível (HTTP {code}); consultas suspensas",
+    "MusicBrainz unavailable; lookups suspended for this analysis": "MusicBrainz indisponível; consultas suspensas nesta análise",
+    "No response from MusicBrainz": "Sem resposta MusicBrainz",
+    "MusicBrainz artist missing or ambiguous": "Artista MusicBrainz ausente ou ambíguo",
+    "MusicBrainz album missing or ambiguous; the artist name alone does not confirm their identity": "Álbum MusicBrainz ausente ou ambíguo; o nome do artista sozinho não confirma sua identidade",
+    "Release Group genre; local recording not identified": "Gênero do Release Group; gravação local não identificada",
+    "Artist genre after matching an album without a genre; local recording not identified": "Gênero do artista após correspondência de álbum sem gênero; gravação local não identificada",
+    "MusicBrainz has no voted genre for this artist/album": "MusicBrainz sem gênero votado para este artista/álbum",
+    "review required; does not confirm the audio": "revisão obrigatória; não confirma áudio",
+})
 
 
 def literal(value: str) -> str:
@@ -23,7 +39,7 @@ def literal(value: str) -> str:
 class MusicBrainz:
     def __init__(self, cache: Path, contact: str, max_requests: int = 200):
         if not contact.strip() or "\n" in contact or "\r" in contact:
-            raise ValueError("Informe um contato real em --contato para identificar o cliente MusicBrainz")
+            raise ValueError(_("Enter a real contact in --contact to identify the MusicBrainz client"))
         self.cache = cache
         cache.mkdir(parents=True, exist_ok=True)
         self.user_agent = f"BibliotecaMusicalLocal/0.1 ({contact})"
@@ -45,7 +61,7 @@ class MusicBrainz:
             except (ValueError, KeyError, OSError):
                 pass
         if self.disabled or self.requests >= self.max_requests:
-            raise ValueError("Consultas online suspensas ou limite atingido; revisão pendente")
+            raise ValueError(_("Online lookups suspended or limit reached; review pending"))
         # The lock and the persisted clock share the limit across processes using this cache.
         with (self.cache / ".rate.lock").open("a+") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
@@ -57,7 +73,7 @@ class MusicBrainz:
                     last = 0
                 time.sleep(max(0, 1.1 - (time.time() - last)))
                 if self.requests >= self.max_requests:
-                    raise ValueError("Limite de consultas online atingido")
+                    raise ValueError(_("Online lookup limit reached"))
                 clock.write_text(str(time.time()))
                 self.requests += 1
                 try:
@@ -69,12 +85,12 @@ class MusicBrainz:
                 except HTTPError as error:
                     if error.code not in (429, 500, 502, 503, 504) or attempt == 2:
                         self.disabled = True
-                        raise ValueError(f"MusicBrainz indisponível (HTTP {error.code}); consultas suspensas") from error
+                        raise ValueError(_("MusicBrainz unavailable (HTTP {code}); lookups suspended", code=error.code)) from error
                     time.sleep(2 ** attempt)
                 except (URLError, TimeoutError, OSError, ValueError) as error:
                     self.disabled = True
-                    raise ValueError("MusicBrainz indisponível; consultas suspensas nesta análise") from error
-        raise ValueError("Sem resposta MusicBrainz")
+                    raise ValueError(_("MusicBrainz unavailable; lookups suspended for this analysis")) from error
+        raise ValueError(_("No response from MusicBrainz"))
 
     def artist(self, name: str) -> dict | None:
         result = self.get("artist", query="artist:" + literal(name), limit=25)
@@ -103,21 +119,21 @@ class MusicBrainz:
     def _genre(self, name: str, album: str) -> dict:
         artist = self.artist(name)
         if artist is None:
-            return {"revisao": "Artista MusicBrainz ausente ou ambíguo"}
+            return {"revisao": _("MusicBrainz artist missing or ambiguous")}
         ident = artist["id"]
         groups = self.get("release-group", query=f"releasegroup:{literal(album_base(album))} AND arid:{ident}", limit=25)
         exact = [g for g in groups.get("release-groups", []) if normalized(g.get("title", "")) == normalized(album_base(album)) and int(g.get("score", 0)) >= 95 and any(c.get("artist", {}).get("id") == ident for c in g.get("artist-credit", []) if isinstance(c, dict))]
         if len(exact) != 1:
-            return {"revisao": "Álbum MusicBrainz ausente ou ambíguo; o nome do artista sozinho não confirma sua identidade"}
+            return {"revisao": _("MusicBrainz album missing or ambiguous; the artist name alone does not confirm their identity")}
         group = self.get("release-group/" + exact[0]["id"], inc="genres")
         genre = self.choose_genre(group)
         if genre:
-            return {"genero": genre, "fonte": "https://musicbrainz.org/release-group/" + group["id"], "criterio": "Gênero do Release Group; gravação local não identificada"}
+            return {"genero": genre, "fonte": "https://musicbrainz.org/release-group/" + group["id"], "criterio": _("Release Group genre; local recording not identified")}
         artist_data = self.get("artist/" + ident, inc="genres")
         genre = self.choose_genre(artist_data)
         if genre:
-            return {"genero": genre, "fonte": "https://musicbrainz.org/artist/" + ident, "criterio": "Gênero do artista após correspondência de álbum sem gênero; gravação local não identificada"}
-        return {"revisao": "MusicBrainz sem gênero votado para este artista/álbum"}
+            return {"genero": genre, "fonte": "https://musicbrainz.org/artist/" + ident, "criterio": _("Artist genre after matching an album without a genre; local recording not identified")}
+        return {"revisao": _("MusicBrainz has no voted genre for this artist/album")}
 
     def recordings(self, artist: str, title: str, seconds: float) -> list[dict]:
         result = self.get("recording", query=f"recording:{literal(title)} AND artist:{literal(artist)}", limit=25)
@@ -128,5 +144,5 @@ class MusicBrainz:
                 continue
             length = row.get("length")
             delta = abs(length / 1000 - seconds) if length else None
-            candidates.append({"id": row["id"], "titulo": row["title"], "duracao_ms": length, "diferenca_segundos": delta, "duracao_compativel": delta is not None and delta <= 2, "desambiguacao": row.get("disambiguation", ""), "fonte": "https://musicbrainz.org/recording/" + row["id"], "status": "revisão obrigatória; não confirma áudio"})
+            candidates.append({"id": row["id"], "titulo": row["title"], "duracao_ms": length, "diferenca_segundos": delta, "duracao_compativel": delta is not None and delta <= 2, "desambiguacao": row.get("disambiguation", ""), "fonte": "https://musicbrainz.org/recording/" + row["id"], "status": _("review required; does not confirm the audio")})
         return candidates

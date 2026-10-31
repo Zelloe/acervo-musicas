@@ -14,6 +14,24 @@ import re
 from library_core import atomic_json, integrity, previous_album, sha256
 import protections
 from library_scan import album_base, normalized, read_track, signature, write_csv, TEMP_PREFIXES, VERSION
+from messages import _, register
+
+register({
+    "Protected field: {field}": "Campo protegido: {field}",
+    "Album rule": "Regra por álbum",
+    "Rule for the exact artist credit; requires approval": "Regra por crédito exato de artista; requer aprovação",
+    "No genre identified": "Sem gênero identificado",
+    "Genre has no rule or conflicting rules": "Gênero sem regra ou regras conflitantes",
+    "Candidate album with mismatched version/track/disc; keep and review": "Álbum candidato com versão/faixa/disco incompatível; preservar e revisar",
+    "Album already has a previous name recorded; review needed": "Álbum já tem registro de nome anterior; revisão necessária",
+    "Artist, album, disc, track and title match; recording not confirmed": "Correspondência de artista, álbum, disco, faixa e título; gravação não confirmada",
+    "Current name kept in BibliotecaMusical:AlbumAnterior (MP3) or BIBLIOTECA_ALBUM_ANTERIOR (FLAC)": "Nome atual preservado em BibliotecaMusical:AlbumAnterior (MP3) ou BIBLIOTECA_ALBUM_ANTERIOR (FLAC)",
+    "The library must be a folder and the reports must be kept outside it": "A biblioteca deve ser uma pasta e os relatórios devem ficar fora dela",
+    "The output folder already exists; choose another one": "A pasta de saída já existe; escolha outra",
+    "File changed during the analysis": "Arquivo mudou durante a análise",
+    "File with hard links; approval blocked": "Arquivo com hard links; aprovação bloqueada",
+    "Analysis complete": "Análise concluída",
+})
 
 
 BASE = Path(__file__).resolve().parent
@@ -26,7 +44,7 @@ def rules(path: Path) -> list[dict]:
 
 def propose(track: dict, genres: list[dict], albums: list[dict], online=None, protected: frozenset = frozenset()) -> tuple[list[dict], list[str]]:
     changes, review = [], []
-    review.extend(f"Campo protegido: {field}" for field in sorted(protected & {"genero", "album"}))
+    review.extend(_("Protected field: {field}", field=field) for field in sorted(protected & {"genero", "album"}))
     artists = track["artista_album"] or track["artista"]
     # A string with '/' is a single credit; AC/DC and featured artists are not split.
     artist = artists[0] if len(artists) == 1 else ""
@@ -39,15 +57,15 @@ def propose(track: dict, genres: list[dict], albums: list[dict], online=None, pr
         options = {r["genero"] for r in matches if r.get("genero", "").strip()}
         if len(options) == 1:
             rule = matches[0]
-            changes.append({"campo": "genero", "atual": track["genero"], "proposto": [next(iter(options))], "fonte": rule["origem"], "criterio": "Regra por álbum" if specific else "Regra por crédito exato de artista; requer aprovação"})
+            changes.append({"campo": "genero", "atual": track["genero"], "proposto": [next(iter(options))], "fonte": rule["origem"], "criterio": _("Album rule") if specific else _("Rule for the exact artist credit; requires approval")})
         elif online is not None and artist and len(track["album"]) == 1:
             found = online.genre(artist, track["album"][0])
             if found.get("genero"):
                 changes.append({"campo": "genero", "atual": track["genero"], "proposto": [found["genero"]], "fonte": found["fonte"], "criterio": found["criterio"]})
             else:
-                review.append(found.get("revisao", "Sem gênero identificado"))
+                review.append(found.get("revisao", _("No genre identified")))
         else:
-            review.append("Gênero sem regra ou regras conflitantes")
+            review.append(_("Genre has no rule or conflicting rules"))
 
     for rule in albums if "album" not in protected else []:
         if track["artista"] != [rule["artista"]] or track["album"] != [rule["album_atual"]]:
@@ -61,12 +79,12 @@ def propose(track: dict, genres: list[dict], albums: list[dict], online=None, pr
         disc = track["disco"][0].split("/")[0] if len(track["disco"]) == 1 else ""
         # The whole title must match: "To Live Is to Die" is not a live version.
         if disc != rule["disco"] or normalized(clean_title) != normalized(numbers.get(number, "")) or not clean_title:
-            review.append("Álbum candidato com versão/faixa/disco incompatível; preservar e revisar")
+            review.append(_("Candidate album with mismatched version/track/disc; keep and review"))
             continue
         if previous_album(Path(track["arquivo"])):
-            review.append("Álbum já tem registro de nome anterior; revisão necessária")
+            review.append(_("Album already has a previous name recorded; review needed"))
             continue
-        changes.append({"campo": "album", "atual": track["album"], "proposto": [rule["album_padrao"]], "fonte": rule["fonte"], "criterio": "Correspondência de artista, álbum, disco, faixa e título; gravação não confirmada", "preservacao": "Nome atual preservado em BibliotecaMusical:AlbumAnterior (MP3) ou BIBLIOTECA_ALBUM_ANTERIOR (FLAC)"})
+        changes.append({"campo": "album", "atual": track["album"], "proposto": [rule["album_padrao"]], "fonte": rule["fonte"], "criterio": _("Artist, album, disc, track and title match; recording not confirmed"), "preservacao": _("Current name kept in BibliotecaMusical:AlbumAnterior (MP3) or BIBLIOTECA_ALBUM_ANTERIOR (FLAC)")})
     return changes, review
 
 
@@ -75,9 +93,9 @@ def create_plan(root: Path, output: Path, normalize_albums: bool = False, genre_
     policy = protections.load(storage, root) if storage else protections.empty(root)
     output = output.expanduser().resolve()
     if not root.is_dir() or output == root or root in output.parents:
-        raise ValueError("A biblioteca deve ser uma pasta e os relatórios devem ficar fora dela")
+        raise ValueError(_("The library must be a folder and the reports must be kept outside it"))
     if output.exists():
-        raise ValueError("A pasta de saída já existe; escolha outra")
+        raise ValueError(_("The output folder already exists; choose another one"))
     genres = rules(genre_path or BASE / "genre_rules.csv")
     albums = rules(album_path or BASE / "album_rules.csv") if normalize_albums else []
     files, ignored, errors = [], [], []
@@ -105,7 +123,7 @@ def create_plan(root: Path, output: Path, normalize_albums: bool = False, genre_
             track = read_track(path)
             digest = sha256(path)
             if signature(path) != stat_before or not track["arquivo_estavel_durante_leitura"]:
-                raise ValueError("Arquivo mudou durante a análise")
+                raise ValueError(_("File changed during the analysis"))
             track["id"] = hashlib.sha256(str(path).encode()).hexdigest()[:24]
             tracks.append(track)
             changes, review = propose(track, genres, albums, online, protections.protected(policy, root, str(path)))
@@ -113,7 +131,7 @@ def create_plan(root: Path, output: Path, normalize_albums: bool = False, genre_
                 # Checks support before offering write approval.
                 integrity(path)
                 if path.stat().st_nlink > 1:
-                    raise ValueError("Arquivo com hard links; aprovação bloqueada")
+                    raise ValueError(_("File with hard links; approval blocked"))
                 for change in changes:
                     change["id"] = hashlib.sha256((str(path) + digest + json.dumps(change, sort_keys=True, ensure_ascii=False)).encode()).hexdigest()[:24]
                     flat.append({"id": change["id"], "arquivo": str(path), "titulo": " | ".join(track["titulo"]), "artista": " | ".join(track["artista"]), "campo": change["campo"], "atual": json.dumps(change["atual"], ensure_ascii=False), "proposto": json.dumps(change["proposto"], ensure_ascii=False), "fonte": change["fonte"], "criterio": change["criterio"], "preservacao": change.get("preservacao", ""), "aprovar": "nao"})
@@ -133,5 +151,5 @@ def create_plan(root: Path, output: Path, normalize_albums: bool = False, genre_
     write_csv(output / "revisao.csv", reviews, ["arquivo", "campos_ausentes", "observacoes"])
     write_csv(output / "erros.csv", errors, ["arquivo", "erro"])
     if progress:
-        progress(len(files), len(files), "Análise concluída")
+        progress(len(files), len(files), _("Analysis complete"))
     return {"pasta_relatorios": str(output), "resumo": summary, "plano": str(output / "plano.json")}

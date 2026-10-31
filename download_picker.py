@@ -2,12 +2,38 @@
 
 from __future__ import annotations
 
+from messages import _, register
+
 from collections import OrderedDict
 from pathlib import Path
 import secrets
 import threading
 
 import downloader
+
+
+register({
+    "Looking up edition tracks…": "Consultando as faixas da edição…",
+    "Enter an existing folder path to save files": "Informe o caminho de uma pasta existente para salvar",
+    "Use the full path of the destination folder": "Use o caminho completo da pasta para salvar",
+    "The destination must be an existing folder": "O destino deve ser uma pasta existente",
+    "Invalid result; search again": "Resultado inválido; faça a busca novamente",
+    "The search returned invalid results": "A busca retornou resultados inválidos",
+    "Checking tracks already in the folder…": "Conferindo as músicas que já estão na pasta…",
+    "Choose a search mode and enter an artist, song or link": "Escolha como buscar e informe um artista, música ou link",
+    "Finding artist albums…": "Buscando álbuns do artista…",
+    "Finding tracks…": "Buscando músicas…",
+    "Looking up tracks from the link…": "Consultando as faixas do link…",
+    "Choose an album or edition from the search": "Escolha um álbum ou uma edição da busca",
+    "The result does not belong to this search": "O resultado não pertence a esta busca",
+    "Finding album editions…": "Buscando as edições do álbum…",
+    "Select tracks from the search to download": "Selecione faixas da busca para baixar",
+    "The selection does not belong to this search; search again": "A seleção não pertence à busca; procure novamente",
+    "Invalid MP3 bitrate": "Taxa MP3 inválida",
+    "Choose only track IDs returned by the search": "Escolha somente os identificadores de faixas retornadas pela busca",
+    "The destination folder does not exist or cannot be accessed": "A pasta para salvar não existe ou não pode ser acessada",
+    "The search expired; search again": "A busca expirou; procure novamente"
+})
 
 
 class DownloadPicker:
@@ -37,33 +63,33 @@ class DownloadPicker:
 
     def destination(self, value):
         if not isinstance(value, str) or not value.strip() or len(value) > 4096 or any(ord(c) < 32 for c in value):
-            raise ValueError("Informe o caminho de uma pasta existente para salvar")
+            raise ValueError(_('Enter an existing folder path to save files'))
         path = Path(value).expanduser()
         if not path.is_absolute():
-            raise ValueError("Use o caminho completo da pasta para salvar")
+            raise ValueError(_('Use the full path of the destination folder'))
         try:
             path = path.resolve(strict=True)
         except OSError as error:
-            raise ValueError("A pasta para salvar não existe ou não pode ser acessada") from error
+            raise ValueError(_('The destination folder does not exist or cannot be accessed')) from error
         if not path.is_dir():
-            raise ValueError("O destino deve ser uma pasta existente")
+            raise ValueError(_('The destination must be an existing folder'))
         return path
 
     def _catalog(self, ident):
         if not isinstance(ident, str):
-            raise ValueError("Resultado inválido; faça a busca novamente")
+            raise ValueError(_('Invalid result; search again'))
         with self.lock:
             catalog = self.catalogs.get(ident)
             if catalog is None:
-                raise ValueError("A busca expirou; procure novamente")
+                raise ValueError(_('The search expired; search again'))
             return catalog
 
     def _remember(self, kind, title, rows, folder, artist=""):
         if not isinstance(rows, list) or len(rows) > 300 or any(not isinstance(row, dict) or not isinstance(row.get("titulo"), str) for row in rows):
-            raise ValueError("A busca retornou resultados inválidos")
+            raise ValueError(_('The search returned invalid results'))
         rows = [{**row, "id": secrets.token_hex(12)} for row in rows]
         if kind == "faixas":
-            self.progress("Conferindo as músicas que já estão na pasta…", None)
+            self.progress(_('Checking tracks already in the folder…'), None)
             rows = downloader.mark_owned(rows, self.local_index(folder))
         ident = secrets.token_hex(16)
         catalog = {"id": ident, "tipo": kind, "titulo": title, "artista": artist, "pasta": str(folder), "itens": rows}
@@ -82,16 +108,16 @@ class DownloadPicker:
     def search_options(self, data):
         kind, text = data.get("tipo"), data.get("consulta")
         if kind not in ("artista", "musica", "link") or not isinstance(text, str) or not text.strip() or len(text) > 1200 or any(ord(c) < 32 for c in text):
-            raise ValueError("Escolha como buscar e informe um artista, música ou link")
+            raise ValueError(_('Choose a search mode and enter an artist, song or link'))
         folder = self.destination(data.get("pasta", str(self.folder)))
         return kind, text.strip(), folder
 
     def search(self, data):
         kind, text, folder = self.search_options(data)
         if kind == "artista":
-            self.progress("Buscando álbuns do artista…", None)
+            self.progress(_('Finding artist albums…'), None)
             return self._remember("albuns", text, downloader.search_albums(text), folder, text)
-        self.progress("Buscando músicas…" if kind == "musica" else "Consultando as faixas do link…", None)
+        self.progress(_('Finding tracks…') if kind == "musica" else _('Looking up tracks from the link…'), None)
         rows = downloader.search_songs(text) if kind == "musica" else downloader.tracks(text)
         return self._remember("faixas", text, rows, folder)
 
@@ -99,22 +125,22 @@ class DownloadPicker:
         catalog = self._catalog(data.get("catalogo"))
         ident = data.get("item")
         if not isinstance(ident, str) or catalog["tipo"] not in ("albuns", "edicoes"):
-            raise ValueError("Escolha um álbum ou uma edição da busca")
+            raise ValueError(_('Choose an album or edition from the search'))
         item = next((row for row in catalog["itens"] if row["id"] == ident), None)
         if item is None:
-            raise ValueError("O resultado não pertence a esta busca")
+            raise ValueError(_('The result does not belong to this search'))
         return catalog, item, self.destination(data.get("pasta", catalog["pasta"]))
 
     def open(self, data):
         catalog, item, folder = self.open_options(data)
         if catalog["tipo"] == "albuns":
-            self.progress("Buscando as edições do álbum…", None)
+            self.progress(_('Finding album editions…'), None)
             rows = downloader.editions(catalog["artista"], item["titulo"])
             if len(rows) == 1:
-                self.progress("Consultando as faixas da edição…", None)
+                self.progress(_('Looking up edition tracks…'), None)
                 return self._remember("faixas", rows[0]["titulo"], downloader.tracks(rows[0]["url"]), folder, catalog["artista"])
             return self._remember("edicoes", item["titulo"], rows, folder, catalog["artista"])
-        self.progress("Consultando as faixas da edição…", None)
+        self.progress(_('Looking up edition tracks…'), None)
         return self._remember("faixas", item["titulo"], downloader.tracks(item["url"]), folder, catalog["artista"])
 
     def download_options(self, data):
@@ -122,14 +148,14 @@ class DownloadPicker:
         ids = data.get("ids")
         bitrate = data.get("bitrate", "320k")
         if catalog["tipo"] != "faixas" or not isinstance(ids, list) or not ids or len(ids) > 300 or any(not isinstance(i, str) for i in ids) or len(ids) != len(set(ids)):
-            raise ValueError("Selecione faixas da busca para baixar")
+            raise ValueError(_('Select tracks from the search to download'))
         known = {row["id"]: row for row in catalog["itens"]}
         if any(ident not in known for ident in ids):
-            raise ValueError("A seleção não pertence à busca; procure novamente")
+            raise ValueError(_('The selection does not belong to this search; search again'))
         if bitrate not in ("128k", "192k", "256k", "320k"):
-            raise ValueError("Taxa MP3 inválida")
+            raise ValueError(_('Invalid MP3 bitrate'))
         if any(key in data for key in ("faixas", "url", "arquivo", "comando")):
-            raise ValueError("Escolha somente os identificadores de faixas retornadas pela busca")
+            raise ValueError(_('Choose only track IDs returned by the search'))
         folder = self.destination(data.get("pasta", catalog["pasta"]))
         return catalog, [dict(known[ident]) for ident in ids], folder, bitrate
 

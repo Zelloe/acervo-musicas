@@ -67,7 +67,7 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         self.thread.join()
 
     def request(self, route, data=None, status=200, **headers):
-        defaults = {"Content-Type": "application/json", "Origin": self.url, "X-Library-Token": self.server.app.token}
+        defaults = {"Content-Type": "application/json", "Origin": self.url, "X-Acervo-Language": "pt-BR", "X-Library-Token": self.server.app.token}
         defaults.update(headers)
         request = Request(self.url + route, None if data is None else json.dumps(to_api(data)).encode(), defaults)
         try:

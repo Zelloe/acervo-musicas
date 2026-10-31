@@ -5,7 +5,7 @@ const lyricLabel=message=>typeof tr==="function"?tr(message):message;
 
 function lyricsStatus(message, retry=false) {
   lyricsState.statusMessage=message;lyricsState.retry=retry;
-  $('#lyrics-status').innerHTML=`${escapeHTML(lyricLabel(message))}${retry?` <button class="text-button" data-action="retry-lyrics">${escapeHTML(lyricLabel("Tentar novamente"))}</button>`:""}`;
+  $('#lyrics-status').innerHTML=`${escapeHTML(lyricLabel(message))}${retry?` <button class="text-button" data-action="retry-lyrics">${escapeHTML(lyricLabel("Try again"))}</button>`:""}`;
 }
 
 function closeLyrics() {
@@ -26,27 +26,27 @@ function displayLyrics(data) {
   lyricsState.result=data;
   lyricsState.editor=false;
   $('#lyrics-edit').disabled=false;
-  $('#lyrics-edit').textContent=lyricLabel("Editar e salvar letra");
+  $('#lyrics-edit').textContent=lyricLabel("Edit and save lyrics");
   lyricsState.lines=(data.synced||[]).filter(line=>Number.isFinite(line.t)&&line.t>=0&&typeof line.line==="string");
   lyricsState.active=-1;
   const body=$('#lyrics-body');
   body.scrollTop=0;
   $('#lyrics-follow').parentElement.hidden=!lyricsState.lines.length;
   if(data.instrumental){
-    lyricsStatus("Faixa instrumental — sem letra.");body.textContent="";
+    lyricsStatus("Instrumental track — no lyrics.");body.textContent="";
   }else if(data.found===false||(!lyricsState.lines.length&&!data.text)){
-    lyricsStatus("Letra não encontrada para esta faixa.");body.textContent="";
+    lyricsStatus("No lyrics found for this track.");body.textContent="";
   }else if(lyricsState.lines.length){
-    lyricsStatus("Letra sincronizada");
+    lyricsStatus("Synced lyrics");
     body.innerHTML=`<div class="lyrics-lines">${lyricsState.lines.map((line,i)=>`<p data-lyric-line="${i}">${escapeHTML(line.line)||"♪"}</p>`).join("")}</div>`;
   }else{
-    lyricsStatus("Letra sem sincronização");
+    lyricsStatus("Unsynced lyrics");
     body.innerHTML=`<pre class="lyrics-plain">${escapeHTML(data.text)}</pre>`;
   }
-  const source=data.source==="file"?lyricLabel("Do arquivo"):data.source==="lrclib"?"LRCLIB":"";
+  const source=data.source==="file"?lyricLabel("From file"):data.source==="lrclib"?"LRCLIB":"";
   let url="";
   try{const parsed=new URL(data.url);if(parsed.origin==="https://lrclib.net")url=parsed.href;}catch{}
-  $('#lyrics-source').innerHTML=source?`${escapeHTML(lyricLabel("Fonte:"))} ${url?`<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(source)}</a>`:escapeHTML(source)}`:"";
+  $('#lyrics-source').innerHTML=source?`${escapeHTML(lyricLabel("Source:"))} ${url?`<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(source)}</a>`:escapeHTML(source)}`:"";
   updateLyricsLine();
 }
 
@@ -61,21 +61,21 @@ async function loadLyrics(track) {
   $('#lyrics-artist').dataset.i18nUser="true";$('#lyrics-artist').textContent=join(track.artist);
   $('#lyrics-body').textContent="";$('#lyrics-source').textContent="";
   $('#lyrics-follow').parentElement.hidden=true;
-  lyricsStatus("Buscando letra…");
+  lyricsStatus("Finding lyrics…");
   const key=`${track.id}:${state.summary?.library_revision||""}`;
   if(lyricsState.cache.has(key)){displayLyrics(lyricsState.cache.get(key));return;}
   const controller=new AbortController();lyricsState.controller=controller;
   try{
-    const response=await fetch(`/api/lyrics?id=${encodeURIComponent(track.id)}`,{signal:controller.signal});
+    const response=await fetch(`/api/lyrics?id=${encodeURIComponent(track.id)}`,{signal:controller.signal,headers:languageHeaders()});
     const data=await response.json();
     if(serial!==lyricsState.serial||$('#lyrics-panel').hidden)return;
-    if(!response.ok)throw new Error(data.error||lyricLabel("Não foi possível carregar a letra."));
+    if(!response.ok)throw new Error(data.error||lyricLabel("Could not load lyrics."));
     lyricsState.cache.set(key,data);
     while(lyricsState.cache.size>30)lyricsState.cache.delete(lyricsState.cache.keys().next().value);
     displayLyrics(data);
   }catch(error){
     if(error.name==="AbortError"||serial!==lyricsState.serial)return;
-    lyricsStatus("Não foi possível carregar a letra.",true);
+    lyricsStatus("Could not load lyrics.",true);
     $('#lyrics-body').textContent=error.message;
   }
 }
@@ -87,10 +87,10 @@ function editLyrics() {
   lyricsState.editor=true;
   const text=lyricsState.draft||lyricsState.result?.text||"";
   lyricsState.draft=text;
-  $('#lyrics-edit').textContent=lyricLabel("Voltar à letra");
+  $('#lyrics-edit').textContent=lyricLabel("Back to lyrics");
   $('#lyrics-follow').parentElement.hidden=true;
-  lyricsStatus("Confira ou cole a letra simples antes de salvar.");
-  $('#lyrics-body').innerHTML=`<form id="lyrics-form"><label for="lyrics-editor">${escapeHTML(lyricLabel("Letra sem marcações de tempo"))}</label><textarea id="lyrics-editor" maxlength="100000" rows="12">${escapeHTML(text)}</textarea><p>${escapeHTML(lyricLabel("A gravação exige confirmação e cria um backup completo. A letra sincronizada continua disponível para reprodução."))}</p><button type="submit" class="button primary" data-action="preview-lyrics">${escapeHTML(lyricLabel("Revisar antes de salvar"))}</button></form>`;
+  lyricsStatus("Review or paste the plain lyrics before saving.");
+  $('#lyrics-body').innerHTML=`<form id="lyrics-form"><label for="lyrics-editor">${escapeHTML(lyricLabel("Lyrics without timestamps"))}</label><textarea id="lyrics-editor" maxlength="100000" rows="12">${escapeHTML(text)}</textarea><p>${escapeHTML(lyricLabel("Saving requires confirmation and creates a full backup. Synced lyrics remain available during playback."))}</p><button type="submit" class="button primary" data-action="preview-lyrics">${escapeHTML(lyricLabel("Review before saving"))}</button></form>`;
   setWriteControls();$('#lyrics-editor').focus();
 }
 
@@ -101,7 +101,7 @@ async function previewLyrics(event) {
   try{
     const preview=await api("/api/lyrics/preview",{id:lyricsState.track.id,text:lyricsState.draft});
     lyricsState.pending=preview;
-    modal(`${modalHead(lyricLabel("Salvar letra no arquivo?"),escapeHTML(join(preview.artist)+" — "+join(preview.title)))}<div class="modal-body"><div class="backup-note">${icon("shield")}<span>${escapeHTML(lyricLabel("Será criado um backup completo. Só a letra simples será alterada; você pode desfazer pelo Histórico."))}</span></div><h3>${escapeHTML(lyricLabel("Letra conferida"))}</h3><pre class="lyrics-review">${escapeHTML(preview.text)}</pre>${preview.current.length?`<details><summary>${escapeHTML(lyricLabel("Letra atual do arquivo"))}</summary><pre class="lyrics-review">${escapeHTML(preview.current.join("\n\n"))}</pre></details>`:""}<p class="source">${escapeHTML(preview.file)}</p></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${escapeHTML(lyricLabel("Voltar à revisão"))}</button><button class="button primary" data-action="confirm-lyrics">${escapeHTML(lyricLabel("Criar backup e salvar letra"))}</button></div>`);
+    modal(`${modalHead(lyricLabel("Save lyrics to the file?"),escapeHTML(join(preview.artist)+" — "+join(preview.title)))}<div class="modal-body"><div class="backup-note">${icon("shield")}<span>${escapeHTML(lyricLabel("A full backup will be created. Only plain lyrics will change; you can undo this in History."))}</span></div><h3>${escapeHTML(lyricLabel("Reviewed lyrics"))}</h3><pre class="lyrics-review">${escapeHTML(preview.text)}</pre>${preview.current.length?`<details><summary>${escapeHTML(lyricLabel("Current lyrics in the file"))}</summary><pre class="lyrics-review">${escapeHTML(preview.current.join("\n\n"))}</pre></details>`:""}<p class="source">${escapeHTML(preview.file)}</p></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${escapeHTML(lyricLabel("Back to review"))}</button><button class="button primary" data-action="confirm-lyrics">${escapeHTML(lyricLabel("Back up and save lyrics"))}</button></div>`);
   }catch(error){toast(error.message);}finally{button.disabled=false;}
 }
 
@@ -110,7 +110,7 @@ async function captureLyricsJob(job) {
   lyricsState.seenJob=job.id;
   const ident=job.result.lyrics_track_id;
   for(const key of lyricsState.cache.keys())if(key.startsWith(ident+":"))lyricsState.cache.delete(key);
-  toast(lyricLabel("Letra salva no arquivo. Você pode desfazer pelo Histórico."));
+  toast(lyricLabel("Lyrics saved to the file. You can undo this in History."));
   if(!$('#lyrics-panel').hidden&&lyricsState.track?.id===ident)await loadLyrics(lyricsState.track);
 }
 
@@ -122,12 +122,12 @@ async function showLyrics(id) {
   $('#lyrics-toggle').setAttribute("aria-expanded","true");
   $('#lyrics-close').focus();
   const serial=++lyricsState.serial;
-  lyricsStatus("Buscando letra…");
+  lyricsStatus("Finding lyrics…");
   try{
     const track=state.current?.id===id?state.current:await api(`/api/track?id=${encodeURIComponent(id)}`);
     if(serial!==lyricsState.serial)return;
     await loadLyrics(track);
-  }catch(error){if(serial===lyricsState.serial){lyricsStatus("Não foi possível carregar a letra.");$('#lyrics-body').textContent=error.message;}}
+  }catch(error){if(serial===lyricsState.serial){lyricsStatus("Could not load lyrics.");$('#lyrics-body').textContent=error.message;}}
 }
 
 function updateLyricsLine() {
@@ -164,7 +164,7 @@ document.addEventListener("click",event=>{
   else if(button.dataset.action==="edit-lyrics")editLyrics();
   else if(button.dataset.action==="confirm-lyrics"&&lyricsState.pending){
     button.disabled=true;
-    api("/api/lyrics/save",{preview:lyricsState.pending.preview}).then(async()=>{lyricsState.pending=null;$('#modal').close();await updateState();toast(lyricLabel("Criando backup e salvando a letra…"));}).catch(error=>{button.disabled=false;toast(error.message);});
+    api("/api/lyrics/save",{preview:lyricsState.pending.preview}).then(async()=>{lyricsState.pending=null;$('#modal').close();await updateState();toast(lyricLabel("Creating a backup and saving lyrics…"));}).catch(error=>{button.disabled=false;toast(error.message);});
   }
 });
 document.addEventListener("submit",event=>{if(event.target.id==="lyrics-form")previewLyrics(event);});

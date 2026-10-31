@@ -8,14 +8,21 @@ from __future__ import annotations
 
 import re
 
+from messages import _, register
 from search import normalize
 
 KINDS = ("ao_vivo", "acustico", "demo", "remix", "instrumental", "estudio")
+# English source labels; classify() translates them for the current language.
 LABELS = {
-    "ao_vivo": "Ao vivo", "acustico": "Acústico", "demo": "Demo", "remix": "Remix",
-    "instrumental": "Instrumental", "estudio": "Estúdio", "remaster": "Remaster",
-    "coletanea": "Coletânea", "edicao_especial": "Edição especial",
+    "ao_vivo": "Live", "acustico": "Acoustic", "demo": "Demo", "remix": "Remix",
+    "instrumental": "Instrumental", "estudio": "Studio", "remaster": "Remaster",
+    "coletanea": "Compilation", "edicao_especial": "Special edition",
 }
+register({
+    "Live": "Ao vivo", "Acoustic": "Acústico", "Demo": "Demo", "Remix": "Remix",
+    "Instrumental": "Instrumental", "Studio": "Estúdio", "Remaster": "Remaster",
+    "Compilation": "Coletânea", "Special edition": "Edição especial",
+})
 
 _LIVE = r"\b(live|ao vivo|en vivo|en directo|in concert|unplugged)\b"
 QUALIFIER = {
@@ -61,4 +68,4 @@ def classify(title: str = "", album: str = "", album_kind: str = "") -> dict:
     marks.add(kind)
     order = list(KINDS) + ["remaster", "coletanea", "edicao_especial"]
     marks = sorted(marks, key=order.index)
-    return {"tipo": kind, "marcas": marks, "rotulos": [LABELS[m] for m in marks]}
+    return {"tipo": kind, "marcas": marks, "rotulos": [_(LABELS[m]) for m in marks]}

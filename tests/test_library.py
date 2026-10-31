@@ -110,7 +110,7 @@ class LibraryTest(unittest.TestCase):
         path = self.music()
         before = sha256(path)
         plan = self.plan()
-        with self.assertRaisesRegex(ValueError, "Nenhuma linha"):
+        with self.assertRaisesRegex(ValueError, "No rows approved"):
             apply_plan(plan, plan.parent / "alteracoes.csv", self.root / "backups")
         self.assertEqual(sha256(path), before)
         self.assertFalse((self.root / "backups").exists())
@@ -131,7 +131,7 @@ class LibraryTest(unittest.TestCase):
         plan = self.plan()
         with path.open("ab") as f:
             f.write(b"edited")
-        with self.assertRaisesRegex(ValueError, "mudou"):
+        with self.assertRaisesRegex(ValueError, "changed"):
             apply_plan(plan, self.approvals(plan), self.root / "backups")
 
     def test_restore_preserves_later_edits(self):
@@ -141,7 +141,7 @@ class LibraryTest(unittest.TestCase):
         with path.open("ab") as f:
             f.write(b"later-edit")
         edited = sha256(path)
-        with self.assertRaisesRegex(ValueError, "edições posteriores"):
+        with self.assertRaisesRegex(ValueError, "later edits"):
             restore(Path(result["manifesto"]))
         self.assertEqual(sha256(path), edited)
 
@@ -154,7 +154,7 @@ class LibraryTest(unittest.TestCase):
         backup = manifest.parent / data["arquivos"][0]["backup"]
         backup.write_bytes(b"corrupt")
         current = sha256(path)
-        with self.assertRaisesRegex(ValueError, "danificado"):
+        with self.assertRaisesRegex(ValueError, "Damaged"):
             restore(manifest)
         self.assertEqual(sha256(path), current)
 
@@ -212,10 +212,10 @@ class LibraryTest(unittest.TestCase):
         approvals = self.approvals(plan)
         text = approvals.read_text(encoding="utf-8-sig").replace("Hard Rock", "WRONG")
         approvals.write_text(text, encoding="utf-8-sig")
-        with self.assertRaisesRegex(ValueError, "Edite apenas"):
+        with self.assertRaisesRegex(ValueError, "Edit only"):
             apply_plan(plan, approvals, self.root / "backups")
         plan.write_text(plan.read_text() + " ")
-        with self.assertRaisesRegex(ValueError, "plano foi alterado"):
+        with self.assertRaisesRegex(ValueError, "plan was modified"):
             apply_plan(plan, approvals, self.root / "backups")
 
     def test_interrupted_batch_can_be_restored(self):

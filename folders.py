@@ -6,6 +6,13 @@ import os
 from pathlib import Path
 import shlex
 
+from messages import _, register
+
+register({
+    'The music folder does not exist: {folder}\nSpecify where your music is, for example: {option} "$HOME/Music"':
+        'A pasta de músicas não existe: {folder}\nInforme onde estão suas músicas, por exemplo: {option} "$HOME/Música"',
+})
+
 
 def default_music_folder() -> Path:
     """Reads XDG_MUSIC_DIR the way xdg-user-dir does; without configuration, uses ~/Music."""
@@ -18,7 +25,7 @@ def default_music_folder() -> Path:
     except (OSError, UnicodeDecodeError):
         lines = []
     for line in lines:
-        name, _, value = line.strip().partition("=")
+        name, _sep, value = line.strip().partition("=")
         if name == "XDG_MUSIC_DIR" and value:
             try:
                 value = shlex.split(value)[0]
@@ -33,5 +40,5 @@ def default_music_folder() -> Path:
 def require_folder(folder: Path, option: str = "--pasta") -> Path:
     folder = folder.expanduser()
     if not folder.is_dir():
-        raise ValueError(f'A pasta de músicas não existe: {folder}\nInforme onde estão suas músicas, por exemplo: {option} "$HOME/Música"')
+        raise ValueError(_('The music folder does not exist: {folder}\nSpecify where your music is, for example: {option} "$HOME/Music"', folder=folder, option=option))
     return folder.resolve()

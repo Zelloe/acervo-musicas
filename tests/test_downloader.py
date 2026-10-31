@@ -9,6 +9,7 @@ from mutagen.id3 import ID3, TIT2, TPE1
 
 import downloader
 from download_menu import parse_selection
+from messages import language
 
 ITEMS = [{"titulo": "A", "ja_tenho": True}, {"titulo": "B", "ja_tenho": False}, {"titulo": "C", "ja_tenho": False}]
 RULES = [
@@ -120,7 +121,7 @@ class DownloadTest(unittest.TestCase):
     def test_corrupted_audio_is_rejected(self):
         result = self.download([self.item], corrupt=True)[0]
         self.assertEqual(result["estado"], "erro")
-        self.assertIn("corrompido", result["mensagem"])
+        self.assertIn("corrupted", result["mensagem"])
         self.assertEqual(self.listing(), [])
 
     def test_name_that_appears_during_download_is_not_touched(self):
@@ -172,6 +173,15 @@ class DownloadTest(unittest.TestCase):
             result = downloader.download([{**self.item, "url": "https://open.spotify.com/album/x"}], self.folder, lyrics=False)
         run.assert_not_called()
         self.assertEqual(result[0]["estado"], "erro")
+        self.assertEqual(result[0]["mensagem"], "Invalid track link")
+
+    def test_messages_follow_the_request_language(self):
+        progress = []
+        with language("pt-BR"), patch.object(downloader, "spotdl_executable", return_value="spotdl"), patch.object(downloader.subprocess, "run") as run:
+            result = downloader.download([{**self.item, "url": "https://open.spotify.com/album/x"}], self.folder, progress=lambda text, _: progress.append(text), lyrics=False)
+        run.assert_not_called()
+        self.assertEqual(result[0]["mensagem"], "Link de faixa inválido")
+        self.assertEqual(progress, ["Baixando 1 de 1 · AC/DC - Back In Black", "Downloads concluídos"])
 
 if __name__ == "__main__":
     unittest.main()

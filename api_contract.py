@@ -5,6 +5,13 @@ known enum values are translated; music metadata and external provider data
 must pass through unchanged.
 """
 
+from messages import _, register
+
+register({
+    "Duplicate request fields": "Campos repetidos na requisição"
+})
+
+
 KEYS = {
     "acao": "action", "album_atual": "current_album", "album_base_candidato": "candidate_album_base",
     "albuns": "albums", "alteracoes": "changes", "alteracoes_propostas": "proposed_changes",
@@ -92,7 +99,7 @@ def _convert(value, incoming=False, context=""):
         for key, item in value.items():
             mapped = REQUEST_KEYS.get(key, key) if incoming else KEYS.get(key, key)
             if mapped in result:
-                raise ValueError("Duplicate request fields")
+                raise ValueError(_('Duplicate request fields'))
             legacy_key = mapped if incoming else key
             # Provider records and MusicBrainz identifiers have their own schemas.
             if legacy_key == "musicbrainz" or legacy_key == "fonte" and isinstance(item, dict):
