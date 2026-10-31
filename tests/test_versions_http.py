@@ -1,4 +1,4 @@
-"""Tipos de gravação na biblioteca, playlists e metadados do catálogo remoto."""
+"""Recording types in the library, playlists and remote catalog metadata."""
 
 from http.server import ThreadingHTTPServer
 import json
@@ -11,8 +11,9 @@ from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from api_contract import to_api
 from server import App, Handler
-from versions import classificar
+from versions import classify
 
 
 class VersionHTTPTest(unittest.TestCase):
@@ -43,7 +44,7 @@ class VersionHTTPTest(unittest.TestCase):
     def stop(self):
         self.server.shutdown()
         self.thread.join()
-        self.app.busca_global.fechar()
+        self.app.global_search.close()
 
     def track(self, ident, title, album):
         path = self.root / (ident + ".mp3")
@@ -55,9 +56,9 @@ class VersionHTTPTest(unittest.TestCase):
 
     def request(self, route, params=None, data=None, status=200):
         if params:
-            route += "?" + urlencode(params)
+            route += "?" + urlencode(to_api(params))
         headers = {"Origin": self.url, "X-Library-Token": self.app.token, "Content-Type": "application/json"}
-        request = Request(self.url + route, None if data is None else json.dumps(data).encode(), headers)
+        request = Request(self.url + route, None if data is None else json.dumps(to_api(data)).encode(), headers)
         try:
             response = urlopen(request, timeout=5)
         except HTTPError as error:
@@ -72,32 +73,32 @@ class VersionHTTPTest(unittest.TestCase):
         before = [dict(t) for t in self.rows]
         for choice, ids in expected.items():
             with self.subTest(choice=choice):
-                result = self.request("/api/busca", {"versao": choice})
-                self.assertEqual({t["id"] for t in result["musicas"]}, ids)
-                self.assertTrue(all(t["versao"]["rotulos"] for t in result["musicas"]))
-        self.assertEqual(self.request("/api/library", {"versao": "todas"})["total"], 7)
+                result = self.request("/api/search", {"versao": choice})
+                self.assertEqual({t["id"] for t in result['tracks']}, ids)
+                self.assertTrue(all(t['version']['labels'] for t in result['tracks']))
+        self.assertEqual(self.request("/api/library", {'version': 'all'})["total"], 7)
         extras = self.request("/api/library", {"filter": "versoes"})
-        self.assertNotIn("1", {t["id"] for t in extras["musicas"]})
-        self.assertIn("2", {t["id"] for t in extras["musicas"]})
+        self.assertNotIn("1", {t["id"] for t in extras['tracks']})
+        self.assertIn("2", {t["id"] for t in extras['tracks']})
         self.assertEqual(self.app.tracks, before)
 
     def test_playlist_version_filter_includes_all_pages_and_same_paths_as_search(self):
         more = [self.track(str(i), "Carry On", "Holy Live") for i in range(8, 61)]
         self.app.tracks = self.rows + more
         self.app.by_id = {t["id"]: t for t in self.app.tracks}
-        first = self.request("/api/busca", {"versao": "ao_vivo", "limit": 50})
-        second = self.request("/api/busca", {"versao": "ao_vivo", "offset": 50})
-        selected = first["musicas"] + second["musicas"]
+        first = self.request("/api/search", {"versao": "ao_vivo", "limit": 50})
+        second = self.request("/api/search", {"versao": "ao_vivo", "offset": 50})
+        selected = first['tracks'] + second['tracks']
         self.assertEqual(len(selected), 55)
         preview = self.request("/api/playlists/preview", data={"nome": "Ao vivo", "versao": "ao_vivo"})
-        self.assertEqual(preview["faixas"], len(selected))
+        self.assertEqual(preview['tracks'], len(selected))
         self.assertFalse((self.root / "Playlists").exists())
         result = self.request("/api/playlists/export", data={"nome": "Ao vivo", "versao": "ao_vivo"})
         paths = {line for line in Path(result["playlist"]).read_text().splitlines() if line and not line.startswith("#")}
         self.assertEqual(paths, {"../" + t["id"] + ".mp3" for t in selected})
 
     def test_invalid_version_is_rejected_and_image_hosts_are_restricted(self):
-        self.request("/api/busca", {"versao": "invalido"}, status=400)
+        self.request("/api/search", {"versao": "invalido"}, status=400)
         self.request("/api/playlists/preview", data={"nome": "Teste", "versao": "invalido"}, status=400)
         with urlopen(self.url) as response:
             policy = response.headers["Content-Security-Policy"]
@@ -113,13 +114,13 @@ class VersionHTTPTest(unittest.TestCase):
 
     def test_download_catalog_keeps_photos_and_classification_without_downloading(self):
         song = {"titulo": "Carry On", "artista": "Angra", "album": "Holy Live", "capa": "https://i.scdn.co/image/fixture",
-                "versao": classificar("Carry On", "Holy Live"), "url": "https://open.spotify.com/track/Fixture"}
-        with patch("download_picker.downloader.buscar_musicas", return_value=[song]), patch("download_picker.downloader.baixar") as download:
-            self.request("/api/baixar/buscar", data={"tipo": "musica", "consulta": "Angra"}, status=202)
+                "versao": classify("Carry On", "Holy Live"), "url": "https://open.spotify.com/track/Fixture"}
+        with patch("download_picker.downloader.search_songs", return_value=[song]), patch("download_picker.downloader.download") as download:
+            self.request("/api/download/search", data={"tipo": "musica", "consulta": "Angra"}, status=202)
             self.app.worker.join(5)
-            result = self.request("/api/baixar")["catalogo"]["itens"][0]
-            self.assertEqual(result["capa"], song["capa"])
-            self.assertEqual(result["versao"]["tipo"], "ao_vivo")
+            result = self.request("/api/download")['catalog']['items'][0]
+            self.assertEqual(result['cover'], song["capa"])
+            self.assertEqual(result['version']['type'], 'live')
             download.assert_not_called()
 
 

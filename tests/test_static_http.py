@@ -1,4 +1,4 @@
-"""Novos assets são lidos sem reiniciar, preservando os limites do diretório web."""
+"""New assets load without restart while respecting the web directory boundary."""
 
 from http.server import ThreadingHTTPServer
 import json
@@ -11,6 +11,7 @@ from urllib.error import HTTPError
 from urllib.request import urlopen
 
 from library_core import sha256
+from api_contract import to_api
 from server import App, Handler
 
 
@@ -39,7 +40,7 @@ class StaticHTTPTest(unittest.TestCase):
     def stop(self):
         self.server.shutdown()
         self.worker.join()
-        self.app.busca_global.fechar()
+        self.app.global_search.close()
 
     def get(self, path, status=200):
         try:
@@ -85,13 +86,13 @@ class StaticHTTPTest(unittest.TestCase):
         source = self.assets / "server-source.py"
         source.write_text("loaded version")
         with patch("server.SERVER_SOURCE", source), patch("server.SERVER_CODE_HASH", sha256(source)):
-            self.assertFalse(json.loads(self.get("/api/state")[0])["reinicio_necessario"])
+            self.assertFalse(json.loads(self.get("/api/state")[0])['restart_required'])
             source.write_text("updated version")
-            self.assertTrue(json.loads(self.get("/api/state")[0])["reinicio_necessario"])
+            self.assertTrue(json.loads(self.get("/api/state")[0])['restart_required'])
             source.write_text("loaded version")
-            self.assertFalse(json.loads(self.get("/api/state")[0])["reinicio_necessario"])
+            self.assertFalse(json.loads(self.get("/api/state")[0])['restart_required'])
             source.unlink()
-            self.assertTrue(json.loads(self.get("/api/state")[0])["reinicio_necessario"])
+            self.assertTrue(json.loads(self.get("/api/state")[0])['restart_required'])
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Interface local do Acervo. Escuta exclusivamente no endereço de loopback."""
+"""Local Acervo interface, listening exclusively on the loopback address."""
 
 from collections import Counter, defaultdict
 import csv
@@ -14,6 +14,8 @@ import threading
 import time
 from urllib.parse import parse_qs, urlsplit
 
+from api_contract import from_api, to_api
+
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3
 
@@ -22,15 +24,15 @@ from staged_downloads import Downloads, clean_log, tool_status
 from library_plan import BASE, create_plan
 from library_scan import read_track
 from musicbrainz_client import MusicBrainz
-from lyrics import Letras, gravar_letra, letra_atual, letra_da_faixa, parse_lrc
-from search import BuscaGlobal, IndiceBiblioteca, normalizar
+from lyrics import LyricsClient, save_lyrics, current_lyrics, lyrics_for_track, parse_lrc
+from search import GlobalSearch, LibraryIndex, normalize
 from playlists import album_order, render as render_m3u8, write_m3u8
-from download_picker import SeletorDownloads
+from download_picker import DownloadPicker
 import protections
-from versions import classificar
+from versions import classify
 
 
-WRITING_JOBS = {"importacao", "aplicacao", "restauracao"}
+WRITING_JOBS = {"import", "apply", "restore"}
 SERVER_SOURCE = Path(__file__).resolve()
 SERVER_CODE_HASH = sha256(SERVER_SOURCE)
 
@@ -47,7 +49,7 @@ def album_key(track):
 
 
 def track_version(track):
-    return classificar(" / ".join(track.get("titulo", [])), " / ".join(track.get("album", [])))
+    return classify(" / ".join(track.get("titulo", [])), " / ".join(track.get("album", [])))
 
 
 def version_matches(version, choice):
@@ -95,14 +97,14 @@ class App:
         self.by_id = {}
         self.search_tracks = None
         self.search_index = None
-        self.busca_global = BuscaGlobal()
-        self.letras = Letras(self.state_dir / "letras")
+        self.global_search = GlobalSearch()
+        self.lyrics_client = LyricsClient(self.state_dir / "letras")
         self.lyrics_previews = {}
         self.plan = None
         self.plan_path = None
         self.error = None
         self.downloads = Downloads(self.root, self.storage, self.download_progress)
-        self.seletor = SeletorDownloads(self.root, self.download_progress, self.inventory_snapshot, self.refresh_downloaded)
+        self.download_picker = DownloadPicker(self.root, self.download_progress, self.inventory_snapshot, self.refresh_downloaded)
         for path in sorted((self.storage / "relatorios").glob("*/plano.json"), key=lambda p: p.stat().st_mtime, reverse=True):
             try:
                 plan = load_plan(path)
@@ -127,40 +129,40 @@ class App:
 
     def start(self, kind, operation):
         with self.lock:
-            if self.playlist_busy or self.policy_busy or (self.job and self.job["estado"] == "executando"):
+            if self.playlist_busy or self.policy_busy or (self.job and self.job["status"] == "running"):
                 raise ValueError("Aguarde a operação atual terminar")
-            if kind in WRITING_JOBS or kind == "download_direto":
+            if kind in WRITING_JOBS or kind == "direct_download":
                 protections.load(self.storage, self.root)
             self.error = None
-            self.job = {"id": secrets.token_hex(8), "tipo": kind, "estado": "executando", "mensagem": "Preparando…", "progresso": None}
+            self.job = {"id": secrets.token_hex(8), "type": kind, "status": "running", "message": "Preparando…", "progress": None}
         def run():
             try:
                 result = operation()
                 with self.lock:
-                    self.job.update(estado="concluido", mensagem="Operação concluída", progresso=100, resultado=result)
+                    self.job.update(status="completed", message="Operação concluída", progress=100, result=result)
             except Exception as error:
                 with self.lock:
                     self.error = str(error)
-                    self.job.update(estado="erro", mensagem=str(error), progresso=None)
+                    self.job.update(status="error", message=str(error), progress=None)
         self.worker = threading.Thread(target=run, daemon=True)
         self.worker.start()
 
     def writing(self):
-        """Tarefa que grava na coleção e não deve ser interrompida no meio."""
+        """Whether a job is writing to the collection and must finish before exit."""
         with self.lock:
             job = self.job
-        return bool(job and job["estado"] == "executando" and job["tipo"] in WRITING_JOBS and self.worker)
+        return bool(job and job["status"] == "running" and job["type"] in WRITING_JOBS and self.worker)
 
     def download_progress(self, message, percent):
         with self.lock:
             if self.job:
-                self.job.update(mensagem=message, progresso=percent)
+                self.job.update(message=message, progress=percent)
 
     def analyze(self, online=None):
         output = self.storage / "relatorios" / datetime.now().strftime("previa_%Y%m%d_%H%M%S_%f")
         def progress(done, total, name):
             with self.lock:
-                self.job.update(mensagem=f"{done} de {total} · {name}", progresso=round(done / total * 100) if total else 0)
+                self.job.update(message=f"{done} de {total} · {name}", progress=round(done / total * 100) if total else 0)
         result = create_plan(self.root, output, normalize_albums=True, online=online, progress=progress, storage=self.storage)
         self.load(Path(result["plano"]))
         try:
@@ -183,7 +185,7 @@ class App:
             title = " / ".join(track["titulo"])
             album = " / ".join(track["album"])
             seconds = track["duracao_segundos"]
-        return letra_da_faixa(path, artist, title, album, seconds, self.letras)
+        return lyrics_for_track(path, artist, title, album, seconds, self.lyrics_client)
 
     def preview_lyrics(self, data):
         if set(data) != {"id", "texto"} or not isinstance(data.get("id"), str):
@@ -195,7 +197,7 @@ class App:
         if parse_lrc(text):
             raise ValueError("Use a letra simples, sem marcações de tempo")
         with self.lock:
-            if self.playlist_busy or self.policy_busy or (self.job and self.job["estado"] == "executando"):
+            if self.playlist_busy or self.policy_busy or (self.job and self.job["status"] == "running"):
                 raise ValueError("Aguarde a operação atual terminar")
             protections.load(self.storage, self.root)
             track = self.by_id.get(data["id"])
@@ -203,7 +205,7 @@ class App:
                 raise ValueError("Música não encontrada")
             path = secure_file(self.root, track["arquivo"])
             before = sha256(path)
-            current = letra_atual(path)
+            current = current_lyrics(path)
             if current == [text]:
                 raise ValueError("A faixa já tem exatamente essa letra")
             if sha256(path) != before:
@@ -227,10 +229,10 @@ class App:
                 track = self.by_id.get(draft["id"])
                 if track is None or track["arquivo"] != draft["arquivo"]:
                     raise ValueError("A faixa mudou no inventário; confira novamente")
-            result = gravar_letra(self.root, self.storage, draft["arquivo"], draft["texto"], anterior_sha256=draft["sha256"])
+            result = save_lyrics(self.root, self.storage, draft["arquivo"], draft["texto"], draft["sha256"])
             notices = self.refresh_downloaded([{"estado": "baixado", "arquivo": draft["arquivo"]}])
             return {**result, "letra_track_id": draft["id"], "avisos": notices}
-        self.start("importacao", save)
+        self.start("import", save)
 
     def load_download_cache(self):
         try:
@@ -333,7 +335,7 @@ class App:
         if not isinstance(ids, list) or len(ids) > 10000 or any(not isinstance(i, str) for i in ids) or not isinstance(album_id, str) or bool(ids) == bool(album_id):
             raise ValueError("Selecione faixas ou um álbum da biblioteca")
         with self.lock:
-            if self.playlist_busy or self.policy_busy or (self.job and self.job["estado"] == "executando"):
+            if self.playlist_busy or self.policy_busy or (self.job and self.job["status"] == "running"):
                 raise ValueError("Aguarde a operação atual terminar")
             if album_id:
                 track = self.by_id.get(album_id)
@@ -363,22 +365,22 @@ class App:
     def library_index(self, tracks=None):
         with self.lock:
             if tracks is not None and tracks is not self.tracks:
-                return IndiceBiblioteca(tracks)
+                return LibraryIndex(tracks)
             if self.search_tracks is not self.tracks:
-                self.search_index = IndiceBiblioteca(self.tracks)
+                self.search_index = LibraryIndex(self.tracks)
                 self.search_tracks = self.tracks
             return self.search_index
 
     def suggestions(self, needle, scope="biblioteca"):
         needle = self.search_query(needle, scope)
         if scope == "global":
-            if len(normalizar(needle)) < 2:
+            if len(normalize(needle)) < 2:
                 return {"termos": [], "artistas": []}
             try:
-                return self.busca_global.sugerir(needle)
+                return self.global_search.suggest(needle)
             except (ValueError, OSError) as error:
                 raise RuntimeError(str(error)) from error
-        return self.library_index().sugerir(needle)
+        return self.library_index().suggest(needle)
 
     def library(self, needle="", kind="todas", tracks=None, artist="", album_id="", version="todas"):
         needle = self.search_query(needle)
@@ -397,10 +399,10 @@ class App:
                 raise ValueError("Álbum não encontrado; atualize a biblioteca")
             rows = [t for t in rows if album_key(t) == album_key(selected)]
         if artist:
-            rows = [t for t in rows if normalizar(artist) in {normalizar(a) for a in t["artista"] + t["artista_album"]}]
+            rows = [t for t in rows if normalize(artist) in {normalize(a) for a in t["artista"] + t["artista_album"]}]
         if needle:
             by_id = {t["id"]: t for t in rows}
-            rows = [by_id[r["id"]] for r in index.buscar(needle, limite=len(index.tracks)) if r["id"] in by_id]
+            rows = [by_id[r["id"]] for r in index.search(needle, len(index.tracks)) if r["id"] in by_id]
         if kind == "sem-genero":
             rows = [t for t in rows if "genero" in t["campos_ausentes"]]
         elif kind == "flac":
@@ -413,7 +415,7 @@ class App:
 
     def playlist(self, data, write=False):
         with self.lock:
-            if self.playlist_busy or self.policy_busy or (self.job and self.job["estado"] == "executando"):
+            if self.playlist_busy or self.policy_busy or (self.job and self.job["status"] == "running"):
                 raise ValueError("Aguarde a operação atual terminar")
             self.playlist_busy = True
             tracks, by_id = list(self.tracks), dict(self.by_id)
@@ -536,7 +538,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def json(self, data, status=200):
-        self.send(status, json.dumps(data, ensure_ascii=False).encode())
+        self.send(status, json.dumps(to_api(data), ensure_ascii=False).encode())
 
     def track(self, query):
         with self.app.lock:
@@ -561,7 +563,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def get_route(self):
         url = urlsplit(self.path)
-        query = parse_qs(url.query)
+        query = from_api(parse_qs(url.query))
         if url.path in ("/", "/index.html"):
             html = (BASE / "web/index.html").read_text().replace("__TOKEN__", self.app.token)
             self.send(200, html.encode(), "text/html; charset=utf-8")
@@ -575,14 +577,14 @@ class Handler(BaseHTTPRequestHandler):
             self.send(200, asset.read_bytes(), mime)
         elif url.path == "/api/state":
             self.json(self.app.snapshot())
-        elif url.path == "/api/letra":
+        elif url.path == "/api/lyrics":
             if set(query) != {"id"} or len(query["id"]) != 1:
                 raise ValueError("Selecione uma música pelo identificador da biblioteca")
             self.json(self.app.lyrics(query["id"][0]))
         elif url.path == "/api/protections":
             self.json(self.app.protection_info(query.get("album_id", [""])[0]))
-        elif url.path == "/api/baixar":
-            self.json(self.app.seletor.info(query.get("catalogo", [None])[0]))
+        elif url.path == "/api/download":
+            self.json(self.app.download_picker.info(query.get("catalogo", [None])[0]))
         elif url.path == "/api/downloads":
             folders = sorted({str(self.app.root)} | {str(Path(t["arquivo"]).parent) for t in self.app.tracks})
             self.json({"lotes": self.app.downloads.list(), "ferramentas": tool_status(), "pastas": folders})
@@ -595,9 +597,9 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("Faixa não encontrada")
             path = self.app.downloads.path(batch["id"]) / (row_id + ".log" if row_id else "catalogo.log")
             self.json({"registro": clean_log(path.read_text(errors="replace")) if path.is_file() else "Sem registro disponível."})
-        elif url.path == "/api/sugestoes" or (url.path == "/api/busca" and query.get("escopo", ["biblioteca"])[0] == "global"):
+        elif url.path == "/api/suggestions" or (url.path == "/api/search" and query.get("escopo", ["biblioteca"])[0] == "global"):
             self.json(self.app.suggestions(query.get("q", [""])[0], query.get("escopo", ["biblioteca"])[0]))
-        elif url.path in ("/api/library", "/api/busca"):
+        elif url.path in ("/api/library", "/api/search"):
             self.app.search_query(query.get("q", [""])[0], query.get("escopo", ["biblioteca"])[0])
             rows = self.app.library(query.get("q", [""])[0], query.get("filter", ["todas"])[0],
                                     artist=query.get("artista", [""])[0], album_id=query.get("album_id", [""])[0], version=query.get("versao", ["todas"])[0])
@@ -686,27 +688,27 @@ class Handler(BaseHTTPRequestHandler):
             size = int(self.headers.get("Content-Length", 0))
             if size < 0 or size > 1024 * 1024 or self.headers.get_content_type() != "application/json":
                 raise ValueError("Requisição inválida")
-            data = json.loads(self.rfile.read(size))
+            data = from_api(json.loads(self.rfile.read(size)))
             if not isinstance(data, dict):
                 raise ValueError("O corpo da requisição deve ser um objeto JSON")
             route = urlsplit(self.path).path
             if route == "/api/analyze":
                 online = MusicBrainz(self.app.state_dir / "cache/musicbrainz", data.get("contato", ""), 200) if data.get("musicbrainz") else None
-                self.app.start("analise", lambda: self.app.analyze(online))
-            elif route == "/api/letra/preview":
+                self.app.start("analysis", lambda: self.app.analyze(online))
+            elif route == "/api/lyrics/preview":
                 self.json(self.app.preview_lyrics(data))
                 return
-            elif route == "/api/letra/salvar":
+            elif route == "/api/lyrics/save":
                 self.app.save_lyrics(data)
-            elif route == "/api/baixar/buscar":
-                self.app.seletor.search_options(data)
-                self.app.start("busca_direta", lambda: self.app.seletor.search(data))
-            elif route == "/api/baixar/abrir":
-                self.app.seletor.open_options(data)
-                self.app.start("busca_direta", lambda: self.app.seletor.open(data))
-            elif route == "/api/baixar/baixar":
-                self.app.seletor.download_options(data)
-                self.app.start("download_direto", lambda: self.app.seletor.download(data))
+            elif route == "/api/download/search":
+                self.app.download_picker.search_options(data)
+                self.app.start("direct_search", lambda: self.app.download_picker.search(data))
+            elif route == "/api/download/open":
+                self.app.download_picker.open_options(data)
+                self.app.start("direct_search", lambda: self.app.download_picker.open(data))
+            elif route == "/api/download/download":
+                self.app.download_picker.download_options(data)
+                self.app.start("direct_download", lambda: self.app.download_picker.download(data))
             elif route in ("/api/playlists/preview", "/api/playlists/export"):
                 self.json(self.app.playlist(data, write=route.endswith("export")))
                 return
@@ -714,7 +716,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.json(self.app.change_protections(data))
                 return
             elif route == "/api/downloads/prepare":
-                self.app.start("catalogo", lambda: self.app.downloads.prepare(data, list(self.app.tracks)))
+                self.app.start("catalog", lambda: self.app.downloads.prepare(data, list(self.app.tracks)))
             elif route == "/api/downloads/fetch":
                 ident, ids = data.get("id", ""), data.get("faixas", [])
                 self.app.downloads.load(ident)
@@ -722,7 +724,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("Seleção inválida")
                 self.app.start("download", lambda: self.app.downloads.download(ident, ids))
             elif route == "/api/downloads/cancel":
-                if not self.app.job or self.app.job["estado"] != "executando" or self.app.job["tipo"] not in ("download", "catalogo"):
+                if not self.app.job or self.app.job["status"] != "running" or self.app.job["type"] not in ("download", "catalog"):
                     raise ValueError("Não há consulta ou download em andamento")
                 self.app.downloads.runner.cancelled.set()
                 self.json({"cancelamento_solicitado": True})
@@ -738,7 +740,7 @@ class Handler(BaseHTTPRequestHandler):
                     result = self.app.downloads.import_batch(ident, selections)
                     self.app.analyze()
                     return result
-                self.app.start("importacao", import_downloads)
+                self.app.start("import", import_downloads)
             elif route == "/api/apply":
                 ids = set(data.get("ids", []))
                 if not ids or any(not isinstance(i, str) for i in ids):
@@ -762,21 +764,21 @@ class Handler(BaseHTTPRequestHandler):
                         writer = csv.DictWriter(handle, fieldnames=fields)
                         writer.writeheader()
                         writer.writerows(rows)
-                    self.app.job["mensagem"] = "Criando backups completos e validando as tags…"
+                    self.app.job["message"] = "Criando backups completos e validando as tags…"
                     result = apply_plan(plan_path, path, self.app.storage / "backups", storage=self.app.storage)
                     self.app.analyze()
                     return result
-                self.app.start("aplicacao", apply)
+                self.app.start("apply", apply)
             elif route == "/api/restore":
                 ident = data.get("id", "")
                 if ident not in {r["id"] for r in self.app.history()}:
                     raise ValueError("Execução não encontrada")
                 def undo():
-                    self.app.job["mensagem"] = "Validando backups e restaurando os arquivos…"
+                    self.app.job["message"] = "Validando backups e restaurando os arquivos…"
                     result = restore(self.app.storage / "backups" / ident / "manifesto.json", storage=self.app.storage)
                     self.app.analyze()
                     return result
-                self.app.start("restauracao", undo)
+                self.app.start("restore", undo)
             else:
                 self.json({"erro": "Rota não encontrada"}, 404)
                 return
@@ -792,7 +794,7 @@ def serve(root: Path, port: int = 8765, storage: Path | None = None, open_browse
     print(f"Acervo · http://127.0.0.1:{port}", flush=True)
     print(f"Biblioteca: {app.root}", flush=True)
     if app.plan is None:
-        app.start("analise", app.analyze)
+        app.start("analysis", app.analyze)
     if open_browser:
         import webbrowser
         threading.Timer(.5, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()
@@ -809,4 +811,4 @@ def serve(root: Path, port: int = 8765, storage: Path | None = None, open_browse
         print("\nInterface encerrada.")
     finally:
         server.server_close()
-        app.busca_global.fechar()
+        app.global_search.close()

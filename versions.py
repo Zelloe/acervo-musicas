@@ -62,7 +62,3 @@ def classify(title: str = "", album: str = "", album_kind: str = "") -> dict:
     order = list(KINDS) + ["remaster", "coletanea", "edicao_especial"]
     marks = sorted(marks, key=order.index)
     return {"tipo": kind, "marcas": marks, "rotulos": [LABELS[m] for m in marks]}
-
-
-# Temporary aliases for server.py during the English rename (step B); remove when server.py is updated.
-classificar = classify

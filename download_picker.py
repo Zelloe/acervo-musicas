@@ -1,4 +1,4 @@
-"""Seleção por IDs de resultados do spotDL para a interface local."""
+"""Select spotDL catalog results by server-owned IDs for the local interface."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import threading
 import downloader
 
 
-class SeletorDownloads:
+class DownloadPicker:
     def __init__(self, root: Path, progress=None, inventory=None, on_download=None):
         self.root = root
         self.folder = root
@@ -24,7 +24,7 @@ class SeletorDownloads:
 
     def local_index(self, folder):
         if self.inventory is None or not folder.is_relative_to(self.root):
-            return downloader.indice_local(folder)
+            return downloader.local_index(folder)
         keys = set()
         for track in self.inventory():
             path = Path(track["arquivo"])
@@ -64,7 +64,7 @@ class SeletorDownloads:
         rows = [{**row, "id": secrets.token_hex(12)} for row in rows]
         if kind == "faixas":
             self.progress("Conferindo as músicas que já estão na pasta…", None)
-            rows = downloader.ja_tenho(rows, self.local_index(folder))
+            rows = downloader.mark_owned(rows, self.local_index(folder))
         ident = secrets.token_hex(16)
         catalog = {"id": ident, "tipo": kind, "titulo": title, "artista": artist, "pasta": str(folder), "itens": rows}
         with self.lock:
@@ -90,9 +90,9 @@ class SeletorDownloads:
         kind, text, folder = self.search_options(data)
         if kind == "artista":
             self.progress("Buscando álbuns do artista…", None)
-            return self._remember("albuns", text, downloader.buscar_albuns(text), folder, text)
+            return self._remember("albuns", text, downloader.search_albums(text), folder, text)
         self.progress("Buscando músicas…" if kind == "musica" else "Consultando as faixas do link…", None)
-        rows = downloader.buscar_musicas(text) if kind == "musica" else downloader.faixas(text)
+        rows = downloader.search_songs(text) if kind == "musica" else downloader.tracks(text)
         return self._remember("faixas", text, rows, folder)
 
     def open_options(self, data):
@@ -109,13 +109,13 @@ class SeletorDownloads:
         catalog, item, folder = self.open_options(data)
         if catalog["tipo"] == "albuns":
             self.progress("Buscando as edições do álbum…", None)
-            rows = downloader.edicoes(catalog["artista"], item["titulo"])
+            rows = downloader.editions(catalog["artista"], item["titulo"])
             if len(rows) == 1:
                 self.progress("Consultando as faixas da edição…", None)
-                return self._remember("faixas", rows[0]["titulo"], downloader.faixas(rows[0]["url"]), folder, catalog["artista"])
+                return self._remember("faixas", rows[0]["titulo"], downloader.tracks(rows[0]["url"]), folder, catalog["artista"])
             return self._remember("edicoes", item["titulo"], rows, folder, catalog["artista"])
         self.progress("Consultando as faixas da edição…", None)
-        return self._remember("faixas", item["titulo"], downloader.faixas(item["url"]), folder, catalog["artista"])
+        return self._remember("faixas", item["titulo"], downloader.tracks(item["url"]), folder, catalog["artista"])
 
     def download_options(self, data):
         catalog = self._catalog(data.get("catalogo"))
@@ -135,7 +135,7 @@ class SeletorDownloads:
 
     def download(self, data):
         catalog, rows, folder, bitrate = self.download_options(data)
-        results = downloader.baixar(rows, folder, progresso=self.progress, bitrate=bitrate)
+        results = downloader.download(rows, folder, progress=self.progress, bitrate=bitrate)
         with self.lock:
             self.results, self.folder = results, folder
         notices = self.on_download(results) if self.on_download else []

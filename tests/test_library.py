@@ -254,9 +254,9 @@ class LibraryTest(unittest.TestCase):
                 return response.status
         def wait_job():
             deadline = time.monotonic() + 5
-            while server.app.job["estado"] == "executando" and time.monotonic() < deadline:
+            while server.app.job["status"] == "running" and time.monotonic() < deadline:
                 time.sleep(.01)
-            self.assertEqual(server.app.job["estado"], "concluido", server.app.job)
+            self.assertEqual(server.app.job["status"], "completed", server.app.job)
         try:
             with self.assertRaises(HTTPError) as rejected:
                 post("/api/apply", {"ids": []}, valid=False)

@@ -1,4 +1,4 @@
-"""Seleção no navegador sem enviar comandos ou faixas arbitrárias ao spotDL."""
+"""Browser selection uses server-owned IDs without passing arbitrary spotDL commands."""
 
 from http.server import ThreadingHTTPServer
 import json
@@ -16,10 +16,11 @@ from mutagen.id3 import ID3, TALB, TIT2, TPE1
 
 from library_core import sha256
 from library_plan import create_plan
+from api_contract import to_api
 from server import App, Handler
 
 
-@unittest.skipUnless(shutil.which("ffmpeg"), "Os testes geram áudio temporário com ffmpeg")
+@unittest.skipUnless(shutil.which("ffmpeg"), "Tests generate temporary audio with ffmpeg")
 class SimpleDownloadHTTPTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -54,11 +55,11 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         self.addCleanup(self.stop_server)
         self.url = f"http://127.0.0.1:{self.server.server_port}"
         self.songs = [{"titulo": title, "artista": "Banda Teste", "album": "Álbum", "numero": index, "ano": "2026", "duracao": 100, "url": f"https://open.spotify.com/track/Faixa{index}"} for index, title in enumerate(("Existente", "Nova"), 1)]
-        self.mock_songs = patch("download_picker.downloader.buscar_musicas", return_value=self.songs).start()
-        self.mock_tracks = patch("download_picker.downloader.faixas", return_value=self.songs).start()
-        self.mock_albums = patch("download_picker.downloader.buscar_albuns", return_value=[{"titulo": "Álbum", "artista": "Banda Teste", "ano": "2026"}]).start()
-        self.mock_editions = patch("download_picker.downloader.edicoes", return_value=[{"titulo": "Álbum (Deluxe)", "url": "https://open.spotify.com/album/AlbumTeste"}, {"titulo": "Álbum", "url": "https://open.spotify.com/album/AlbumOriginal"}]).start()
-        self.mock_download = patch("download_picker.downloader.baixar", return_value=[]).start()
+        self.mock_songs = patch("download_picker.downloader.search_songs", return_value=self.songs).start()
+        self.mock_tracks = patch("download_picker.downloader.tracks", return_value=self.songs).start()
+        self.mock_albums = patch("download_picker.downloader.search_albums", return_value=[{"titulo": "Álbum", "artista": "Banda Teste", "ano": "2026"}]).start()
+        self.mock_editions = patch("download_picker.downloader.editions", return_value=[{"titulo": "Álbum (Deluxe)", "url": "https://open.spotify.com/album/AlbumTeste"}, {"titulo": "Álbum", "url": "https://open.spotify.com/album/AlbumOriginal"}]).start()
+        self.mock_download = patch("download_picker.downloader.download", return_value=[]).start()
         self.addCleanup(patch.stopall)
 
     def stop_server(self):
@@ -68,7 +69,7 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
     def request(self, route, data=None, status=200, **headers):
         defaults = {"Content-Type": "application/json", "Origin": self.url, "X-Library-Token": self.server.app.token}
         defaults.update(headers)
-        request = Request(self.url + route, None if data is None else json.dumps(data).encode(), defaults)
+        request = Request(self.url + route, None if data is None else json.dumps(to_api(data)).encode(), defaults)
         try:
             response = urlopen(request, timeout=5)
         except HTTPError as error:
@@ -78,51 +79,51 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
             self.assertEqual(response.status, status, result)
             return result
 
-    def wait_job(self, state="concluido"):
+    def wait_job(self, state="completed"):
         self.server.app.worker.join(timeout=5)
-        self.assertEqual(self.server.app.job["estado"], state, self.server.app.job)
-        return self.request("/api/baixar")["catalogo"]
+        self.assertEqual(self.server.app.job['status'], state, self.server.app.job)
+        return self.request("/api/download")['catalog']
 
     def search(self, kind="musica", text="Banda Teste"):
-        self.request("/api/baixar/buscar", {"tipo": kind, "consulta": text, "pasta": str(self.lib)}, status=202)
+        self.request("/api/download/search", {"tipo": kind, "consulta": text, "pasta": str(self.lib)}, status=202)
         return self.wait_job()
 
     def test_artist_album_edition_tracks_and_cached_back_navigation(self):
-        self.assertIsNone(self.request("/api/baixar")["catalogo"])
+        self.assertIsNone(self.request("/api/download")['catalog'])
         albums = self.search("artista")
-        self.assertEqual(albums["tipo"], "albuns")
-        self.request("/api/baixar/abrir", {"catalogo": albums["id"], "item": albums["itens"][0]["id"]}, status=202)
+        self.assertEqual(albums['type'], 'albums')
+        self.request("/api/download/open", {"catalogo": albums["id"], "item": albums['items'][0]["id"]}, status=202)
         editions = self.wait_job()
         self.mock_editions.assert_called_once_with("Banda Teste", "Álbum")
-        self.request("/api/baixar/abrir", {"catalogo": editions["id"], "item": editions["itens"][0]["id"]}, status=202)
+        self.request("/api/download/open", {"catalogo": editions["id"], "item": editions['items'][0]["id"]}, status=202)
         tracks = self.wait_job()
-        self.assertEqual(tracks["tipo"], "faixas")
-        self.assertEqual([row["ja_tenho"] for row in tracks["itens"]], [True, False])
-        self.assertEqual(self.request("/api/baixar?catalogo=" + albums["id"])["catalogo"], albums)
+        self.assertEqual(tracks['type'], 'tracks')
+        self.assertEqual([row['already_owned'] for row in tracks['items']], [True, False])
+        self.assertEqual(self.request("/api/download?catalogo=" + albums["id"])['catalog'], albums)
         self.assertNotIn("id", self.songs[0])
         self.assertEqual(sha256(self.music), self.before)
 
     def test_only_selected_server_rows_reach_downloader_and_chosen_destination(self):
         catalog = self.search()
-        selected = catalog["itens"][1]
+        selected = catalog['items'][1]
         destination = self.base / "Outra pasta"
         destination.mkdir()
         self.mock_download.return_value = [{**selected, "estado": "baixado", "arquivo": str(destination / "nova.mp3")}]
-        self.request("/api/baixar/baixar", {"catalogo": catalog["id"], "ids": [selected["id"]], "pasta": str(destination), "bitrate": "256k"}, status=202)
+        self.request("/api/download/download", {"catalogo": catalog["id"], "ids": [selected["id"]], "pasta": str(destination), "bitrate": "256k"}, status=202)
         self.wait_job()
         args, kwargs = self.mock_download.call_args
-        self.assertEqual(args, ([selected], destination))
+        self.assertEqual((to_api(args[0]), args[1]), ([selected], destination))
         self.assertEqual(kwargs["bitrate"], "256k")
-        self.assertTrue(callable(kwargs["progresso"]))
-        result = self.request("/api/baixar")["resultado"]
-        self.assertEqual((len(result), result[0]["titulo"], result[0]["estado"]), (1, "Nova", "baixado"))
+        self.assertTrue(callable(kwargs['progress']))
+        result = self.request("/api/download")['result']
+        self.assertEqual((len(result), result[0]['title'], result[0]['status']), (1, "Nova", 'downloaded'))
         self.assertEqual(sha256(self.music), self.before)
 
     def test_single_edition_opens_tracks_without_an_extra_selection(self):
         self.mock_editions.return_value = [{"titulo": "Álbum", "url": "https://open.spotify.com/album/AlbumOriginal"}]
         albums = self.search("artista")
-        self.request("/api/baixar/abrir", {"catalogo": albums["id"], "item": albums["itens"][0]["id"]}, status=202)
-        self.assertEqual(self.wait_job()["tipo"], "faixas")
+        self.request("/api/download/open", {"catalogo": albums["id"], "item": albums['items'][0]["id"]}, status=202)
+        self.assertEqual(self.wait_job()['type'], 'tracks')
         self.mock_tracks.assert_called_once_with("https://open.spotify.com/album/AlbumOriginal")
 
     def test_new_downloads_update_only_their_inventory_and_survive_restart(self):
@@ -139,14 +140,14 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
             tags.save(new_path, v2_version=3)
             return [{**rows[0], "estado": "baixado", "arquivo": str(new_path)}]
         self.mock_download.side_effect = fake_download
-        with patch("download_picker.downloader.indice_local", side_effect=AssertionError("A coleção já está no inventário")), patch("server.create_plan", side_effect=AssertionError("Não reanalisar a coleção no download")), patch("server.read_track", wraps=read_track) as reader:
+        with patch("download_picker.downloader.local_index", side_effect=AssertionError("A coleção já está no inventário")), patch("server.create_plan", side_effect=AssertionError("Não reanalisar a coleção no download")), patch("server.read_track", wraps=read_track) as reader:
             catalog = self.search()
-            self.request("/api/baixar/baixar", {"catalogo": catalog["id"], "ids": [catalog["itens"][1]["id"]]}, status=202)
+            self.request("/api/download/download", {"catalogo": catalog["id"], "ids": [catalog['items'][1]["id"]]}, status=202)
             current = self.wait_job()
             self.assertEqual(reader.call_args_list[0].args, (new_path,))
             self.assertEqual(reader.call_count, 1)
-            self.assertTrue(current["itens"][1]["ja_tenho"])
-        self.assertEqual(self.request("/api/state")["resumo"]["lidos"], 2)
+            self.assertTrue(current['items'][1]['already_owned'])
+        self.assertEqual(self.request("/api/state")['summary']['read_count'], 2)
         self.assertEqual(plan_path.read_bytes(), signed_plan)
         self.assertTrue(app.download_cache.is_file())
         self.server.app = App(self.lib, app.storage)
@@ -159,22 +160,22 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
 
     def test_fake_ids_and_browser_supplied_commands_or_metadata_are_refused(self):
         catalog = self.search()
-        valid = {"catalogo": catalog["id"], "ids": [catalog["itens"][1]["id"]], "pasta": str(self.lib)}
+        valid = {"catalogo": catalog["id"], "ids": [catalog['items'][1]["id"]], "pasta": str(self.lib)}
         for change in ({"ids": []}, {"ids": ["../fora"]}, {"ids": [valid["ids"][0], valid["ids"][0]]}, {"catalogo": "../fora"}, {"catalogo": {}}, {"url": "https://evil.invalid"}, {"faixas": self.songs}, {"comando": "echo bad"}, {"bitrate": "invalid"}):
             with self.subTest(change=change):
-                self.request("/api/baixar/baixar", {**valid, **change}, status=400)
-        self.request("/api/baixar/abrir", {"catalogo": catalog["id"], "item": catalog["itens"][0]["id"]}, status=400)
+                self.request("/api/download/download", {**valid, **change}, status=400)
+        self.request("/api/download/open", {"catalogo": catalog["id"], "item": catalog['items'][0]["id"]}, status=400)
         self.mock_download.assert_not_called()
         self.assertEqual(sha256(self.music), self.before)
 
     def test_search_inputs_destination_and_authentication_are_validated(self):
         valid = {"tipo": "musica", "consulta": "Banda Teste", "pasta": str(self.lib)}
-        self.request("/api/baixar/buscar", valid, status=403, **{"X-Library-Token": "bad"})
-        self.request("/api/baixar/buscar", valid, status=403, Origin="http://evil.invalid")
-        self.request("/api/baixar/buscar", valid, status=403, Host="evil.invalid")
+        self.request("/api/download/search", valid, status=403, **{"X-Library-Token": "bad"})
+        self.request("/api/download/search", valid, status=403, Origin="http://evil.invalid")
+        self.request("/api/download/search", valid, status=403, Host="evil.invalid")
         for change in ({"tipo": "comando"}, {"consulta": ""}, {"consulta": []}, {"pasta": "relativa"}, {"pasta": str(self.music)}, {"pasta": str(self.base / "inexistente")}, {"pasta": str(self.lib) + "\n"}):
             with self.subTest(change=change):
-                self.request("/api/baixar/buscar", {**valid, **change}, status=400)
+                self.request("/api/download/search", {**valid, **change}, status=400)
         self.mock_songs.assert_not_called()
         self.assertIsNone(self.server.app.job)
 
@@ -182,9 +183,9 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         self.search("link", "https://open.spotify.com/album/AlbumTeste")
         self.mock_tracks.assert_called_once_with("https://open.spotify.com/album/AlbumTeste")
         self.mock_songs.side_effect = RuntimeError("spotDL indisponível")
-        self.request("/api/baixar/buscar", {"tipo": "musica", "consulta": "Nova", "pasta": str(self.lib)}, status=202)
-        self.wait_job("erro")
-        self.assertIn("spotDL indisponível", self.request("/api/state")["erro"])
+        self.request("/api/download/search", {"tipo": "musica", "consulta": "Nova", "pasta": str(self.lib)}, status=202)
+        self.wait_job("error")
+        self.assertIn("spotDL indisponível", self.request("/api/state")['error'])
         self.assertEqual(sha256(self.music), self.before)
 
     def test_query_is_a_job_and_blocks_concurrent_downloads(self):
@@ -195,12 +196,12 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
             release.wait(5)
             return []
         self.mock_albums.side_effect = slow_search
-        self.request("/api/baixar/buscar", {"tipo": "artista", "consulta": "Banda Teste", "pasta": str(self.lib)}, status=202)
+        self.request("/api/download/search", {"tipo": "artista", "consulta": "Banda Teste", "pasta": str(self.lib)}, status=202)
         try:
             self.assertTrue(entered.wait(2))
-            self.assertEqual(self.request("/api/state")["job"]["estado"], "executando")
-            self.request("/api/baixar")
-            self.request("/api/baixar/baixar", {"catalogo": catalog["id"], "ids": [catalog["itens"][1]["id"]]}, status=400)
+            self.assertEqual(self.request("/api/state")["job"]['status'], 'running')
+            self.request("/api/download")
+            self.request("/api/download/download", {"catalogo": catalog["id"], "ids": [catalog['items'][1]["id"]]}, status=400)
         finally:
             release.set()
             self.server.app.worker.join(timeout=5)

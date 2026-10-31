@@ -261,18 +261,3 @@ def download(items: list[dict], folder: Path, progress=None, bitrate: str = "320
                 break
     progress("Downloads concluídos", 100)
     return results
-
-
-# Temporary aliases for server.py/download_picker.py during the English rename (step B); remove afterwards.
-buscar_albuns = search_albums
-edicoes = editions
-buscar_musicas = search_songs
-faixas = tracks
-indice_local = local_index
-ja_tenho = mark_owned
-foto_segura = safe_photo
-
-
-def baixar(lista, pasta, progresso=None, bitrate="320k", letras=True):
-    return download(lista, pasta, progress=progresso, bitrate=bitrate, lyrics=letras)
-

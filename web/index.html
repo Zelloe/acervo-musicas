@@ -51,12 +51,12 @@
     <a class="brand" href="#inicio" aria-label="Acervo, início"><span class="brand-mark"><svg><use href="#i-disc"/></svg></span>acervo<span class="brand-period">.</span></a>
     <div class="workspace-label">SEU ESPAÇO MUSICAL</div>
     <nav aria-label="Navegação principal">
-      <button class="nav-item active" data-view="inicio"><svg><use href="#i-home"/></svg>Visão geral</button>
-      <button class="nav-item" data-view="biblioteca"><svg><use href="#i-library"/></svg>Biblioteca<span class="nav-counter" id="library-count">—</span></button>
+      <button class="nav-item active" data-view="home"><svg><use href="#i-home"/></svg>Visão geral</button>
+      <button class="nav-item" data-view="library"><svg><use href="#i-library"/></svg>Biblioteca<span class="nav-counter" id="library-count">—</span></button>
       <button class="nav-item" data-view="downloads" title="Baixar músicas"><svg><use href="#i-download"/></svg>Baixar</button>
-      <button class="nav-item" data-view="revisao"><svg><use href="#i-edit"/></svg>Revisar alterações<span class="nav-dot" id="review-dot"></span></button>
-      <button class="nav-item" data-view="albuns"><svg><use href="#i-disc"/></svg>Álbuns</button>
-      <button class="nav-item" data-view="historico"><svg><use href="#i-history"/></svg>Histórico</button>
+      <button class="nav-item" data-view="review"><svg><use href="#i-edit"/></svg>Revisar alterações<span class="nav-dot" id="review-dot"></span></button>
+      <button class="nav-item" data-view="albums"><svg><use href="#i-disc"/></svg>Álbuns</button>
+      <button class="nav-item" data-view="history"><svg><use href="#i-history"/></svg>Histórico</button>
     </nav>
     <div class="sidebar-divider"></div>
     <div class="sidebar-note"><span class="tiny-label">FEITO PARA A SUA COLEÇÃO</span><p>Mais música.<br>Menos bagunça.</p><span>Seus arquivos, no lugar de sempre.</span></div>
@@ -69,7 +69,7 @@
   <main class="shell">
     <header class="topbar">
       <div class="search-area" id="search-area">
-        <div class="search-scopes" role="group" aria-label="Onde pesquisar"><button type="button" data-search-scope="biblioteca" aria-pressed="true">Sua biblioteca</button><button type="button" data-search-scope="global" aria-pressed="false">Global</button></div>
+        <div class="search-scopes" role="group" aria-label="Onde pesquisar"><button type="button" data-search-scope="library" aria-pressed="true">Sua biblioteca</button><button type="button" data-search-scope="global" aria-pressed="false">Global</button></div>
         <form id="search-form" role="search" autocomplete="off"><div class="search-box"><svg><use href="#i-search"/></svg><input id="search" type="search" maxlength="200" placeholder="Buscar músicas, artistas ou álbuns" aria-label="Buscar músicas, artistas ou álbuns" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-suggestions"><kbd>/</kbd><button class="search-submit icon-button" type="submit" aria-label="Pesquisar"><svg><use href="#i-arrow"/></svg></button></div></form>
         <div id="search-suggestions" class="search-suggestions" role="listbox" aria-label="Sugestões de pesquisa" hidden></div>
       </div>

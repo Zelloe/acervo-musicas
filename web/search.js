@@ -1,6 +1,6 @@
 "use strict";
 
-const searchState = {scope:"biblioteca", timer:null, controller:null, serial:0, items:[], active:-1};
+const searchState = {scope:"library", timer:null, controller:null, serial:0, items:[], active:-1};
 const searchInput = $('#search');
 const searchPanel = $('#search-suggestions');
 
@@ -24,12 +24,12 @@ function searchMessage(message) {
 function showSearchSuggestions(data) {
   const global=searchState.scope==="global";
   const groups=global ? [
-    [tr("Artistas"),(data.artistas||[]).map(a=>({type:"global-artist",photo:a.foto,label:a.nome,detail:tr("Ver álbuns para baixar"),name:"music"}))],
-    [tr("Sugestões de busca"),(data.termos||[]).map(text=>({type:"global-term",label:text,detail:tr("Buscar músicas no catálogo global"),name:"search"}))]
+    [tr("Artistas"),(data.artists||[]).map(a=>({type:"global-artist",photo:a.photo,label:a.name,detail:tr("Ver álbuns para baixar"),name:"music"}))],
+    [tr("Sugestões de busca"),(data.terms||[]).map(text=>({type:"global-term",label:text,detail:tr("Buscar músicas no catálogo global"),name:"search"}))]
   ] : [
-    [tr("Artistas"),(data.artistas||[]).map(a=>({type:"artist",label:a.nome,detail:`${number(a.faixas)} ${tr("faixas na biblioteca")}`,name:"music"}))],
-    [tr("Álbuns"),(data.albuns||[]).map(a=>({type:"album",label:a.titulo,detail:a.artista,id:a.track_id,name:"disc"}))],
-    [tr("Músicas"),(data.musicas||[]).map(t=>({type:"song",label:t.titulo,detail:t.artista,id:t.id,name:"music"}))]
+    [tr("Artistas"),(data.artists||[]).map(a=>({type:"artist",label:a.name,detail:`${number(a.tracks)} ${tr("faixas na biblioteca")}`,name:"music"}))],
+    [tr("Álbuns"),(data.albums||[]).map(a=>({type:"album",label:a.title,detail:a.artist,id:a.track_id,name:"disc"}))],
+    [tr("Músicas"),(data.tracks||[]).map(t=>({type:"song",label:t.title,detail:t.artist,id:t.id,name:"music"}))]
   ];
   searchState.items=[];
   searchState.active=-1;
@@ -55,11 +55,11 @@ function scheduleSuggestions() {
     const controller=new AbortController();
     searchState.controller=controller;
     try {
-      const params=new URLSearchParams({q:query,escopo:scope});
-      const response=await fetch(`/api/sugestoes?${params}`,{signal:controller.signal});
+      const params=new URLSearchParams({q:query,scope:scope});
+      const response=await fetch(`/api/suggestions?${params}`,{signal:controller.signal});
       const data=await response.json();
       if(serial!==searchState.serial || scope!==searchState.scope || query!==searchInput.value.trim())return;
-      if(!response.ok)throw new Error(data.erro||tr("Não foi possível carregar sugestões."));
+      if(!response.ok)throw new Error(data.error||tr("Não foi possível carregar sugestões."));
       showSearchSuggestions(data);
     }catch(error){
       if(error.name==="AbortError" || serial!==searchState.serial)return;
@@ -85,10 +85,10 @@ async function searchLibrary(query, artist="", albumId="", label=query) {
   state.searchArtist=artist;
   state.searchAlbum=albumId;
   state.searchLabel=label;
-  state.filter="todas";
-  state.versionFilter="todas";
+  state.filter="all";
+  state.versionFilter="all";
   searchInput.value=label;
-  await navigate("biblioteca");
+  await navigate("library");
 }
 
 async function selectSearchSuggestion(index) {
@@ -98,7 +98,7 @@ async function selectSearchSuggestion(index) {
   if(item.type==="artist")await searchLibrary("",item.label,"",item.label);
   else if(item.type==="album")await searchLibrary("","",item.id,`${item.label} · ${item.detail}`);
   else if(item.type==="song")await showDetails(item.id);
-  else await searchFromGlobal(item.type==="global-artist"?"artista":"musica",item.label);
+  else await searchFromGlobal(item.type==="global-artist"?"artist":"song",item.label);
 }
 
 function highlightSearch(index) {
@@ -115,13 +115,13 @@ $('#search-form').addEventListener("submit",async event=>{
   try {
     if(searchState.active>=0 && !searchPanel.hidden){await selectSearchSuggestion(searchState.active);return;}
     closeSearch();
-    if(searchState.scope==="biblioteca")await searchLibrary(query);
-    else if(query)await searchFromGlobal("musica",query);
+    if(searchState.scope==="library")await searchLibrary(query);
+    else if(query)await searchFromGlobal("song",query);
   }catch(error){toast(error.message);}
 });
 searchInput.addEventListener("input",()=>{
   scheduleSuggestions();
-  if(searchState.scope==="biblioteca" && ["revisao","albuns"].includes(state.view)){
+  if(searchState.scope==="library" && ["review","albums"].includes(state.view)){
     state.search=searchInput.value;
     state.searchArtist="";state.searchAlbum="";state.searchLabel="";state.page=0;
     render();

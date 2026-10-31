@@ -27,23 +27,23 @@ function displayLyrics(data) {
   lyricsState.editor=false;
   $('#lyrics-edit').disabled=false;
   $('#lyrics-edit').textContent=lyricLabel("Editar e salvar letra");
-  lyricsState.lines=(data.sincronizada||[]).filter(line=>Number.isFinite(line.t)&&line.t>=0&&typeof line.linha==="string");
+  lyricsState.lines=(data.synced||[]).filter(line=>Number.isFinite(line.t)&&line.t>=0&&typeof line.line==="string");
   lyricsState.active=-1;
   const body=$('#lyrics-body');
   body.scrollTop=0;
   $('#lyrics-follow').parentElement.hidden=!lyricsState.lines.length;
   if(data.instrumental){
     lyricsStatus("Faixa instrumental — sem letra.");body.textContent="";
-  }else if(data.encontrada===false||(!lyricsState.lines.length&&!data.texto)){
+  }else if(data.found===false||(!lyricsState.lines.length&&!data.text)){
     lyricsStatus("Letra não encontrada para esta faixa.");body.textContent="";
   }else if(lyricsState.lines.length){
     lyricsStatus("Letra sincronizada");
-    body.innerHTML=`<div class="lyrics-lines">${lyricsState.lines.map((line,i)=>`<p data-lyric-line="${i}">${escapeHTML(line.linha)||"♪"}</p>`).join("")}</div>`;
+    body.innerHTML=`<div class="lyrics-lines">${lyricsState.lines.map((line,i)=>`<p data-lyric-line="${i}">${escapeHTML(line.line)||"♪"}</p>`).join("")}</div>`;
   }else{
     lyricsStatus("Letra sem sincronização");
-    body.innerHTML=`<pre class="lyrics-plain">${escapeHTML(data.texto)}</pre>`;
+    body.innerHTML=`<pre class="lyrics-plain">${escapeHTML(data.text)}</pre>`;
   }
-  const source=data.fonte==="arquivo"?lyricLabel("Do arquivo"):data.fonte==="lrclib"?"LRCLIB":"";
+  const source=data.source==="file"?lyricLabel("Do arquivo"):data.source==="lrclib"?"LRCLIB":"";
   let url="";
   try{const parsed=new URL(data.url);if(parsed.origin==="https://lrclib.net")url=parsed.href;}catch{}
   $('#lyrics-source').innerHTML=source?`${escapeHTML(lyricLabel("Fonte:"))} ${url?`<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(source)}</a>`:escapeHTML(source)}`:"";
@@ -57,19 +57,19 @@ async function loadLyrics(track) {
   lyricsState.editor=false;lyricsState.result=null;lyricsState.draft="";
   $('#lyrics-edit').disabled=false;
   lyricsState.lines=[];lyricsState.active=-1;
-  $('#lyrics-heading').dataset.i18nUser="true";$('#lyrics-heading').textContent=join(track.titulo);
-  $('#lyrics-artist').dataset.i18nUser="true";$('#lyrics-artist').textContent=join(track.artista);
+  $('#lyrics-heading').dataset.i18nUser="true";$('#lyrics-heading').textContent=join(track.title);
+  $('#lyrics-artist').dataset.i18nUser="true";$('#lyrics-artist').textContent=join(track.artist);
   $('#lyrics-body').textContent="";$('#lyrics-source').textContent="";
   $('#lyrics-follow').parentElement.hidden=true;
   lyricsStatus("Buscando letra…");
-  const key=`${track.id}:${state.summary?.biblioteca_revisao||""}`;
+  const key=`${track.id}:${state.summary?.library_revision||""}`;
   if(lyricsState.cache.has(key)){displayLyrics(lyricsState.cache.get(key));return;}
   const controller=new AbortController();lyricsState.controller=controller;
   try{
-    const response=await fetch(`/api/letra?id=${encodeURIComponent(track.id)}`,{signal:controller.signal});
+    const response=await fetch(`/api/lyrics?id=${encodeURIComponent(track.id)}`,{signal:controller.signal});
     const data=await response.json();
     if(serial!==lyricsState.serial||$('#lyrics-panel').hidden)return;
-    if(!response.ok)throw new Error(data.erro||lyricLabel("Não foi possível carregar a letra."));
+    if(!response.ok)throw new Error(data.error||lyricLabel("Não foi possível carregar a letra."));
     lyricsState.cache.set(key,data);
     while(lyricsState.cache.size>30)lyricsState.cache.delete(lyricsState.cache.keys().next().value);
     displayLyrics(data);
@@ -83,9 +83,9 @@ async function loadLyrics(track) {
 function editLyrics() {
   if(!lyricsState.track)return;
   lyricsState.serial++;lyricsState.controller?.abort();
-  if(lyricsState.editor){displayLyrics(lyricsState.result||{encontrada:false});return;}
+  if(lyricsState.editor){displayLyrics(lyricsState.result||{found:false});return;}
   lyricsState.editor=true;
-  const text=lyricsState.draft||lyricsState.result?.texto||"";
+  const text=lyricsState.draft||lyricsState.result?.text||"";
   lyricsState.draft=text;
   $('#lyrics-edit').textContent=lyricLabel("Voltar à letra");
   $('#lyrics-follow').parentElement.hidden=true;
@@ -99,16 +99,16 @@ async function previewLyrics(event) {
   const button=event.target.querySelector('[type="submit"]');button.disabled=true;
   lyricsState.draft=$('#lyrics-editor').value;
   try{
-    const preview=await api("/api/letra/preview",{id:lyricsState.track.id,texto:lyricsState.draft});
+    const preview=await api("/api/lyrics/preview",{id:lyricsState.track.id,text:lyricsState.draft});
     lyricsState.pending=preview;
-    modal(`${modalHead(lyricLabel("Salvar letra no arquivo?"),escapeHTML(join(preview.artista)+" — "+join(preview.titulo)))}<div class="modal-body"><div class="backup-note">${icon("shield")}<span>${escapeHTML(lyricLabel("Será criado um backup completo. Só a letra simples será alterada; você pode desfazer pelo Histórico."))}</span></div><h3>${escapeHTML(lyricLabel("Letra conferida"))}</h3><pre class="lyrics-review">${escapeHTML(preview.texto)}</pre>${preview.atual.length?`<details><summary>${escapeHTML(lyricLabel("Letra atual do arquivo"))}</summary><pre class="lyrics-review">${escapeHTML(preview.atual.join("\n\n"))}</pre></details>`:""}<p class="source">${escapeHTML(preview.arquivo)}</p></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${escapeHTML(lyricLabel("Voltar à revisão"))}</button><button class="button primary" data-action="confirm-lyrics">${escapeHTML(lyricLabel("Criar backup e salvar letra"))}</button></div>`);
+    modal(`${modalHead(lyricLabel("Salvar letra no arquivo?"),escapeHTML(join(preview.artist)+" — "+join(preview.title)))}<div class="modal-body"><div class="backup-note">${icon("shield")}<span>${escapeHTML(lyricLabel("Será criado um backup completo. Só a letra simples será alterada; você pode desfazer pelo Histórico."))}</span></div><h3>${escapeHTML(lyricLabel("Letra conferida"))}</h3><pre class="lyrics-review">${escapeHTML(preview.text)}</pre>${preview.current.length?`<details><summary>${escapeHTML(lyricLabel("Letra atual do arquivo"))}</summary><pre class="lyrics-review">${escapeHTML(preview.current.join("\n\n"))}</pre></details>`:""}<p class="source">${escapeHTML(preview.file)}</p></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${escapeHTML(lyricLabel("Voltar à revisão"))}</button><button class="button primary" data-action="confirm-lyrics">${escapeHTML(lyricLabel("Criar backup e salvar letra"))}</button></div>`);
   }catch(error){toast(error.message);}finally{button.disabled=false;}
 }
 
 async function captureLyricsJob(job) {
-  if(!job||job.estado!=="concluido"||!job.resultado?.letra_track_id||lyricsState.seenJob===job.id)return;
+  if(!job||job.status!=="completed"||!job.result?.lyrics_track_id||lyricsState.seenJob===job.id)return;
   lyricsState.seenJob=job.id;
-  const ident=job.resultado.letra_track_id;
+  const ident=job.result.lyrics_track_id;
   for(const key of lyricsState.cache.keys())if(key.startsWith(ident+":"))lyricsState.cache.delete(key);
   toast(lyricLabel("Letra salva no arquivo. Você pode desfazer pelo Histórico."));
   if(!$('#lyrics-panel').hidden&&lyricsState.track?.id===ident)await loadLyrics(lyricsState.track);
@@ -164,7 +164,7 @@ document.addEventListener("click",event=>{
   else if(button.dataset.action==="edit-lyrics")editLyrics();
   else if(button.dataset.action==="confirm-lyrics"&&lyricsState.pending){
     button.disabled=true;
-    api("/api/letra/salvar",{previa:lyricsState.pending.previa}).then(async()=>{lyricsState.pending=null;$('#modal').close();await updateState();toast(lyricLabel("Criando backup e salvando a letra…"));}).catch(error=>{button.disabled=false;toast(error.message);});
+    api("/api/lyrics/save",{preview:lyricsState.pending.preview}).then(async()=>{lyricsState.pending=null;$('#modal').close();await updateState();toast(lyricLabel("Criando backup e salvando a letra…"));}).catch(error=>{button.disabled=false;toast(error.message);});
   }
 });
 document.addEventListener("submit",event=>{if(event.target.id==="lyrics-form")previewLyrics(event);});
