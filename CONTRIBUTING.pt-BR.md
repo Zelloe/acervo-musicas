@@ -43,7 +43,7 @@ for f in web/*.js; do node --check "$f"; done
 ## Testes
 
 - **Nunca use a sua coleção real nos testes.** Gere arquivos temporários com
-  ffmpeg, como a suíte existente faz em `tests/test_biblioteca.py`.
+  ffmpeg, como a suíte existente faz em `tests/test_library.py`.
 - Toda mudança em gravação, importação ou restauração precisa de testes que
   demonstrem a preservação do que não foi aprovado e a restauração do original.
 - Consultas a serviços externos (MusicBrainz, LRCLIB, spotDL, yt-dlp) devem ser
@@ -53,28 +53,28 @@ for f in web/*.js; do node --check "$f"; done
 
 | Arquivo | Responsabilidade |
 | --- | --- |
-| `corrigir_tags.py` | Linha de comando: `analisar`, `aplicar`, `restaurar`, `interface`, `playlist`, `proteger`, `desproteger`, `protecoes` |
-| `diagnostico_biblioteca.py` | Leitura e inventário, sem gravar |
-| `biblioteca_plano.py` | Regras, propostas e plano de aprovação |
-| `biblioteca_core.py` | Gravação validada, backups e restauração |
-| `biblioteca_importacao.py` | Importação transacional e desfazer |
-| `biblioteca_downloads.py` | Fluxo avançado de downloads (área de revisão) |
-| `baixador.py`, `baixar.py`, `spotdl_busca.py` | Download direto com spotDL (núcleo, terminal e adaptador) |
-| `seletor_downloads.py` | Página Baixar do servidor |
-| `busca.py` | Ranking da biblioteca e sugestões globais |
-| `versoes.py` | Classificação estúdio/ao vivo/acústico/demo/remix |
-| `letras.py` | Letras do arquivo e do LRCLIB; gravação com backup |
-| `protecoes.py` | Campos protegidos |
+| `acervo.py` | Linha de comando: `analisar`, `aplicar`, `restaurar`, `interface`, `playlist`, `proteger`, `desproteger`, `protecoes` |
+| `library_scan.py` | Leitura e inventário, sem gravar |
+| `library_plan.py` | Regras, propostas e plano de aprovação |
+| `library_core.py` | Gravação validada, backups e restauração |
+| `library_import.py` | Importação transacional e desfazer |
+| `staged_downloads.py` | Fluxo avançado de downloads (área de revisão) |
+| `downloader.py`, `download_menu.py`, `spotdl_search.py` | Download direto com spotDL (núcleo, terminal e adaptador) |
+| `download_picker.py` | Página Baixar do servidor |
+| `search.py` | Ranking da biblioteca e sugestões globais |
+| `versions.py` | Classificação estúdio/ao vivo/acústico/demo/remix |
+| `lyrics.py` | Letras do arquivo e do LRCLIB; gravação com backup |
+| `protections.py` | Campos protegidos |
 | `playlists.py` | Playlists M3U8 |
-| `musicbrainz_local.py` | Cliente MusicBrainz opcional, com cache e limite |
-| `servidor.py` e `web/` | Servidor local e interface |
+| `musicbrainz_client.py` | Cliente MusicBrainz opcional, com cache e limite |
+| `server.py` e `web/` | Servidor local e interface |
 
 O planejamento das próximas funcionalidades está em [ROADMAP.md](ROADMAP.md).
 Só marque um item como concluído depois de cumprir o critério descrito lá.
 
 ## Regras de gênero e álbum
 
-`generos_artistas.csv` e `albuns_excecoes.csv` são regras de curadoria local.
+`genre_rules.csv` e `album_rules.csv` são regras de curadoria local.
 Ao propor novas regras:
 
 - Prefira gêneros específicos e úteis (por exemplo, `Thrash Metal` em vez de

@@ -48,7 +48,7 @@ new user-facing text should be added in a way that can be translated.
 ## Tests
 
 - **Never use your real collection in tests.** Generate temporary files with
-  ffmpeg, as the existing suite does in `tests/test_biblioteca.py`.
+  ffmpeg, as the existing suite does in `tests/test_library.py`.
 - Every change to writing, importing or restoring needs tests that show what
   was not approved is preserved and that the original can be restored.
 - External services (MusicBrainz, LRCLIB, spotDL, yt-dlp) must be mocked in
@@ -58,28 +58,28 @@ new user-facing text should be added in a way that can be translated.
 
 | File | Responsibility |
 | --- | --- |
-| `corrigir_tags.py` | Command line: `analisar`, `aplicar`, `restaurar`, `interface`, `playlist`, `proteger`, `desproteger`, `protecoes` |
-| `diagnostico_biblioteca.py` | Reading and inventory, never writes |
-| `biblioteca_plano.py` | Rules, proposals and the approval plan |
-| `biblioteca_core.py` | Validated writes, backups and restore |
-| `biblioteca_importacao.py` | Transactional import and undo |
-| `biblioteca_downloads.py` | Advanced download flow (review area) |
-| `baixador.py`, `baixar.py`, `spotdl_busca.py` | Direct spotDL downloads (core, terminal menu and adapter) |
-| `seletor_downloads.py` | Server side of the Baixar page |
-| `busca.py` | Library ranking and global suggestions |
-| `versoes.py` | Studio/live/acoustic/demo/remix classification |
-| `letras.py` | Lyrics from the file and LRCLIB; saving with backup |
-| `protecoes.py` | Protected fields |
+| `acervo.py` | Command line: `analisar`, `aplicar`, `restaurar`, `interface`, `playlist`, `proteger`, `desproteger`, `protecoes` |
+| `library_scan.py` | Reading and inventory, never writes |
+| `library_plan.py` | Rules, proposals and the approval plan |
+| `library_core.py` | Validated writes, backups and restore |
+| `library_import.py` | Transactional import and undo |
+| `staged_downloads.py` | Advanced download flow (review area) |
+| `downloader.py`, `download_menu.py`, `spotdl_search.py` | Direct spotDL downloads (core, terminal menu and adapter) |
+| `download_picker.py` | Server side of the Baixar page |
+| `search.py` | Library ranking and global suggestions |
+| `versions.py` | Studio/live/acoustic/demo/remix classification |
+| `lyrics.py` | Lyrics from the file and LRCLIB; saving with backup |
+| `protections.py` | Protected fields |
 | `playlists.py` | M3U8 playlists |
-| `musicbrainz_local.py` | Optional MusicBrainz client, with cache and limits |
-| `servidor.py` and `web/` | Local server and interface |
+| `musicbrainz_client.py` | Optional MusicBrainz client, with cache and limits |
+| `server.py` and `web/` | Local server and interface |
 
 Planned features are listed in [ROADMAP.md](ROADMAP.md) (Portuguese). Only mark
 an item as done once it meets the criteria described there.
 
 ## Genre and album rules
 
-`generos_artistas.csv` and `albuns_excecoes.csv` are locally curated rules.
+`genre_rules.csv` and `album_rules.csv` are locally curated rules.
 When proposing new rules:
 
 - Prefer specific, useful genres (for example `Thrash Metal` rather than

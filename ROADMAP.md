@@ -1,140 +1,144 @@
-# Plano de evolução do Acervo
+# Acervo roadmap
 
-As 15 funcionalidades abaixo fazem parte do escopo planejado do projeto.
-As caixas indicam a entrega completa e validada de cada item; recursos que já
-tenham suporte parcial devem ser aproveitados e ampliados.
+**English** · [Português](ROADMAP.pt-BR.md)
 
-**Prioridade atual (29/10/2026):** após concluir os itens 6 e 13, pausar novos
-itens deste roadmap. O usuário priorizou um seletor simples de músicas com
-spotDL, no terminal e no navegador, salvando diretamente na pasta escolhida.
-A organização de metadados existentes continua disponível.
+The 15 features below are part of the project's planned scope.
+The checkboxes indicate that each item has been fully delivered and validated;
+existing partial support should be reused and extended.
 
-## Regras para todas as etapas
+**Current priority (2026-10-29):** after completing items 6 and 13, pause new
+items on this roadmap. The user prioritised a simple music picker using spotDL,
+in the terminal and browser, saving directly to the chosen folder.
+Metadata management for existing files remains available.
 
-- Manter a biblioteca nos caminhos atuais, sem criar pastas por gênero ou álbum.
-- Armazenar informações musicais nos metadados dos arquivos, com compatibilidade
-  com players. Filtros, preferências e tarefas podem usar o banco local do app.
-- Apresentar uma prévia e exigir aprovação antes de modificar a coleção.
-- Fazer backup verificável e permitir restauração das alterações.
-- Preservar capas, tags válidas, faixas distintas e versões legítimas.
-- Não excluir, renomear ou reconverter arquivos automaticamente. Downloads e
-  substituições devem ser escolhidos explicitamente.
-- Encaminhar identificações ambíguas para revisão e registrar suas fontes.
-- Manter caminhos configuráveis e permitir o uso sem Spotify Premium.
+## Rules for every stage
 
-## Funcionalidades
+- Keep the library at its current paths, without creating genre or album folders.
+- Store music information in file metadata, compatible with music players.
+  Filters, preferences and tasks may use the app's local database.
+- Show a preview and require approval before modifying the collection.
+- Create a verifiable backup and allow changes to be restored.
+- Preserve cover art, valid tags, distinct tracks and legitimate versions.
+- Never delete, rename or re-encode files automatically. Downloads and
+  replacements must be chosen explicitly.
+- Send ambiguous identifications for review and record their sources.
+- Keep paths configurable and allow use without Spotify Premium.
 
-- [ ] **1. Álbuns incompletos**
-  Comparar a coleção com a lista de faixas da edição escolhida, mostrando
-  presentes, ausentes e correspondências duvidosas. Permitir selecionar e baixar
-  somente as faixas faltantes, sem substituir as existentes por padrão.
+## Features
 
-- [ ] **2. Comparador de edições**
-  Comparar original, remaster, deluxe e versões ao vivo por discos, faixas,
-  duração e identificadores disponíveis. Mostrar faixas extras e diferenças
-  antes da unificação, preservando a identificação da edição e da gravação.
-  Compartilhar um Release Group não basta para tratar gravações como iguais.
+- [ ] **1. Incomplete albums**
+  Compare the collection with the track list of the chosen edition, showing
+  present tracks, missing tracks and uncertain matches. Allow users to select
+  and download only missing tracks, without replacing existing files by default.
 
-- [ ] **3. Identificação pelo áudio**
-  Usar impressão digital acústica como evidência adicional para músicas com
-  nomes ou tags incorretos. Exibir candidatos, fonte e confiança; resultados
-  ambíguos exigem revisão. Informar quando uma consulta enviar a impressão
-  digital a um serviço externo.
+- [ ] **2. Edition comparison**
+  Compare original, remastered, deluxe and live editions by discs, tracks,
+  duration and available identifiers. Show extra tracks and differences before
+  merging metadata, preserving the identity of both the edition and recording.
+  Sharing a Release Group is not enough to treat recordings as identical.
 
-- [ ] **4. Possíveis duplicatas**
-  Distinguir arquivos idênticos por hash, possíveis codificações diferentes da
-  mesma gravação e versões alternativas. Oferecer comparação e reprodução,
-  sem apagar automaticamente nem concluir duplicidade somente por título ou álbum.
+- [ ] **3. Audio identification**
+  Use acoustic fingerprints as additional evidence for tracks with incorrect
+  names or tags. Show candidates, sources and confidence; ambiguous results
+  require review. Indicate when a query sends the fingerprint to an external
+  service.
 
-- [ ] **5. Origem de cada informação**
-  Registrar por campo o valor atual, a sugestão, a fonte, a data da consulta e
-  as evidências da identificação. Diferenciar regras locais, escolhas manuais
-  e dados externos; explicar a confiança sem inventar precisão numérica.
+- [ ] **4. Possible duplicates**
+  Distinguish identical files by hash, possible encodings of the same recording
+  and alternative versions. Offer comparison and playback, without deleting
+  automatically or inferring duplication from a title or album alone.
 
-- [x] **6. Campos protegidos**
-  Permitir proteger campos de uma faixa ou de um conjunto de faixas, como
-  gênero e edição do álbum. Persistir a escolha e respeitá-la em análises,
-  enriquecimentos e substituições, até o usuário desbloquear o campo.
-  Disponível na CLI, nos detalhes da faixa e em lote para as faixas atuais de
-  um álbum. A política local é separada por biblioteca e revalidada ao gravar
-  ou restaurar, inclusive para planos antigos. Campos vazios também podem ser
-  protegidos. Não há reassociação automática quando um arquivo muda de caminho.
-  Testes Python/HTTP e Chromium em desktop/celular validam persistência,
-  desbloqueio e leitura da biblioteca mesmo com a política ilegível.
+- [ ] **5. Information provenance**
+  Record each field's current value, suggestion, source, query date and
+  identification evidence. Distinguish local rules, manual choices and external
+  data; explain confidence without inventing numerical precision.
 
-- [ ] **7. Gêneros personalizados**
-  Oferecer edição de regras por artista, álbum e faixa, com múltiplos gêneros.
-  Documentar a prioridade entre regras, respeitar campos protegidos e validar
-  a leitura de TCON e GENRE nos players considerados compatíveis.
+- [x] **6. Protected fields**
+  Allow users to protect fields for a track or a set of tracks, such as genre
+  and album edition. Persist the choice and respect it during analysis,
+  enrichment and replacement until the user unlocks the field.
+  Available in the CLI, track details and batch actions for an album's current
+  tracks. The local policy is separate for each library and revalidated on write
+  or restore, including for old plans. Empty fields can also be protected.
+  Files are not automatically reassociated when their paths change.
+  Python/HTTP tests and Chromium checks on desktop and mobile validate
+  persistence, unlocking and library reading even with an unreadable policy.
 
-- [ ] **8. Coleções inteligentes**
-  Salvar filtros combinados por gênero, período, artista, formato e pendências,
-  incluindo álbuns incompletos e músicas sem capa. Atualizar os resultados
-  conforme a biblioteca muda, sem mover arquivos.
+- [ ] **7. Custom genres**
+  Offer rule editing by artist, album and track, with multiple genres. Document
+  rule precedence, respect protected fields and validate TCON and GENRE reading
+  in the players considered compatible.
 
-- [ ] **9. Fila de downloads persistente**
-  Salvar tarefas e seus estados para recuperar a fila após fechar o programa.
-  Permitir pausar, cancelar e tentar novamente, com erros claros. Quando a
-  ferramenta não permitir retomar bytes, indicar que a tentativa será reiniciada.
-  Manter os downloads fora da coleção até a aprovação da importação.
+- [ ] **8. Smart collections**
+  Save combined filters for genre, period, artist, format and pending tasks,
+  including incomplete albums and tracks without cover art. Update results as
+  the library changes, without moving files.
 
-- [ ] **10. Comparação antes da substituição**
-  Permitir ouvir o arquivo atual e o candidato, comparando duração, formato,
-  bitrate, frequência de amostragem, canais, tags e capa. Não apresentar bitrate
-  maior como prova de qualidade superior. Exigir escolha explícita e backup
-  para substituir um arquivo, preservando os originais até a aprovação.
+- [ ] **9. Persistent download queue**
+  Save tasks and their states to recover the queue after closing the program.
+  Allow pausing, cancelling and retrying, with clear errors. When the tool cannot
+  resume transferred bytes, indicate that the attempt will restart.
+  Keep downloads outside the collection until import is approved.
 
-- [ ] **11. Histórico visual**
-  Mostrar alterações por execução, faixa e campo, com valores anteriores e
-  posteriores. Permitir desfazer uma faixa ou um lote após conferir integridade
-  e possíveis edições posteriores; registrar também importações e substituições.
+- [ ] **10. Comparison before replacement**
+  Allow users to listen to the current file and its candidate, comparing
+  duration, format, bitrate, sample rate, channels, tags and cover art.
+  Do not present higher bitrate as proof of better quality. Require an explicit
+  choice and a backup before replacing a file, preserving originals until
+  approval.
 
-- [ ] **12. Modo de descoberta**
-  Explorar artistas pouco ouvidos, álbuns esquecidos e gêneros de interesse.
-  Explicar o motivo de cada sugestão. Usar histórico de reprodução somente
-  quando disponível e habilitado, sem confundir falta de dados com pouca escuta.
+- [ ] **11. Visual history**
+  Show changes by run, track and field, with previous and new values. Allow
+  undoing a track or batch after checking integrity and possible later edits;
+  also record imports and replacements.
 
-- [x] **13. Playlists portáteis**
-  Exportar seleções e coleções em M3U8 com caminhos relativos à playlist,
-  codificação UTF-8 e nomes com acentos. Validar a resolução dos caminhos
-  depois de transportar a playlist junto com a coleção correspondente.
-  Disponível pela CLI e pelo botão **Exportar M3U8** da Biblioteca/Álbuns.
-  A interface mostra prévia, salva em `Playlists/` e exige confirmação para
-  substituir uma playlist, guardando antes uma cópia verificável fora da coleção.
-  Validado com acentos, múltiplas páginas, álbuns homônimos, cópia para outro
-  disco e navegação em desktop/celular. A restauração da playlist anterior é
-  manual, pelo caminho do backup exibido após a substituição.
+- [ ] **12. Discovery mode**
+  Explore rarely played artists, forgotten albums and genres of interest.
+  Explain the reason for each suggestion. Use playback history only when
+  available and enabled, without confusing missing data with infrequent listening.
 
-- [ ] **14. Sistema de extensões**
-  Definir interfaces documentadas para fontes de metadados, ferramentas de
-  download e regras. Permitir extensões opcionais sem modificar o núcleo,
-  mantendo aprovação, campos protegidos, validação e backup no núcleo.
-  Informar que extensões executam código e devem vir de fontes confiáveis.
+- [x] **13. Portable playlists**
+  Export selections and collections as M3U8 with paths relative to the playlist,
+  UTF-8 encoding and accented names. Validate path resolution after moving the
+  playlist together with its corresponding collection.
+  Available through the CLI and the **Export M3U8** button in Library/Albums.
+  The interface shows a preview, saves to `Playlists/` and requires confirmation
+  before replacing a playlist, first keeping a verifiable copy outside the
+  collection. Validated with accented names, multiple pages, albums sharing
+  names, copying to another drive and navigation on desktop and mobile.
+  Restoring the previous playlist is manual, using the backup path shown after
+  replacement.
 
-- [ ] **15. Modo demonstração**
-  Disponibilizar uma biblioteca fictícia com áudio próprio ou de licença
-  compatível, créditos e casos de metadados incompletos, edições e duplicatas.
-  Permitir testar a interface e contribuir sem acessar a coleção pessoal,
-  com dados e backups de demonstração isolados e opção de reiniciar a demonstração.
+- [ ] **14. Extension system**
+  Define documented interfaces for metadata sources, download tools and rules.
+  Allow optional extensions without changing the core, keeping approval,
+  protected fields, validation and backup in the core. Indicate that extensions
+  execute code and must come from trusted sources.
 
-## Ordem proposta de entrega
+- [ ] **15. Demo mode**
+  Provide a fictional library with original or appropriately licensed audio,
+  credits and examples of incomplete metadata, editions and duplicates.
+  Allow users to test the interface and contribute without accessing their
+  personal collection, with isolated demo data and backups and an option to
+  reset the demonstration.
 
-| Etapa | Itens | Resultado esperado |
+## Proposed delivery order
+
+| Stage | Items | Expected outcome |
 | --- | --- | --- |
-| 1 — Decisões e rastreabilidade | 5, 6, 7 e 11 | Entender as sugestões, preservar escolhas e revisar ou desfazer alterações. |
-| 2 — Identificação e álbuns | 3, 4, 2 e 1 | Comparar gravações e edições para reconhecer o que existe e o que falta. |
-| 3 — Downloads e portabilidade | 9, 10 e 13 | Recuperar tarefas, revisar substituições e exportar playlists. |
-| 4 — Exploração e contribuições | 8, 12, 14 e 15 | Explorar a coleção e facilitar extensões e demonstrações públicas. |
+| 1 — Decisions and traceability | 5, 6, 7 and 11 | Understand suggestions, preserve choices and review or undo changes. |
+| 2 — Identification and albums | 3, 4, 2 and 1 | Compare recordings and editions to identify present and missing tracks. |
+| 3 — Downloads and portability | 9, 10 and 13 | Recover tasks, review replacements and export playlists. |
+| 4 — Exploration and contributions | 8, 12, 14 and 15 | Explore the collection and support extensions and public demonstrations. |
 
-A ordem orienta prioridades, sem estabelecer datas. Funcionalidades
-independentes podem ser antecipadas. A comparação de edições deve preceder a
-classificação definitiva de faixas faltantes; a revisão e o backup devem estar
-disponíveis antes de qualquer substituição.
+This order guides priorities without setting dates. Independent features may
+be delivered earlier. Edition comparison must precede the final classification
+of missing tracks; review and backup must be available before any replacement.
 
-## Critério de conclusão
+## Completion criteria
 
-Marcar um item somente depois de verificar seu comportamento, documentar o uso
-e as limitações e validar os casos relevantes em uma biblioteca de teste.
-Fluxos que gravem arquivos devem demonstrar preservação dos dados não aprovados
-para alteração e restauração dos originais. O modo demonstração não deve incluir
-arquivos, credenciais ou relatórios pessoais.
+Mark an item complete only after checking its behaviour, documenting its use
+and limitations, and validating relevant cases in a test library. Workflows
+that write files must demonstrate preservation of data not approved for change
+and restoration of the originals. Demo mode must not include personal files,
+credentials or reports.

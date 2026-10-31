@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import tempfile
 
-from diagnostico_biblioteca import TEMP_PREFIXES, read_track
+from library_scan import TEMP_PREFIXES, read_track
 
 
 def _text(values) -> str:

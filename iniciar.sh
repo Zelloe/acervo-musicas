@@ -1,6 +1,3 @@
 #!/usr/bin/env bash
-set -euo pipefail
-cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
-source ./preparar.sh
-acervo_preparar
-exec .venv/bin/python corrigir_tags.py interface --abrir "$@"
+# Atalho antigo, mantido por compatibilidade: use ./start.sh
+exec "$(dirname -- "${BASH_SOURCE[0]}")/start.sh" "$@"

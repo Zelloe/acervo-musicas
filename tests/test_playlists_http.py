@@ -17,10 +17,10 @@ from urllib.request import Request, urlopen
 
 from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, TRCK
 
-from biblioteca_core import library_lock, sha256
-from biblioteca_plano import create_plan
+from library_core import library_lock, sha256
+from library_plan import create_plan
 from playlists import validate_m3u8
-from servidor import App, Handler
+from server import App, Handler
 
 
 @unittest.skipUnless(shutil.which("ffmpeg"), "Os testes geram áudio temporário com ffmpeg")
@@ -149,7 +149,7 @@ class PlaylistHTTPTest(unittest.TestCase):
         self.assertEqual(backup.read_text(), "editada por outro programa\n")
         preview = self.preview()
         original = path.read_bytes()
-        with patch("servidor.durable_copy", side_effect=OSError("disco cheio")):
+        with patch("server.durable_copy", side_effect=OSError("disco cheio")):
             self.export(status=400, sobrescrever=True, anterior_sha256=preview["anterior_sha256"])
         self.assertEqual(path.read_bytes(), original)
 
@@ -157,13 +157,13 @@ class PlaylistHTTPTest(unittest.TestCase):
         os.link(self.lib / "Ação 01.mp3", self.base / "seed.mp3")
         self.assertEqual(self.preview()["faixas"], 53)
         entered, release = threading.Event(), threading.Event()
-        from servidor import render_m3u8
+        from server import render_m3u8
         def slow_render(*args):
             entered.set()
             release.wait(5)
             return render_m3u8(*args)
         result = []
-        with patch("servidor.render_m3u8", side_effect=slow_render):
+        with patch("server.render_m3u8", side_effect=slow_render):
             request = threading.Thread(target=lambda: result.append(self.preview()))
             request.start()
             try:
