@@ -63,7 +63,7 @@ const englishMessages = {
   "Artista do álbum": "Album artist",
   "Artistas": "Artists",
   "As alterações ficam bloqueadas até corrigir esse arquivo.": "Changes are blocked until this file is fixed.",
-  "As propostas locais ficam em generos_artistas.csv. Gêneros que já existem nos arquivos são preservados.": "Local suggestions are stored in generos_artistas.csv. Genres already present in your files are preserved.",
+  "As propostas locais ficam em genre_rules.csv. Gêneros que já existem nos arquivos são preservados.": "Local suggestions are stored in genre_rules.csv. Genres already present in your files are preserved.",
   "ATUAL → SUGERIDO": "CURRENT → SUGGESTED",
   "atualização de metadados": "metadata update",
   "Atualizar biblioteca": "Refresh library",

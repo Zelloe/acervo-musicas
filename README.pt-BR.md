@@ -21,9 +21,9 @@ exclui músicas.
 - **Inventário:** lê MP3 (ID3v2.3/v2.4) e FLAC (Vorbis Comments) recursivamente,
   com tags, capas, características técnicas e hashes.
 - **Sugestões de gênero:** a partir de regras locais editáveis por artista e por
-  álbum (`generos_artistas.csv`) e, opcionalmente, do MusicBrainz. Gêneros já
+  álbum (`genre_rules.csv`) e, opcionalmente, do MusicBrainz. Gêneros já
   preenchidos são preservados por padrão.
-- **Unificação de álbuns:** regras conservadoras (`albuns_excecoes.csv`) que
+- **Unificação de álbuns:** regras conservadoras (`album_rules.csv`) que
   exigem artista, edição, disco, faixa e título compatíveis. O nome anterior
   fica guardado numa tag própria. Versões ao vivo, demos e bônus não são fundidas
   só por semelhança de nome.
@@ -55,10 +55,10 @@ Requisitos:
 ```bash
 git clone https://github.com/Zelloe/acervo-musicas.git
 cd acervo-musicas
-./iniciar.sh
+./start.sh
 ```
 
-Na primeira execução, `iniciar.sh` e `baixar.sh` criam a `.venv` e instalam as
+Na primeira execução, `start.sh` e `download.sh` criam a `.venv` e instalam as
 dependências sozinhos (precisa de internet). Não há dependências de JavaScript
 nem etapa de compilação.
 
@@ -72,7 +72,7 @@ Requer [spotDL](https://github.com/spotDL/spotify-downloader) (`pipx install spo
 e `ffmpeg`. Não precisa de conta de desenvolvedor do Spotify nem de Premium.
 Há duas formas de usar, com o mesmo comportamento.
 
-**No navegador:** abra a interface (`./iniciar.sh`) e vá em **Baixar**. Escolha
+**No navegador:** abra a interface (`./start.sh`) e vá em **Baixar**. Escolha
 a aba Artista, Música ou Link, confira a pasta de destino e marque as faixas. As
 que faltam já vêm marcadas; as que você já tem aparecem desmarcadas. Quando o
 destino fica dentro da coleção aberta, as músicas novas aparecem na Biblioteca
@@ -81,7 +81,7 @@ logo depois do download, sem precisar refazer a análise.
 **No terminal:**
 
 ```bash
-./baixar.sh --pasta "$HOME/Music"
+./download.sh --pasta "$HOME/Music"
 ```
 
 O menu oferece três caminhos:
@@ -98,7 +98,7 @@ Responda com `enter` para baixar só as que faltam, `todas`, ou números como
 Cada faixa vira `Artista - Título.mp3` direto na pasta escolhida, com título,
 artista, álbum, ano, número da faixa e capa vindos do spotDL. Como o spotDL sem
 API oficial não informa gênero, o gênero é preenchido pelas regras de
-`generos_artistas.csv` quando houver uma regra única para o artista ou álbum.
+`genre_rules.csv` quando houver uma regra única para o artista ou álbum.
 
 O spotDL trabalha numa pasta temporária fora da coleção. O arquivo só aparece no
 destino depois de o download terminar com sucesso e o áudio ser validado com
@@ -137,7 +137,7 @@ letra simples embutida quando ela é encontrada.
 ## Uso pela interface
 
 ```bash
-./iniciar.sh --pasta "/caminho/para/suas/musicas"
+./start.sh --pasta "/caminho/para/suas/musicas"
 ```
 
 O navegador abre em <http://127.0.0.1:8765>. Mantenha o terminal aberto
@@ -147,7 +147,7 @@ Acervo, reinicie o servidor (a página avisa quando isso for necessário).
 Sem abrir o navegador automaticamente, ou com outra porta:
 
 ```bash
-.venv/bin/python corrigir_tags.py interface \
+.venv/bin/python acervo.py interface \
   --pasta "/caminho/para/suas/musicas" \
   --porta 8765 \
   --dados "/caminho/para/dados-do-acervo"
@@ -165,7 +165,7 @@ minutos em coleções grandes.
 1. Gerar uma prévia (não grava nada):
 
    ```bash
-   .venv/bin/python corrigir_tags.py analisar \
+   .venv/bin/python acervo.py analisar \
      --pasta "/caminho/para/suas/musicas" \
      --normalizar-albuns \
      --saida relatorios/minha_previa
@@ -178,7 +178,7 @@ minutos em coleções grandes.
 3. Aplicar:
 
    ```bash
-   .venv/bin/python corrigir_tags.py aplicar \
+   .venv/bin/python acervo.py aplicar \
      --plano relatorios/minha_previa/plano.json \
      --aprovacoes relatorios/minha_previa/alteracoes.csv
    ```
@@ -186,7 +186,7 @@ minutos em coleções grandes.
 4. Desfazer, se necessário, com o manifesto informado na aplicação:
 
    ```bash
-   .venv/bin/python corrigir_tags.py restaurar \
+   .venv/bin/python acervo.py restaurar \
      --manifesto backups/ID_DA_EXECUCAO/manifesto.json
    ```
 
@@ -205,7 +205,7 @@ Um campo protegido nunca é sugerido nem gravado pelo Acervo, mesmo que esteja
 vazio e mesmo que uma regra, o MusicBrainz ou um download proponham outro valor:
 
 ```bash
-.venv/bin/python corrigir_tags.py proteger \
+.venv/bin/python acervo.py proteger \
   --pasta "/caminho/para/suas/musicas" \
   --arquivo "/caminho/para/suas/musicas/Artista/faixa.mp3" \
   --campos genero,album
@@ -247,7 +247,7 @@ confirmação. Para voltar à versão anterior, copie esse arquivo de volta para
 Pela linha de comando, a exportação só lê a coleção:
 
 ```bash
-.venv/bin/python corrigir_tags.py playlist \
+.venv/bin/python acervo.py playlist \
   --pasta "/caminho/para/suas/musicas" \
   --genero "Progressive Rock" \
   --nome "Progressivo" \
@@ -265,7 +265,7 @@ substituída sem `--sobrescrever`. Para conferir se todos os caminhos ainda
 resolvem:
 
 ```bash
-.venv/bin/python corrigir_tags.py playlist --validar --saida Progressivo.m3u8
+.venv/bin/python acervo.py playlist --validar --saida Progressivo.m3u8
 ```
 
 ## Como as gravações são protegidas

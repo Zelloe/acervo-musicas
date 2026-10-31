@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from musicbrainz_local import MusicBrainz
+from musicbrainz_client import MusicBrainz
 
 
 class GenreIdentityTest(unittest.TestCase):

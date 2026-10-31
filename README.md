@@ -24,9 +24,9 @@ deletes your music.
 - **Inventory:** reads MP3 (ID3v2.3/v2.4) and FLAC (Vorbis comments)
   recursively, with tags, cover art, technical details and hashes.
 - **Genre suggestions:** from editable local rules per artist and per album
-  (`generos_artistas.csv`) and, optionally, MusicBrainz. Existing genres are
+  (`genre_rules.csv`) and, optionally, MusicBrainz. Existing genres are
   kept by default.
-- **Album unification:** conservative rules (`albuns_excecoes.csv`) that require
+- **Album unification:** conservative rules (`album_rules.csv`) that require
   matching artist, edition, disc, track number and title. The previous name is
   kept in its own tag. Live versions, demos and bonus tracks are never merged
   just because their names look alike.
@@ -58,10 +58,10 @@ Requirements:
 ```bash
 git clone https://github.com/Zelloe/acervo-musicas.git
 cd acervo-musicas
-./iniciar.sh
+./start.sh
 ```
 
-On first run, `iniciar.sh` and `baixar.sh` create the `.venv` and install the
+On first run, `start.sh` and `download.sh` create the `.venv` and install the
 dependencies on their own (internet required). There are no JavaScript
 dependencies and no build step.
 
@@ -76,7 +76,7 @@ Requires [spotDL](https://github.com/spotDL/spotify-downloader)
 Premium subscription are needed. There are two ways to use it, with the same
 behaviour.
 
-**In the browser:** open the interface (`./iniciar.sh`) and go to **Baixar**
+**In the browser:** open the interface (`./start.sh`) and go to **Baixar**
 ("Download"). Pick the Artist, Song or Link tab, check the destination folder
 and tick the tracks. Missing tracks come pre-selected; the ones you already
 have are left unticked. When the destination is inside the open library, new
@@ -85,7 +85,7 @@ songs show up in the Library right after the download, without a new analysis.
 **In the terminal:**
 
 ```bash
-./baixar.sh --pasta "$HOME/Music"
+./download.sh --pasta "$HOME/Music"
 ```
 
 The menu offers three paths:
@@ -102,7 +102,7 @@ type `todas` ("all"), or numbers such as `1-3,5`.
 Each track becomes `Artist - Title.mp3` directly in the chosen folder, with
 title, artist, album, year, track number and cover art from spotDL. Since
 spotDL without the official API does not provide genres, the genre is filled in
-from `generos_artistas.csv` when there is a single matching rule for the artist
+from `genre_rules.csv` when there is a single matching rule for the artist
 or album. Lyrics are embedded when they are found.
 
 spotDL works in a temporary folder outside your collection. The file only
@@ -142,7 +142,7 @@ locally, outside your collection.
 ## Using the interface
 
 ```bash
-./iniciar.sh --pasta "/path/to/your/music"
+./start.sh --pasta "/path/to/your/music"
 ```
 
 The browser opens at <http://127.0.0.1:8765>. Keep the terminal open while you
@@ -152,7 +152,7 @@ server (the page warns you when that is needed).
 Without opening the browser automatically, or on another port:
 
 ```bash
-.venv/bin/python corrigir_tags.py interface \
+.venv/bin/python acervo.py interface \
   --pasta "/path/to/your/music" \
   --porta 8765 \
   --dados "/path/to/acervo-data"
@@ -170,7 +170,7 @@ can take a few minutes on large collections.
 1. Create a preview (writes nothing):
 
    ```bash
-   .venv/bin/python corrigir_tags.py analisar \
+   .venv/bin/python acervo.py analisar \
      --pasta "/path/to/your/music" \
      --normalizar-albuns \
      --saida relatorios/my_preview
@@ -183,7 +183,7 @@ can take a few minutes on large collections.
 3. Apply:
 
    ```bash
-   .venv/bin/python corrigir_tags.py aplicar \
+   .venv/bin/python acervo.py aplicar \
      --plano relatorios/my_preview/plano.json \
      --aprovacoes relatorios/my_preview/alteracoes.csv
    ```
@@ -191,7 +191,7 @@ can take a few minutes on large collections.
 4. Undo if needed, with the manifest printed when applying:
 
    ```bash
-   .venv/bin/python corrigir_tags.py restaurar \
+   .venv/bin/python acervo.py restaurar \
      --manifesto backups/RUN_ID/manifesto.json
    ```
 
@@ -210,7 +210,7 @@ A protected field is never suggested or written by Acervo, even when it is
 empty and even if a rule, MusicBrainz or a download proposes another value:
 
 ```bash
-.venv/bin/python corrigir_tags.py proteger \
+.venv/bin/python acervo.py proteger \
   --pasta "/path/to/your/music" \
   --arquivo "/path/to/your/music/Artist/track.mp3" \
   --campos genero,album
@@ -249,7 +249,7 @@ confirmation.
 From the command line, exporting only reads the collection:
 
 ```bash
-.venv/bin/python corrigir_tags.py playlist \
+.venv/bin/python acervo.py playlist \
   --pasta "/path/to/your/music" \
   --genero "Progressive Rock" \
   --nome "Progressive" \
@@ -265,7 +265,7 @@ replaced without `--sobrescrever` ("overwrite"). To check that every path still
 resolves:
 
 ```bash
-.venv/bin/python corrigir_tags.py playlist --validar --saida Progressive.m3u8
+.venv/bin/python acervo.py playlist --validar --saida Progressive.m3u8
 ```
 
 ## How writes are protected
