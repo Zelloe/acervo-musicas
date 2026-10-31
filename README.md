@@ -101,7 +101,7 @@ Each track becomes `Artist - Title.mp3` directly in the chosen folder, with
 title, artist, album, year, track number and cover art from spotDL. Since
 spotDL without the official API does not provide genres, the genre is filled in
 from `genre_rules.csv` when there is a single matching rule for the artist
-or album. Lyrics are embedded when they are found.
+or album. Lyrics are embedded when they are found (synced LRC when available).
 
 spotDL works in a temporary folder outside your collection. The file only
 appears in the destination after the download finishes successfully and the
@@ -134,8 +134,23 @@ in the file (or a `.lrc` file with the same name) and lyrics from
 LRCLIB, Acervo sends the artist, title, album and duration. Synced lyrics
 highlight the current line. After checking (and, if you want, correcting) the
 text, **Review before saving** and then **Back up and save lyrics** write the
-plain lyrics with a full backup; History can undo it. Looked-up lyrics are cached
-locally, outside your collection.
+lyrics into the file with a full backup; History can undo it. When synced lyrics
+are available they are stored inside the file's lyrics tag in LRC form, which
+players such as Poweramp, Musicolet, MusicBee, foobar2000 and Jellyfin can sync
+(older players show the `[mm:ss]` timestamps as text). Looked-up lyrics are
+cached locally, outside your collection.
+
+- **Lyrics for all tracks:** **Find lyrics for all tracks** (Library or
+  Preferences) looks up every track in the background without writing anything,
+  then lists what it found (synced, plain, instrumental, not found) with the
+  usable ones pre-selected. Untick what you do not want and confirm once: the
+  selection is saved in one operation with one backup and one undo. Tracks that
+  already have synced lyrics in the file are skipped, and timed lyrics that only
+  exist in a `.lrc` next to a track are offered for storing inside it. Without
+  cache, LRCLIB takes about half a second per track.
+- **Sync by hand:** for lyrics without timestamps, play the track and press
+  **M** (or the button) at the start of each line; you can step back, undo,
+  reset and fine-tune the times before reviewing and saving.
 
 ## Using the interface
 
