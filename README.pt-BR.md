@@ -132,10 +132,26 @@ no arquivo (ou um `.lrc` com o mesmo nome) e a do
 consultar o LRCLIB, o Acervo envia artista, título, álbum e duração. Letras
 sincronizadas destacam a linha que está tocando. Depois de conferir (e, se
 quiser, corrigir) o texto, **Revisar antes de salvar** e depois **Criar backup e
-salvar letra** gravam a letra simples
-com backup completo; o Histórico desfaz a gravação. As letras consultadas ficam
-em cache local, fora da coleção. Músicas baixadas pelo Acervo já chegam com a
-letra simples embutida quando ela é encontrada.
+salvar letra** gravam a letra no arquivo com backup completo; o Histórico desfaz
+a gravação. Quando existe letra sincronizada, ela fica dentro da tag de letra do
+arquivo no formato LRC, que players como Poweramp, Musicolet, MusicBee,
+foobar2000 e Jellyfin sincronizam (players antigos mostram os `[mm:ss]` no
+texto). As letras consultadas ficam em cache local, fora da coleção. Músicas
+baixadas pelo Acervo já chegam com a letra embutida quando ela é encontrada
+(sincronizada, quando houver).
+
+- **Letras para todas as faixas:** **Buscar letras para todas as faixas** (na
+  Biblioteca ou nas Preferências) consulta a coleção inteira em segundo plano,
+  sem gravar nada, e mostra o que encontrou (sincronizada, só texto,
+  instrumental, não encontrada) com as aproveitáveis já marcadas. Desmarque o
+  que não quiser e confirme uma vez: tudo é gravado numa única operação, com um
+  backup e um desfazer. Faixas que já têm letra sincronizada no arquivo são
+  puladas, e letras com tempo que só existem num `.lrc` ao lado são oferecidas
+  para entrar no arquivo. Sem cache, o LRCLIB leva cerca de meio segundo por
+  faixa.
+- **Sincronizar à mão:** para letras sem tempo, toque a música e aperte **M**
+  (ou o botão) no começo de cada verso; dá para voltar, desfazer, recomeçar e
+  ajustar os tempos antes de revisar e salvar.
 
 ## Uso pela interface
 
