@@ -30,8 +30,8 @@ def default_music_folder() -> Path:
     return home / "Music"
 
 
-def require_folder(pasta: Path, opcao: str = "--pasta") -> Path:
-    pasta = pasta.expanduser()
-    if not pasta.is_dir():
-        raise ValueError(f'A pasta de músicas não existe: {pasta}\nInforme onde estão suas músicas, por exemplo: {opcao} "$HOME/Música"')
-    return pasta.resolve()
+def require_folder(folder: Path, option: str = "--pasta") -> Path:
+    folder = folder.expanduser()
+    if not folder.is_dir():
+        raise ValueError(f'A pasta de músicas não existe: {folder}\nInforme onde estão suas músicas, por exemplo: {option} "$HOME/Música"')
+    return folder.resolve()

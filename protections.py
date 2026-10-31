@@ -11,6 +11,9 @@ import stat
 from library_core import TAG_FIELDS, atomic_json, library_lock, metadata_values
 
 FIELDS = tuple(TAG_FIELDS)
+# English names accepted on input; the stored names stay as above (file format).
+FIELD_ALIASES = {"title": "titulo", "artist": "artista", "album_artist": "artista_album", "genre": "genero",
+                 "year": "ano", "track": "faixa", "disc": "disco"}
 SCHEMA = 1
 
 
@@ -59,8 +62,8 @@ def _relative(root: Path, file: str) -> str:
     return path.relative_to(root.resolve()).as_posix()
 
 
-def protected(policy: dict, root: Path, arquivo: str) -> frozenset[str]:
-    entry = policy["faixas"].get(_relative(root, arquivo))
+def protected(policy: dict, root: Path, file: str) -> frozenset[str]:
+    entry = policy["faixas"].get(_relative(root, file))
     return frozenset(entry["campos"]) if entry else frozenset()
 
 
@@ -69,28 +72,30 @@ def listing(policy: dict) -> list[dict]:
     return [{"arquivo": str(root / relative), "campos": entry["campos"], "atualizado_em": entry.get("atualizado_em")} for relative, entry in sorted(policy["faixas"].items())]
 
 
-def blocked_changes(policy: dict, root: Path, arquivo: str, fields) -> list[str]:
-    return sorted(protected(policy, root, arquivo) & set(fields))
+def blocked_changes(policy: dict, root: Path, file: str, fields) -> list[str]:
+    return sorted(protected(policy, root, file) & set(fields))
 
 
-def require_unprotected(policy: dict, root: Path, arquivo: str, fields) -> None:
-    blocked = blocked_changes(policy, root, arquivo, fields)
+def require_unprotected(policy: dict, root: Path, file: str, fields) -> None:
+    blocked = blocked_changes(policy, root, file, fields)
     if blocked:
-        raise ValueError(f"Campo protegido ({', '.join(blocked)}): {Path(arquivo).name}. Desbloqueie antes de alterar.")
+        raise ValueError(f"Campo protegido ({', '.join(blocked)}): {Path(file).name}. Desbloqueie antes de alterar.")
 
 
-def require_same_protected(policy: dict, root: Path, arquivo: str, current: Path, candidate: Path) -> None:
+def require_same_protected(policy: dict, root: Path, file: str, current: Path, candidate: Path) -> None:
     """The file that will take the path must keep the current protected values."""
-    fields = protected(policy, root, arquivo)
+    fields = protected(policy, root, file)
     if not fields:
         return
     before, after = metadata_values(current), metadata_values(candidate)
     changed = sorted(f for f in fields if before.get(f, []) != after.get(f, []))
     if changed:
-        raise ValueError(f"A operação mudaria campo protegido ({', '.join(changed)}): {Path(arquivo).name}. Desbloqueie antes.")
+        raise ValueError(f"A operação mudaria campo protegido ({', '.join(changed)}): {Path(file).name}. Desbloqueie antes.")
 
 
 def _validate(root: Path, files: list[str], fields: list[str]) -> tuple[list[str], list[str]]:
+    if isinstance(fields, list):
+        fields = [FIELD_ALIASES.get(c, c) if isinstance(c, str) else c for c in fields]
     if not isinstance(fields, list) or not fields or any(c not in FIELDS for c in fields):
         raise ValueError(f"Campos inválidos; use: {', '.join(FIELDS)}")
     if not isinstance(files, list) or not files:
@@ -129,9 +134,9 @@ def _change(storage: Path, root: Path, files: list[str], requested_fields: list[
     return {"arquivos": len(relatives), "campos": fields, "politica": str(path)}
 
 
-def protect(storage: Path, root: Path, arquivos: list[str], campos: list[str]) -> dict:
-    return _change(storage, root, arquivos, campos, True)
+def protect(storage: Path, root: Path, files: list[str], fields: list[str]) -> dict:
+    return _change(storage, root, files, fields, True)
 
 
-def unprotect(storage: Path, root: Path, arquivos: list[str], campos: list[str]) -> dict:
-    return _change(storage, root, arquivos, campos, False)
+def unprotect(storage: Path, root: Path, files: list[str], fields: list[str]) -> dict:
+    return _change(storage, root, files, fields, False)

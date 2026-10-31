@@ -16,12 +16,12 @@ FIELDS = {"titulo": 3.0, "artista": 2.5, "album": 2.0, "genero": 1.0}
 LABELS = {"titulo": "título", "artista": "artista", "album": "álbum", "genero": "gênero"}
 
 
-def normalize(texto: str) -> str:
+def normalize(text: str) -> str:
     """Lowercase, without accents or punctuation: "Ænima!" and "aenima" match."""
-    texto = unicodedata.normalize("NFKD", str(texto)).replace("æ", "ae").replace("Æ", "ae").replace("ø", "o").replace("Ø", "o")
-    texto = "".join(c for c in texto if not unicodedata.combining(c)).casefold()
-    texto = texto.replace("&", " e ").replace("'", "").replace("’", "")
-    return " ".join(re.sub(r"[^\w]+", " ", texto).replace("_", " ").split())
+    text = unicodedata.normalize("NFKD", str(text)).replace("æ", "ae").replace("Æ", "ae").replace("ø", "o").replace("Ø", "o")
+    text = "".join(c for c in text if not unicodedata.combining(c)).casefold()
+    text = text.replace("&", " e ").replace("'", "").replace("’", "")
+    return " ".join(re.sub(r"[^\w]+", " ", text).replace("_", " ").split())
 
 
 def _distance(a: str, b: str, limit: int) -> int:
@@ -135,20 +135,22 @@ class LibraryIndex:
         self.artist_matcher = _Matcher([{"artista": a["nome"]} for a in self.artists])
         self.album_matcher = _Matcher([{"album": a["titulo"], "artista": a["artista"]} for a in self.albums])
 
-    def search(self, consulta: str, limite: int = 50) -> list[dict]:
+    def search(self, query: str, limit: int = 50) -> list[dict]:
         return [{"id": self.tracks[index].get("id"), "pontuacao": score, "motivo": LABELS[field]}
-                for score, index, field in self.songs.rank(consulta, limite)]
+                for score, index, field in self.songs.rank(query, limit)]
 
-    def suggest(self, consulta: str, limite: int = 8) -> dict:
-        artists = [self.artists[i] for _, i, _ in self.artist_matcher.rank(consulta, limite)]
-        albums = [self.albums[i] for _, i, _ in self.album_matcher.rank(consulta, limite)]
+    def suggest(self, query: str, limit: int = 8) -> dict:
+        artists = [self.artists[i] for _, i, _ in self.artist_matcher.rank(query, limit)]
+        albums = [self.albums[i] for _, i, _ in self.album_matcher.rank(query, limit)]
         songs = []
-        for score, index, _ in self.songs.rank(consulta, limite):
+        for score, index, _ in self.songs.rank(query, limit):
             track = self.tracks[index]
             songs.append({"id": track.get("id"), "titulo": _join(track.get("titulo")), "artista": _join(track.get("artista"))})
-        return {"artistas": artists[:4], "albuns": albums[:4], "musicas": songs[:limite]}
+        return {"artistas": artists[:4], "albuns": albums[:4], "musicas": songs[:limit]}
 
-    buscar = search  # temporary aliases (step B)
+    def buscar(self, consulta, limite=50):  # temporary aliases (step B)
+        return self.search(consulta, limite)
+
     sugerir = suggest
 
 class GlobalSearch:
@@ -217,15 +219,15 @@ class GlobalSearch:
                 raise RuntimeError(f"A busca global falhou: {answer.get('erro', 'sem detalhes')}")
             return answer.get("dados")
 
-    def suggest(self, consulta: str) -> dict:
-        key = normalize(consulta)
+    def suggest(self, query: str) -> dict:
+        key = normalize(query)
         if len(key) < 2:
             return {"termos": [], "artistas": []}
         with self.lock:
             if key in self.cache:
                 self.cache.move_to_end(key)
                 return self.cache[key]
-            result = self._call("sugestoes", consulta.strip()[:200])
+            result = self._call("sugestoes", query.strip()[:200])
             from downloader import safe_photo
             for artist in result.get("artistas", []):
                 artist["foto"] = safe_photo(artist.get("foto"))

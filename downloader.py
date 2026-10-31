@@ -79,16 +79,16 @@ def _enrich(items: list[dict], title_key: str | None, album_key: str, kind_key: 
     return items
 
 
-def search_albums(artista: str) -> list[dict]:
-    return _enrich(_adapter("albuns", _text(artista, "o nome do artista")), None, "titulo", "tipo")
+def search_albums(artist: str) -> list[dict]:
+    return _enrich(_adapter("albuns", _text(artist, "o nome do artista")), None, "titulo", "tipo")
 
 
-def editions(artista: str, album: str) -> list[dict]:
-    return _enrich(_adapter("edicoes", _text(artista, "o nome do artista"), _text(album, "o nome do álbum")), None, "titulo", "tipo")
+def editions(artist: str, album: str) -> list[dict]:
+    return _enrich(_adapter("edicoes", _text(artist, "o nome do artista"), _text(album, "o nome do álbum")), None, "titulo", "tipo")
 
 
-def search_songs(texto: str) -> list[dict]:
-    return _enrich(_adapter("musicas", _text(texto, "o que procurar")), "titulo", "album", "tipo_album")
+def search_songs(text: str) -> list[dict]:
+    return _enrich(_adapter("musicas", _text(text, "o que procurar")), "titulo", "album", "tipo_album")
 
 
 def tracks(url: str) -> list[dict]:
@@ -102,10 +102,10 @@ def _key(artist: str, title: str) -> str:
     return normalized(artist) + "\x1f" + normalized(REMASTER.sub("", title))
 
 
-def local_index(pasta: Path) -> set[str]:
+def local_index(root_folder: Path) -> set[str]:
     """Artist + title of everything already in the folder, to mark "already owned"."""
     keys = set()
-    for folder, dirs, names in os.walk(pasta, followlinks=False):
+    for folder, dirs, names in os.walk(root_folder, followlinks=False):
         for name in names:
             path = Path(folder) / name
             if path.suffix.casefold() not in (".mp3", ".flac") or name.startswith(TEMP_PREFIXES):
@@ -125,17 +125,17 @@ def local_index(pasta: Path) -> set[str]:
     return keys
 
 
-def mark_owned(lista: list[dict], indice: set[str]) -> list[dict]:
-    for item in lista:
+def mark_owned(items: list[dict], indice: set[str]) -> list[dict]:
+    for item in items:
         artists = [item.get("artista", "")] + list(item.get("artistas") or [])
         item["ja_tenho"] = any(_key(a, item.get("titulo", "")) in indice for a in artists if a)
-    return lista
+    return items
 
 
-def genre_from_rules(artista: str, album: str, regras: list[dict] | None = None) -> str:
+def genre_from_rules(artist: str, album: str, rule_rows: list[dict] | None = None) -> str:
     """Same priority as the analysis: album rule, then artist rule; only if it is unique."""
-    regras = rules(BASE / "genre_rules.csv") if regras is None else regras
-    by_artist = [r for r in regras if normalized(r["artista"]) == normalized(artista)]
+    rule_rows = rules(BASE / "genre_rules.csv") if rule_rows is None else rule_rows
+    by_artist = [r for r in rule_rows if normalized(r["artista"]) == normalized(artist)]
     specific = [r for r in by_artist if r.get("album") and normalized(r["album"]) == normalized(album_base(album))]
     chosen = specific or [r for r in by_artist if not r.get("album")]
     options = {r["genero"].strip() for r in chosen if r.get("genero", "").strip()}
@@ -231,16 +231,16 @@ def _download_one(item: dict, folder: Path, executable: str, genre_rules: list[d
         return {**item, "estado": "baixado", "arquivo": str(final), "genero_preenchido": genre if filled else "", "letra": embedded}
 
 
-def download(lista: list[dict], pasta: Path, progress=None, bitrate: str = "320k", lyrics: LyricsClient | bool | None = True) -> list[dict]:
+def download(items: list[dict], folder: Path, progress=None, bitrate: str = "320k", lyrics: LyricsClient | bool | None = True) -> list[dict]:
     """Download each track straight into `pasta`, never replacing an existing file.
 
     spotDL works in a temporary folder outside the collection; the file only shows
     up at the destination after spotDL finishes successfully and the audio is validated.
     Errors are recorded per track and the partial result is always returned.
     """
-    pasta = Path(pasta).expanduser()
-    if not pasta.is_dir():
-        raise ValueError(f"A pasta de destino não existe: {pasta}")
+    folder = Path(folder).expanduser()
+    if not folder.is_dir():
+        raise ValueError(f"A pasta de destino não existe: {folder}")
     if bitrate not in ("128k", "192k", "256k", "320k"):
         raise ValueError("Bitrate inválido")
     progress = progress or (lambda *args: None)
@@ -248,16 +248,16 @@ def download(lista: list[dict], pasta: Path, progress=None, bitrate: str = "320k
     executable = spotdl_executable()
     lyrics = LyricsClient() if lyrics is True else (lyrics or None)
     results = []
-    for index, item in enumerate(lista):
+    for index, item in enumerate(items):
         label = f"{item.get('artista', '')} - {item.get('titulo', '')}"
-        progress(f"Baixando {index + 1} de {len(lista)} · {label}", round(index / len(lista) * 100))
+        progress(f"Baixando {index + 1} de {len(items)} · {label}", round(index / len(items) * 100))
         try:
-            results.append(_download_one(item, pasta, executable, genre_rules, bitrate, lyrics))
+            results.append(_download_one(item, folder, executable, genre_rules, bitrate, lyrics))
         except Exception as error:
             results.append({**item, "estado": "erro", "mensagem": f"{type(error).__name__}: {error}"[:300]})
             # Without ffmpeg, or without space/write access at the destination, the next ones would fail the same way.
             if isinstance(error, RuntimeError) or (isinstance(error, OSError) and error.errno in (errno.ENOSPC, errno.EROFS, errno.EDQUOT, errno.EACCES)):
-                results.extend({**rest, "estado": "nao_baixado", "mensagem": "Interrompido após o erro anterior"} for rest in lista[index + 1:])
+                results.extend({**rest, "estado": "nao_baixado", "mensagem": "Interrompido após o erro anterior"} for rest in items[index + 1:])
                 break
     progress("Downloads concluídos", 100)
     return results

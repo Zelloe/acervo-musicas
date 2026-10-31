@@ -189,11 +189,11 @@ class EmbeddedLyricsTest(unittest.TestCase):
         tags.save(track)
         edited = track.read_bytes()
         with self.assertRaisesRegex(ValueError, "mudou desde a prévia"):
-            save_lyrics(library, storage, str(track), "Letra", anterior_sha256=seen)
+            save_lyrics(library, storage, str(track), "Letra", previous_sha256=seen)
         self.assertEqual(track.read_bytes(), edited)
         with self.assertRaisesRegex(ValueError, "Hash"):
-            save_lyrics(library, storage, str(track), "Letra", anterior_sha256="../x")
-        save_lyrics(library, storage, str(track), "Letra", anterior_sha256=sha256(track))
+            save_lyrics(library, storage, str(track), "Letra", previous_sha256="../x")
+        save_lyrics(library, storage, str(track), "Letra", previous_sha256=sha256(track))
         self.assertEqual(current_lyrics(track), ["Letra"])
 
     def test_download_embeds_lyrics_and_survives_lyrics_failure(self):
