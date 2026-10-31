@@ -43,6 +43,7 @@ register({
     'Search a song': 'Procurar música',
     'Paste a Spotify link': 'Colar link do Spotify',
     'Quit': 'Sair',
+    'genre: {genre}': 'gênero: {genre}',
     'Where to save (default: the system music folder, e.g. ~/Music)': 'Onde salvar (padrão: a pasta de músicas do sistema, ex.: ~/Música)',
     'Terminal menu to pick and download songs with spotDL.': 'Menu no terminal para escolher e baixar músicas com o spotDL.',
 })
@@ -132,7 +133,7 @@ class Menu:
         print("\n" + _("Downloaded: {done} of {total}", done=len(done), total=len(results)))
         for result in results:
             if result["estado"] == "baixado":
-                genre = f"  (gênero: {result['genero_preenchido']})" if result.get("genero_preenchido") else ""
+                genre = "  (" + _("genre: {genre}", genre=result["genero_preenchido"]) + ")" if result.get("genero_preenchido") else ""
                 print(f"  ✓ {Path(result['arquivo']).name}{genre}")
             else:
                 print(f"  ✗ {result['artista']} - {result['titulo']}: {result.get('mensagem', result['estado'])}")

@@ -90,7 +90,7 @@ def tracks(url: str) -> list[dict]:
     client()
     found = get_simple_songs([url])
     if not found or len(found) > 300:
-        raise ValueError("A fonte deve conter entre 1 e 300 faixas")
+        raise ValueError("The source must contain between 1 and 300 tracks")
     return [{
         "titulo": s.name, "artista": s.artist, "artistas": s.artists, "album": s.album_name,
         "artista_album": s.album_artist, "ano": str(s.year or ""), "data": s.date or "",
@@ -134,7 +134,7 @@ def main():
         return serve()
     command, output, *args = sys.argv[1:]
     if command not in HANDLERS:
-        raise SystemExit(f"Comando desconhecido: {command}")
+        raise SystemExit(f"Unknown command: {command}")
     Path(output).write_text(json.dumps(HANDLERS[command](*args), ensure_ascii=False, indent=2), encoding="utf-8")
 
 
