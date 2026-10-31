@@ -9,7 +9,7 @@ import sys
 
 from library_core import apply_plan, restore
 from library_plan import create_plan
-from messages import _, register
+from messages import _, register, use_environment_language
 from musicbrainz_client import MusicBrainz
 from folders import require_folder, default_music_folder
 
@@ -51,6 +51,7 @@ COMMANDS = {
 
 
 def main() -> int:
+    use_environment_language()
     parser = argparse.ArgumentParser(description=_(__doc__))
     commands = parser.add_subparsers(dest="command", required=True, metavar="{" + ",".join(COMMANDS) + "}")
 
