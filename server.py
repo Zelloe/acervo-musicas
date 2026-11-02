@@ -24,7 +24,7 @@ from mutagen.id3 import ID3
 from library_core import apply_plan, atomic_json, durable_copy, library_lock, load_plan, restore, secure_file, sha256
 from staged_downloads import Downloads, clean_log, tool_status
 from library_plan import BASE, create_plan
-from library_scan import read_track
+from library_scan import read_track, signature
 from musicbrainz_client import MusicBrainz
 from lyrics import LyricsClient, save_lyrics, save_lyrics_batch, bulk_lookup, prepare_text, current_lyrics, lyrics_for_track, parse_lrc
 from search import GlobalSearch, LibraryIndex, normalize
@@ -113,7 +113,8 @@ register({
     "Select lyrics from the lookup results": "Selecione letras dos resultados da busca",
     "Select only lyrics ready to save": "Selecione somente letras prontas para salvar",
     "The track changed after lookup: {file}. Start another lookup": "A faixa mudou após a busca: {file}. Inicie outra busca",
-    "The selected tracks already have exactly these lyrics": "As faixas selecionadas já têm exatamente essas letras"
+    "The selected tracks already have exactly these lyrics": "As faixas selecionadas já têm exatamente essas letras",
+    "Could not refresh track {file_name}; scan the library again: {error}": "Não foi possível atualizar a faixa {file_name}; analise a biblioteca novamente: {error}"
 })
 
 
@@ -208,17 +209,36 @@ class App:
     def load(self, path: Path):
         plan = load_plan(path)
         tracks = json.loads((path.parent / "inventario.json").read_text())["musicas"]
+        root = Path(plan["biblioteca"])
+        refreshed, changed, notices = [], set(), []
+        # Saved inventories may predate edits made with a different library root.
+        # Refresh changed files and withhold their old write proposals until a scan.
+        for track in tracks:
+            file = track["arquivo"]
+            try:
+                music = readable_music(root, file)
+                if signature(music) != track.get("assinatura_antes"):
+                    changed.add(file)
+                    current = read_track(music)
+                    if not current["arquivo_estavel_durante_leitura"] or signature(music) != current["assinatura_antes"]:
+                        raise ValueError(_("The file changed while being read"))
+                    track = {**current, "id": track["id"]}
+                refreshed.append(track)
+            except Exception as error:
+                changed.add(file)
+                notices.append(_("Could not refresh track {file_name}; scan the library again: {error}", file_name=Path(file).name, error=error))
         with self.lock:
             self.plan = plan
             self.plan_path = path
-            self.tracks = tracks
-            self.by_id = {t["id"]: t for t in tracks}
-            self.root = Path(plan["biblioteca"])
+            self.tracks = refreshed
+            self.by_id = {t["id"]: t for t in refreshed}
+            self.root = root
             self.bulk_lyrics = None
             self.bulk_lyrics_hashes.clear()
             self.bulk_lyrics_previews.clear()
             self.library_revision = secrets.token_hex(8)
-            self.incremental_paths.clear()
+            self.incremental_paths = changed
+            self.error = " ".join(notices) if notices else None
 
     def start(self, kind, operation):
         with self.lock:
