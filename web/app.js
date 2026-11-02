@@ -107,8 +107,12 @@ function statCard(label, value, name, description, amber = false) {
   return `<div class="stat-card${amber ? " amber" : ""}"><div class="stat-head"><span class="stat-label">${label}</span><span class="stat-icon">${icon(name)}</span></div><strong class="stat-value">${number(value)}</strong><div class="stat-bottom">${description}</div></div>`;
 }
 
+function trackRows(tracks, offset = 0) {
+  return tracks.map((t,i) => `<tr><td class="num row-number"><span>${offset+i+1}</span><button class="icon-button row-play" data-play="${t.id}" aria-label="${tr("Listen")} ${escapeHTML(join(t.title))}">${icon("play")}</button></td><td><div class="track-info"><img class="track-cover" src="${cover(t.id)}" alt="" loading="lazy"><div class="track-text"><span class="track-name" title="${escapeHTML(join(t.title))}">${escapeHTML(join(t.title))}</span><span class="track-artist">${escapeHTML(join(t.artist))}</span>${t.version?recordingBadges(t.version):""}</div></div></td><td class="album-cell" title="${escapeHTML(join(t.album))}">${escapeHTML(join(t.album))}</td><td>${t.genre.length ? `<span class="source">${escapeHTML(join(t.genre))}</span>` : `<span class="missing">${tr("Not set")}</span>`}</td><td><span class="format ${t.format === "FLAC" ? "flac" : ""}">${t.format}</span></td><td class="time-cell">${duration(t.duration_seconds)}</td><td><button class="icon-button" data-info="${t.id}" aria-label="${tr("View metadata for")} ${escapeHTML(join(t.title))}">${icon("more")}</button></td></tr>`).join("");
+}
+
 function trackTable(tracks, offset = 0) {
-  return `<div class="table-wrap"><table><thead><tr><th class="num">#</th><th>${tr("TITLE")}</th><th>${tr("ALBUM")}</th><th>${tr("GENRE")}</th><th>${tr("FORMAT")}</th><th class="time-cell">${icon("clock")}</th><th></th></tr></thead><tbody>${tracks.map((t,i) => `<tr><td class="num row-number"><span>${offset+i+1}</span><button class="icon-button row-play" data-play="${t.id}" aria-label="${tr("Listen")} ${escapeHTML(join(t.title))}">${icon("play")}</button></td><td><div class="track-info"><img class="track-cover" src="${cover(t.id)}" alt="" loading="lazy"><div class="track-text"><span class="track-name" title="${escapeHTML(join(t.title))}">${escapeHTML(join(t.title))}</span><span class="track-artist">${escapeHTML(join(t.artist))}</span>${t.version?recordingBadges(t.version):""}</div></div></td><td class="album-cell" title="${escapeHTML(join(t.album))}">${escapeHTML(join(t.album))}</td><td>${t.genre.length ? `<span class="source">${escapeHTML(join(t.genre))}</span>` : `<span class="missing">${tr("Not set")}</span>`}</td><td><span class="format ${t.format === "FLAC" ? "flac" : ""}">${t.format}</span></td><td class="time-cell">${duration(t.duration_seconds)}</td><td><button class="icon-button" data-info="${t.id}" aria-label="${tr("View metadata for")} ${escapeHTML(join(t.title))}">${icon("more")}</button></td></tr>`).join("")}</tbody></table></div>`;
+  return `<div class="table-wrap"><table><thead><tr><th class="num">#</th><th>${tr("TITLE")}</th><th>${tr("ALBUM")}</th><th>${tr("GENRE")}</th><th>${tr("FORMAT")}</th><th class="time-cell">${icon("clock")}</th><th></th></tr></thead><tbody>${trackRows(tracks,offset)}</tbody></table></div>`;
 }
 
 function breadcrumb(label) { return `<div class="page-topline">${tr("Your space")} ${icon("arrow")} <span>${label}</span></div>`; }
@@ -124,13 +128,60 @@ async function renderHome() {
   return `${breadcrumb(tr("Overview"))}<section class="hero"><div class="hero-copy"><div class="eyebrow">${icon("disc")} ${tr("YOUR PERSONAL LIBRARY")}</div><h1>${tr("Your music.")}<br><span>${tr("Every detail matters.")}</span></h1><p>${tr("A collection with your identity.")}<br>${tr("Find what's missing, review the suggestions and bring everything together.")}</p><div class="hero-actions"><button class="button primary" data-view="review">${tr("Review my collection")} ${icon("arrow")}</button><button class="button secondary" data-view="library">${tr("View library")}</button></div></div><div class="hero-art" aria-hidden="true">${albums.map(a=>`<img src="${cover(a.track_id)}" alt="">`).join("")}</div></section><div class="stat-grid">${statCard(tr("Tracks in your collection"),sum.read_count,"music",`${number(sum.formats?.MP3)} MP3 <span class="green">·</span> ${number(sum.formats?.FLAC)} FLAC`)}${statCard(tr("Albums in your library"),data.album_count,"disc",tr("Stories worth listening to"))}${statCard(tr("Missing genres"),sum.missing_fields?.genre,"tag",tr("A collection ready for the finishing touches"),true)}${statCard(tr("Tracks with covers"),sum.with_cover,"image",`<span class="green">${tr("The visual identity of your music")}</span>`)}</div><section class="section"><div class="section-heading"><div><h2>${tr("On your shelf")}</h2><p>${tr("Some of the records that make your collection yours.")}</p></div><button class="text-button" data-view="albums">${tr("View all")} ${icon("arrow")}</button></div><div class="album-grid">${albums.map(albumCard).join("")}</div></section><section class="section overview-table"><div class="section-heading"><div><h2>${tr("Tracks in your collection")}</h2><p>${number(sum.read_count)} ${tr("good reasons to press play.")}</p></div><button class="text-button" data-view="library">${tr("Explore library")} ${icon("arrow")}</button></div>${result.tracks.length ? trackTable(result.tracks) : empty(tr("Your library is being prepared"), tr("The first scan may take a few minutes. Follow its progress at the top of the page."))}</section>`;
 }
 
+function libraryPage(offset, limit) {
+  const query = new URLSearchParams({q:state.search, artist:state.searchArtist, album_id:state.searchAlbum, filter:state.filter, version:state.versionFilter, offset, limit});
+  return api(`/api/search?${query}`);
+}
+
+function libraryCount(shown, total) {
+  return total ? `${number(shown ? 1 : 0)}–${number(shown)} ${tr("of")} ${number(total)} ${tr("tracks")}` : tr("0 tracks");
+}
+
+async function loadMoreTracks() {
+  const end = $('#library-end'), request = state.request;
+  if (!end || state.loadingTracks === request) return;
+  state.loadingTracks = request;
+  end.textContent = tr("Loading…");
+  try {
+    const offset = (state.page+1)*50, result = await libraryPage(offset,50);
+    if (request !== state.request) return;
+    state.page++;
+    state.queue.push(...result.tracks.map(t=>t.id));
+    $('#content tbody').insertAdjacentHTML("beforeend",trackRows(result.tracks,offset));
+    const shown = offset+result.tracks.length;
+    $('#library-shown').textContent = libraryCount(shown,result.total);
+    if (state.current && state.queue.includes(state.current.id)) $('#next').disabled = state.queue.indexOf(state.current.id)===state.queue.length-1;
+    if (!result.tracks.length || shown>=result.total) end.remove();
+    else watchLibraryEnd();
+  } catch(error) {
+    if (request !== state.request) return;
+    toast(error.message);
+    end.innerHTML = `<button class="button small ghost" data-library-more>${tr("Try again")}</button>`;
+  } finally {
+    if (state.loadingTracks === request) state.loadingTracks = null;
+  }
+}
+
+function watchLibraryEnd() {
+  state.libraryObserver?.disconnect();
+  const end = $('#library-end');
+  if (!end) return;
+  state.libraryObserver = new IntersectionObserver(entries=>{ if (entries.some(entry=>entry.isIntersecting)) loadMoreTracks(); },{rootMargin:"800px 0px"});
+  state.libraryObserver.observe(end);
+}
+
 async function renderLibrary() {
-  const query = new URLSearchParams({q:state.search, artist:state.searchArtist, album_id:state.searchAlbum, filter:state.filter, version:state.versionFilter, offset:state.page*50, limit:50});
-  const result = await api(`/api/search?${query}`);
+  const request = state.request;
+  // Reload every page already on screen so a refresh keeps the scroll position.
+  const shown = (state.page+1)*50, pages = [];
+  for (let offset=0; offset<shown; offset+=100) pages.push(libraryPage(offset,Math.min(100,shown-offset)));
+  const loaded = await Promise.all(pages);
+  if (request !== state.request) return "";
+  const result = {total:loaded[0].total, tracks:loaded.flatMap(page=>page.tracks)};
   state.queue = result.tracks.map(t=>t.id);
   const searching = !!(state.search || state.searchArtist || state.searchAlbum);
   const description = searching ? `${number(result.total)} ${tr("tracks for “")}${escapeHTML(state.searchLabel || state.search)}${tr("” · results ranked by relevance")}` : `${number(result.total)} ${tr("tracks ·")} ${number(state.summary.artist_count)} ${tr("artist credits")}`;
-  return `${heading(tr("YOUR MUSIC, YOUR COLLECTION"),searching?tr("Search results"):tr("All your tracks"),description, `<button class="button ghost" data-view="lyrics">${icon("lyrics")} ${tr("Lyrics for all tracks")}</button><button class="button ghost" data-action="export-playlist" ${state.summary.job?.status==="running"?"disabled":""}>${icon("download")} ${tr("Export M3U8")}</button><button class="button ghost" data-action="analyze">${icon("refresh")} ${tr("Refresh library")}</button>`)}<div class="table-toolbar"><div class="tabs">${[["all",tr("All tracks")],["missing-genre",tr("Genre missing")],["flac","FLAC"],["versions",tr("Versions and extras")]].map(([key,label])=>`<button class="tab ${state.filter===key?"active":""}" data-filter="${key}">${label}</button>`).join("")}</div><span class="table-note">${icon("shield")} ${tr("Your original files")}</span></div>${recordingChips(state.versionFilter,"data-library-version")}${result.tracks.length ? trackTable(result.tracks,state.page*50) : empty(tr("No tracks here"), tr("Try another search or change the filters."), "search")}<div class="table-footer"><span>${result.total ? `${number(state.page*50+1)}–${number(Math.min((state.page+1)*50,result.total))} ${tr("of")} ${number(result.total)} ${tr("tracks")}` : tr("0 tracks")}</span><div class="pagination"><button class="button small ghost" data-page="${state.page-1}" ${state.page===0?"disabled":""}>${tr("Previous")}</button><button class="button small ghost" data-page="${state.page+1}" ${(state.page+1)*50>=result.total?"disabled":""}>${tr("Next")}</button></div></div>`;
+  return `${heading(tr("YOUR MUSIC, YOUR COLLECTION"),searching?tr("Search results"):tr("All your tracks"),description, `<button class="button ghost" data-view="lyrics">${icon("lyrics")} ${tr("Lyrics for all tracks")}</button><button class="button ghost" data-action="export-playlist" ${state.summary.job?.status==="running"?"disabled":""}>${icon("download")} ${tr("Export M3U8")}</button><button class="button ghost" data-action="analyze">${icon("refresh")} ${tr("Refresh library")}</button>`)}<div class="table-toolbar"><div class="tabs">${[["all",tr("All tracks")],["missing-genre",tr("Genre missing")],["flac","FLAC"],["versions",tr("Versions and extras")]].map(([key,label])=>`<button class="tab ${state.filter===key?"active":""}" data-filter="${key}">${label}</button>`).join("")}</div><span class="table-note">${icon("shield")} ${tr("Your original files")}</span></div>${recordingChips(state.versionFilter,"data-library-version")}${result.tracks.length ? trackTable(result.tracks) : empty(tr("No tracks here"), tr("Try another search or change the filters."), "search")}<div class="table-footer"><span id="library-shown">${libraryCount(result.tracks.length,result.total)}</span>${result.tracks.length && result.tracks.length<result.total ? `<span id="library-end" role="status">${tr("Loading…")}</span>` : ""}</div>`;
 }
 
 function filteredProposals() {
@@ -206,6 +257,7 @@ async function render() {
     if (state.summary.error) html = `<div class="error-box">${escapeHTML(state.summary.error)}</div>`+html;
     if (state.summary.protection_error) html = `<div class="error-box"><strong>${tr("Protected fields unavailable.")}</strong> ${escapeHTML(state.summary.protection_error)} ${tr("Changes are blocked until this file is fixed.")}</div>`+html;
     $('#content').innerHTML=html;
+    watchLibraryEnd();
     setWriteControls();
     applySimpleVersionFilter();
     updateSelection();
@@ -328,6 +380,7 @@ document.addEventListener("click",async event=>{
     else if(button.dataset.filter){state.filter=button.dataset.filter;state.page=0;await render();}
     else if(button.dataset.reviewFilter){state.reviewFilter=button.dataset.reviewFilter;state.page=0;await render();}
     else if(button.dataset.albumFilter){state.albumFilter=button.dataset.albumFilter;await render();}
+    else if(button.dataset.libraryMore!==undefined)await loadMoreTracks();
     else if(button.dataset.page!==undefined){state.page=Math.max(0,Number(button.dataset.page));await render();}
     else if(button.dataset.restore){
       const imported=button.dataset.restoreKind==="downloads";
