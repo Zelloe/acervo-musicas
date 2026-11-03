@@ -590,13 +590,24 @@ class App:
                 return {**result, "lyrics_track_ids": [item["id"] for item in changed], "warnings": notices}
             self.start("import", save)
 
+    def loaded_is_current(self, track):
+        try:
+            return bool(track) and track["arquivo_estavel_durante_leitura"] and signature(readable_music(self.root, track["arquivo"])) == track["assinatura_antes"]
+        except (KeyError, OSError, ValueError):
+            return False
+
     def load_download_cache(self):
         try:
             data = json.loads(self.download_cache.read_text(encoding="utf-8"))
             if not isinstance(data, dict) or data.get("biblioteca") != str(self.root) or not isinstance(data.get("arquivos"), list) or any(not isinstance(p, str) for p in data["arquivos"]):
                 raise ValueError(_('Incompatible cache of new tracks'))
             present = [p for p in data["arquivos"] if Path(p).is_file()]
-            notices = self.refresh_downloaded([{"estado": "baixado", "arquivo": p} for p in present], persist=False)
+            # Tracks already loaded and unchanged since their last read need no decoding.
+            loaded = {t["arquivo"]: t for t in self.tracks}
+            unchanged = [p for p in present if self.loaded_is_current(loaded.get(p))]
+            self.incremental_paths.update(unchanged)
+            stale = set(present) - set(unchanged)
+            notices = self.refresh_downloaded([{"estado": "baixado", "arquivo": p} for p in present if p in stale], persist=False)
             # A file moved after an earlier session is not a failed download: say so once and forget it.
             if len(present) != len(data["arquivos"]):
                 notices.append(_('{count} downloaded tracks were moved or removed; refresh the library to find them', count=len(data["arquivos"]) - len(present)))

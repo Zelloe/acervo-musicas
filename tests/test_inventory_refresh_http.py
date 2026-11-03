@@ -184,6 +184,29 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
         self.assertIn(str(self.unchanged), self.open_app().incremental_paths)
         self.assertIsNone(self.open_app().error)
 
+    def test_startup_rereads_only_cached_tracks_that_need_it(self):
+        cache = self.open_app().download_cache
+        new = self.root / "new download.mp3"
+        shutil.copy(self.sample_root / "sample.mp3", new)
+        link = self.root / "link.mp3"
+        link.symlink_to(self.unchanged)
+        cache.write_text(json.dumps({"biblioteca": str(self.root), "arquivos": [str(self.unchanged), str(new), str(link)]}), encoding="utf-8")
+        with patch("server.read_track", wraps=read_track) as reader:
+            app = self.open_app()
+        read = {Path(call.args[0]) for call in reader.call_args_list}
+        self.assertNotIn(self.unchanged, read)
+        self.assertIn(new, read)
+        self.assertNotIn(link, read)
+        self.assertLessEqual({str(self.unchanged), str(new)}, app.incremental_paths)
+        self.assertIn(str(new), {t["arquivo"] for t in app.tracks})
+        self.assertIn("link.mp3", app.error)
+        audio = ID3(self.unchanged)
+        audio.delall("TIT2")
+        audio.add(TIT2(encoding=3, text=["Edited title"]))
+        audio.save(self.unchanged, v2_version=3)
+        reopened = self.open_app()
+        self.assertEqual(reopened.by_id[next(t["id"] for t in reopened.tracks if t["arquivo"] == str(self.unchanged))]["titulo"], ["Edited title"])
+
 
 if __name__ == "__main__":
     unittest.main()
