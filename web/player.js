@@ -267,11 +267,47 @@ document.addEventListener("click",event=>{
     setNowTab(button.dataset.nowTab);
   }
 });
-document.addEventListener("change",event=>{
-  if (event.target.id !== "library-sort") return;
-  state.sort = event.target.value;
-  state.sortDirection = NEWEST_FIRST.has(state.sort) ? "desc" : "asc";
-  state.page = 0;
-  render();
+function toggleSortMenu(open, focusTrigger = false) {
+  const menu = $('#library-sort-options'), trigger = $('#library-sort');
+  if (!menu) return;
+  menu.hidden = !open;
+  trigger.setAttribute("aria-expanded",String(open));
+  if (open) (menu.querySelector('[aria-selected="true"]') || menu.firstElementChild).focus();
+  else if (focusTrigger) trigger.focus();
+}
+
+async function chooseSort(sort) {
+  if (sort !== state.sort) {
+    state.sort = sort;
+    state.sortDirection = NEWEST_FIRST.has(sort) ? "desc" : "asc";
+    state.page = 0;
+    await render();
+  } else toggleSortMenu(false);
+  $('#library-sort')?.focus();
+}
+
+document.addEventListener("click",event=>{
+  const trigger = event.target.closest('#library-sort'), option = event.target.closest('[data-sort]');
+  if (trigger) toggleSortMenu($('#library-sort-options').hidden);
+  else if (option) chooseSort(option.dataset.sort).catch(error=>toast(error.message));
+  else toggleSortMenu(false);
 });
+document.addEventListener("keydown",event=>{
+  if (event.target.id === "library-sort" && ["ArrowDown","ArrowUp"].includes(event.key)) {
+    event.preventDefault();
+    toggleSortMenu(true);
+    return;
+  }
+  const menu = $('#library-sort-options');
+  if (!menu || menu.hidden) return;
+  const options = [...menu.children], index = options.indexOf(document.activeElement);
+  const target = {ArrowDown:options[(index+1)%options.length],ArrowUp:options[(index-1+options.length)%options.length],Home:options[0],End:options[options.length-1]}[event.key];
+  if (target) {
+    event.preventDefault();
+    target.focus();
+  } else if (event.key === "Escape" || event.key === "Tab") {
+    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); }
+    toggleSortMenu(false,event.key === "Escape");
+  }
+},true);
 updatePlayerControls();

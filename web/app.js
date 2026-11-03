@@ -140,7 +140,8 @@ function libraryPage(offset, limit) {
 
 function sortControl() {
   const descending = state.sortDirection==="desc";
-  return `<div class="sort-control"><label for="library-sort">${tr("Sort by")}</label><select id="library-sort" class="language-select">${SORT_OPTIONS.map(([key,label])=>`<option value="${key}" ${state.sort===key?"selected":""}>${tr(label)}</option>`).join("")}</select>${state.sort==="default"?"":`<button class="icon-button sort-direction ${descending?"descending":""}" data-action="sort-direction" aria-label="${tr(descending?"Descending order":"Ascending order")}" title="${tr(descending?"Descending order":"Ascending order")}">${icon("arrow")}</button>`}</div>`;
+  const current = SORT_OPTIONS.find(([key])=>key===state.sort)[1];
+  return `<div class="sort-control"><span id="library-sort-label">${tr("Sort by")}</span><div class="sort-menu"><button class="sort-trigger" id="library-sort" data-action="sort-menu" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="library-sort-label library-sort"><span>${tr(current)}</span>${icon("expand")}</button><div class="sort-options" id="library-sort-options" role="listbox" aria-labelledby="library-sort-label" hidden>${SORT_OPTIONS.map(([key,label])=>`<button role="option" data-sort="${key}" aria-selected="${state.sort===key}" tabindex="-1"><span>${tr(label)}</span>${state.sort===key?icon("check"):""}</button>`).join("")}</div></div>${state.sort==="default"?"":`<button class="icon-button sort-direction ${descending?"descending":""}" data-action="sort-direction" aria-label="${tr(descending?"Descending order":"Ascending order")}" title="${tr(descending?"Descending order":"Ascending order")}">${icon("arrow")}</button>`}</div>`;
 }
 
 function libraryCount(shown, total) {
