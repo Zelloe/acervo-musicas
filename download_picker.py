@@ -37,7 +37,7 @@ register({
 })
 
 
-ALBUM_LIST_SECONDS = 600
+LOOKUP_SECONDS = 600
 
 
 class DownloadPicker:
@@ -51,7 +51,7 @@ class DownloadPicker:
         self.catalogs = OrderedDict()
         self.current = None
         self.results = []
-        self.album_lists = {}
+        self.lookups = {}
         self.browsing = threading.local()
 
     def _say(self, message):
@@ -59,16 +59,19 @@ class DownloadPicker:
         if not getattr(self.browsing, "active", False):
             self.progress(message, None)
 
-    def _albums(self, artist):
-        key = artist.casefold()
+    def _lookup(self, kind, loader, *args):
+        """Remote lookups take seconds, so going back to a page reuses the last answer."""
+        key = (kind, *(arg.casefold() for arg in args))
         with self.lock:
-            saved = self.album_lists.get(key)
-        if saved and time.monotonic() - saved[0] < ALBUM_LIST_SECONDS:
+            saved = self.lookups.get(key)
+        if saved and time.monotonic() - saved[0] < LOOKUP_SECONDS:
             return saved[1]
-        rows = downloader.search_albums(artist)
+        rows = loader(*args)
         if rows:
             with self.lock:
-                self.album_lists[key] = (time.monotonic(), rows)
+                self.lookups[key] = (time.monotonic(), rows)
+                while len(self.lookups) > 100:
+                    self.lookups.pop(next(iter(self.lookups)))
         return rows
 
     def _browse(self, operation, data):
@@ -152,7 +155,7 @@ class DownloadPicker:
         kind, text, folder = self.search_options(data)
         if kind == "artista":
             self._say(_('Finding artist albums…'))
-            return self._remember("albuns", text, self._albums(text), folder, text)
+            return self._remember("albuns", text, self._lookup("albuns", downloader.search_albums, text), folder, text)
         self._say(_('Finding tracks…') if kind == "musica" else _('Looking up tracks from the link…'))
         rows = downloader.search_songs(text) if kind == "musica" else downloader.tracks(text)
         return self._remember("faixas", text, rows, folder)
@@ -171,13 +174,13 @@ class DownloadPicker:
         catalog, item, folder = self.open_options(data)
         if catalog["tipo"] == "albuns":
             self._say(_('Finding album editions…'))
-            rows = downloader.editions(catalog["artista"], item["titulo"])
+            rows = self._lookup("edicoes", downloader.editions, catalog["artista"], item["titulo"])
             if len(rows) == 1:
                 self._say(_('Looking up edition tracks…'))
-                return self._remember("faixas", rows[0]["titulo"], downloader.tracks(rows[0]["url"]), folder, catalog["artista"])
+                return self._remember("faixas", rows[0]["titulo"], self._lookup("faixas", downloader.tracks, rows[0]["url"]), folder, catalog["artista"])
             return self._remember("edicoes", item["titulo"], rows, folder, catalog["artista"])
         self._say(_('Looking up edition tracks…'))
-        return self._remember("faixas", item["titulo"], downloader.tracks(item["url"]), folder, catalog["artista"])
+        return self._remember("faixas", item["titulo"], self._lookup("faixas", downloader.tracks, item["url"]), folder, catalog["artista"])
 
     def download_options(self, data):
         catalog = self._catalog(data.get("catalogo"))

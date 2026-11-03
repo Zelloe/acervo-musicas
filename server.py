@@ -563,6 +563,7 @@ class App:
         finally:
             with self.lock:
                 self.lyrics_busy = False
+                self.pump_downloads()
 
     def save_bulk_lyrics(self, data):
         if set(data) != {"previa"} or not isinstance(data["previa"], str):
@@ -713,6 +714,7 @@ class App:
         finally:
             with self.lock:
                 self.policy_busy = False
+                self.pump_downloads()
 
     @staticmethod
     def search_query(needle, scope="biblioteca"):
@@ -787,6 +789,7 @@ class App:
         finally:
             with self.lock:
                 self.playlist_busy = False
+                self.pump_downloads()
 
     def _playlist(self, data, tracks, by_id, write):
         name = data.get("nome", "")

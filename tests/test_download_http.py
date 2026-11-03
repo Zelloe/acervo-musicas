@@ -242,7 +242,7 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         self.catalog(tipo="artista", consulta="Banda Teste")
         self.catalog(tipo="artista", consulta="banda teste")
         self.mock_albums.assert_called_once()
-        with patch("download_picker.ALBUM_LIST_SECONDS", 0):
+        with patch("download_picker.LOOKUP_SECONDS", 0):
             self.catalog(tipo="artista", consulta="Banda Teste")
         self.assertEqual(self.mock_albums.call_count, 2)
 
@@ -283,6 +283,39 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         rows = self.finished_queue()
         self.assertEqual([(row["status"], row["message"]) for row in rows[:1]], [("error", "Sem rede")])
         self.assertEqual(rows[1]["status"], "completed")
+
+    def test_going_back_to_an_album_does_not_repeat_remote_lookups(self):
+        for _ in range(2):
+            albums = self.catalog(tipo="artista", consulta="Banda Teste")
+            editions = self.catalog("/api/catalog/open", catalogo=albums["id"], item=albums["items"][0]["id"])
+            tracks = self.catalog("/api/catalog/open", catalogo=editions["id"], item=editions["items"][0]["id"])
+            self.assertEqual([row["already_owned"] for row in tracks["items"]], [True, False])
+        self.mock_albums.assert_called_once()
+        self.mock_editions.assert_called_once()
+        self.mock_tracks.assert_called_once()
+
+    def test_queue_starts_when_a_blocking_operation_ends(self):
+        app = self.server.app
+        catalog = self.catalog(tipo="musica", consulta="Banda Teste")
+        chosen = {"catalogo": catalog["id"], "ids": [catalog["items"][0]["id"]], "pasta": str(self.lib)}
+        ident = self.request("/api/search")["tracks"][0]["id"]
+        started = threading.Event()
+        release = threading.Event()
+        def blocking_write(*args, **kwargs):
+            started.set()
+            release.wait(5)
+            raise ValueError("Falha simulada")
+        with patch("server.protections.protect", side_effect=blocking_write):
+            worker = threading.Thread(target=lambda: self.request("/api/protections", {"ids": [ident], "campos": ["genero"], "proteger": True}, status=400))
+            worker.start()
+            self.assertTrue(started.wait(2))
+            self.request("/api/download/download", chosen, status=202)
+            self.assertEqual(app.download_queue[0]["estado"], "aguardando")
+            self.mock_download.assert_not_called()
+            release.set()
+            worker.join(5)
+        app.worker.join(timeout=5)
+        self.mock_download.assert_called_once()
 
     def test_album_list_says_whether_a_cover_exists(self):
         app = self.server.app
