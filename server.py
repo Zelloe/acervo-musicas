@@ -890,8 +890,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def send(self, status, data: bytes, mime="application/json; charset=utf-8", extra=None):
         self.send_response(status)
-        self.send_header("Content-Type", mime)
-        self.send_header("Content-Length", str(len(data)))
+        if status != 304:  # A 304 describes the cached response, not an empty one.
+            self.send_header("Content-Type", mime)
+            self.send_header("Content-Length", str(len(data)))
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         extra = dict(extra or {})

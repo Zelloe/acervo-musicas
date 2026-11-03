@@ -337,6 +337,9 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
             with self.assertRaises(HTTPError) as caught:
                 urlopen(Request(url, headers={"If-None-Match": tag}), timeout=5)
             self.assertEqual(caught.exception.code, 304)
+            self.assertEqual(caught.exception.headers["ETag"], tag)
+            self.assertIsNone(caught.exception.headers["Content-Type"])
+            self.assertIsNone(caught.exception.headers["Content-Length"])
             caught.exception.close()
 
 
