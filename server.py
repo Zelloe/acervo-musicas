@@ -459,12 +459,22 @@ class App:
             return {**result, "letra_track_id": draft["id"], "avisos": notices}
         self.start("import", save)
 
+    @property
+    def bulk_lyrics(self):
+        return self._bulk_lyrics
+
+    @bulk_lyrics.setter
+    def bulk_lyrics(self, value):
+        # Every lookup change replaces this value, so pages can tell without loading the rows.
+        self._bulk_lyrics = value
+        self.bulk_lyrics_revision = secrets.token_hex(8)
+
     def bulk_lyrics_info(self, ident=None):
         with self.lock:
             current = self.bulk_lyrics
             if ident is not None and (not isinstance(ident, str) or not current or ident != current["id"]):
                 raise ValueError(_("The lyrics lookup expired; start another lookup"))
-            return {"lookup": current}
+            return {"lookup": current, "revisao_letras_lote": self.bulk_lyrics_revision}
 
     def start_bulk_lyrics(self, data):
         if data:
@@ -902,7 +912,7 @@ class App:
                        "arquivos_com_propostas": len({p["arquivo"] for p in proposals}),
                        "propostas_por_campo": dict(Counter(p["campo"] for p in proposals))}
             revision = hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest() if policy is not None else None
-            return {"biblioteca": str(self.root), "biblioteca_revisao": self.library_revision, "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "fila_download": self.download_queue_view(), "erro": self.error, "erro_protecoes": policy_error, "protecoes_revisao": revision, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(proposals), "lyrics_tools": True, "lyrics_busy": self.lyrics_busy, "bulk_lyrics_id": self.bulk_lyrics["id"] if self.bulk_lyrics else None, "reinicio_necessario": restart_required()}
+            return {"biblioteca": str(self.root), "biblioteca_revisao": self.library_revision, "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "revisao_letras_lote": self.bulk_lyrics_revision, "fila_download": self.download_queue_view(), "erro": self.error, "erro_protecoes": policy_error, "protecoes_revisao": revision, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(proposals), "lyrics_tools": True, "lyrics_busy": self.lyrics_busy, "bulk_lyrics_id": self.bulk_lyrics["id"] if self.bulk_lyrics else None, "reinicio_necessario": restart_required()}
 
 
 class Handler(BaseHTTPRequestHandler):

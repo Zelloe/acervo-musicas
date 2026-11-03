@@ -133,6 +133,19 @@ class BulkLyricsHTTPTest(unittest.TestCase):
         self.assertEqual(self.app.plan_path.read_bytes(), plan)
         self.assertEqual((self.app.plan_path.parent / "inventario.json").read_bytes(), inventory)
 
+    def test_state_revision_changes_only_when_lookup_results_change(self):
+        revision = lambda: self.request("/api/state")["bulk_lyrics_revision"]
+        empty = revision()
+        self.assertEqual(revision(), empty)
+        preview = self.review()
+        found = revision()
+        self.assertNotEqual(found, empty)
+        self.assertEqual(self.request("/api/lyrics/bulk")["bulk_lyrics_revision"], found)
+        self.assertEqual(revision(), found)
+        self.request("/api/lyrics/bulk/save", {"preview": preview["preview"]}, status=202)
+        self.wait_job()
+        self.assertNotEqual(revision(), found)
+
     def test_one_confirmation_saves_mp3_and_flac_with_one_backup_and_one_exact_undo(self):
         preview = self.review()
         self.request("/api/lyrics/bulk/save", {"preview": preview["preview"]}, status=202)

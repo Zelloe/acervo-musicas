@@ -1,19 +1,21 @@
 "use strict";
 
-const bulkLyricsState={data:null,initialized:null,selected:new Set(),filter:"all",query:"",page:0,pending:null,seenJob:"",jobId:null,cancelling:false,preparing:false};
+const bulkLyricsState={data:null,revision:null,initialized:null,selected:new Set(),filter:"all",query:"",page:0,pending:null,seenJob:"",jobId:null,cancelling:false,preparing:false};
 const bulkLyricsLabels={synced:"Synced",plain:"Plain text",instrumental:"Instrumental",not_found:"Not found",already_synced:"Already synced",error:"Error",not_checked:"Not checked",saved:"Saved"};
 const bulkReady=row=>["synced","plain"].includes(row.status)&&!row.saved;
 
 async function loadBulkLyrics(force=false) {
-  const expected=state.summary?.bulk_lyrics_id;
-  if(expected===null){bulkLyricsState.data=null;bulkLyricsState.initialized=null;bulkLyricsState.selected.clear();return;}
-  if(!force&&bulkLyricsState.data?.id===expected)return;
-  const data=(await api("/api/lyrics/bulk")).lookup;
+  const expected=state.summary?.bulk_lyrics_id, revision=state.summary?.bulk_lyrics_revision;
+  if(expected===null){const changed=bulkLyricsState.data!==null;bulkLyricsState.data=null;bulkLyricsState.revision=revision;bulkLyricsState.initialized=null;bulkLyricsState.selected.clear();return changed;}
+  if(!force&&bulkLyricsState.data?.id===expected&&bulkLyricsState.revision===revision)return false;
+  const response=await api("/api/lyrics/bulk"),data=response.lookup;
   bulkLyricsState.data=data;
-  if(!data){bulkLyricsState.initialized=null;bulkLyricsState.selected.clear();return;}
+  bulkLyricsState.revision=response.bulk_lyrics_revision;
+  if(!data){bulkLyricsState.initialized=null;bulkLyricsState.selected.clear();return true;}
   const ready=new Set(data.rows.filter(bulkReady).map(row=>row.id));
   if(data.complete&&bulkLyricsState.initialized!==data.id){bulkLyricsState.selected=ready;bulkLyricsState.initialized=data.id;}
   else bulkLyricsState.selected=new Set([...bulkLyricsState.selected].filter(id=>ready.has(id)));
+  return true;
 }
 
 function bulkRows() {
@@ -96,27 +98,25 @@ async function reviewBulkLyrics() {
 }
 
 async function captureBulkLyricsJob(job) {
-  if(bulkLyricsState.data&&!bulkLyricsState.data.complete&&job?.type!=="lyrics_lookup"){
-    await loadBulkLyrics(true);
-    return true;
-  }
-  if(!job)return false;
   let newLookup=false;
-  if(job.type==="lyrics_lookup"&&job.id!==bulkLyricsState.jobId){bulkLyricsState.jobId=job.id;bulkLyricsState.data=null;bulkLyricsState.initialized=null;bulkLyricsState.selected.clear();bulkLyricsState.cancelling=false;newLookup=true;}
+  if(job?.type==="lyrics_lookup"&&job.id!==bulkLyricsState.jobId){bulkLyricsState.jobId=job.id;bulkLyricsState.data=null;bulkLyricsState.revision=null;bulkLyricsState.initialized=null;bulkLyricsState.selected.clear();bulkLyricsState.cancelling=false;newLookup=true;}
+  const revision=state.summary?.bulk_lyrics_revision;
+  const changed=revision!==undefined&&revision!==bulkLyricsState.revision?await loadBulkLyrics():false;
+  if(!job)return changed;
   const key=`${job.id}:${job.status}`;
-  if(job.status==="running")return newLookup;
-  if(bulkLyricsState.seenJob===key)return false;
+  if(job.status==="running")return newLookup||changed;
+  if(bulkLyricsState.seenJob===key)return changed;
   if(job.type==="lyrics_lookup"){
     bulkLyricsState.seenJob=key;bulkLyricsState.cancelling=false;
-    await loadBulkLyrics(true);
+    await loadBulkLyrics(revision===undefined);
     if(job.status==="completed")toast(tr(job.result?.cancelled?"Lookup stopped. Review the available results or run it again.":"Lyrics lookup finished. Review the selected results."));
     return true;
   }
   if(job.status==="completed"&&Array.isArray(job.result?.lyrics_track_ids)){
-    bulkLyricsState.seenJob=key;await loadBulkLyrics(true);
+    bulkLyricsState.seenJob=key;await loadBulkLyrics(revision===undefined);
     toast(tr("Selected lyrics saved. You can undo this in History."));return true;
   }
-  return false;
+  return changed;
 }
 
 document.addEventListener("click",async event=>{
