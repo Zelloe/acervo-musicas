@@ -123,6 +123,7 @@ register({
 
 
 WRITING_JOBS = {"import", "apply", "restore"}
+FINISHED_JOB_SECONDS = 5
 SERVER_SOURCE = Path(__file__).resolve()
 SERVER_CODE_HASH = sha256(SERVER_SOURCE)
 
@@ -210,6 +211,7 @@ class App:
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
         self.download_queue = []
+        self.job_unseen = False
         self.token = secrets.token_urlsafe(32)
         self.job = None
         self.worker = None
@@ -295,13 +297,30 @@ class App:
                     result = operation()
                     with self.lock:
                         self.job.update(status="completed", message=_('Operation completed'), progress=100, result=result)
+                        self.finish_job()
                 except Exception as error:
                     with self.lock:
                         self.error = str(error)
                         self.job.update(status="error", message=str(error), progress=None)
-                self.pump_downloads()
+                        self.finish_job()
         self.worker = threading.Thread(target=run, daemon=True)
         self.worker.start()
+
+    def finish_job(self):
+        # The interface reacts to a finished job, so the next batch must not replace it unseen.
+        with self.lock:
+            if not any(e["estado"] == "aguardando" for e in self.download_queue):
+                return
+            self.job_unseen = True
+            finished = self.job["id"]
+        def expire():
+            with self.lock:
+                if self.job and self.job["id"] == finished:
+                    self.job_unseen = False
+            self.pump_downloads()
+        timer = threading.Timer(FINISHED_JOB_SECONDS, expire)
+        timer.daemon = True
+        timer.start()
 
     def queue_download(self, data):
         prepared = self.download_picker.download_options(data)
@@ -322,7 +341,7 @@ class App:
 
     def pump_downloads(self):
         with self.lock:
-            if self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
+            if self.job_unseen or self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
                 return
             entry = next((e for e in self.download_queue if e["estado"] == "aguardando"), None)
             if entry is None:
@@ -873,6 +892,7 @@ class App:
     def snapshot(self):
         with self.lock:
             self.pump_downloads()
+            self.job_unseen = False
             policy, policy_error = self.read_protections()
             proposals = self.proposals(policy) if policy is not None else []
             summary = {**(self.plan or {}).get("resumo", {}), "alteracoes_propostas": len(proposals),

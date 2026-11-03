@@ -317,6 +317,56 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         app.worker.join(timeout=5)
         self.mock_download.assert_called_once()
 
+    def queue_behind_a_job(self, error=None):
+        app = self.server.app
+        catalog = self.catalog(tipo="musica", consulta="Banda Teste")
+        release = threading.Event()
+        def operation():
+            release.wait(5)
+            if error:
+                raise ValueError(error)
+            return {"pronto": True}
+        app.start("lyrics_lookup", operation)
+        worker = app.worker
+        self.request("/api/download/download", {"catalogo": catalog["id"], "ids": [catalog["items"][0]["id"]], "pasta": str(self.lib)}, status=202)
+        release.set()
+        worker.join(5)
+        return app
+
+    def test_finished_job_is_seen_before_the_next_batch_replaces_it(self):
+        app = self.queue_behind_a_job()
+        first = self.request("/api/state")
+        self.assertEqual((first["job"]["type"], first["job"]["status"]), ("lyrics_lookup", "completed"))
+        self.assertEqual(first["download_queue"][0]["status"], "waiting")
+        self.mock_download.assert_not_called()
+        self.assertEqual(self.finished_queue()[0]["status"], "completed")
+        self.mock_download.assert_called_once()
+
+    def test_error_of_a_finished_job_is_seen_before_the_next_batch(self):
+        self.queue_behind_a_job("Falha na busca")
+        first = self.request("/api/state")
+        self.assertEqual((first["job"]["status"], first["error"]), ("error", "Falha na busca"))
+        self.finished_queue()
+
+    def test_queue_continues_without_any_open_page(self):
+        with patch("server.FINISHED_JOB_SECONDS", 0.05):
+            app = self.queue_behind_a_job()
+            for _ in range(200):
+                if self.mock_download.called:
+                    break
+                time.sleep(0.02)
+        self.mock_download.assert_called_once()
+
+    def test_old_timer_does_not_release_a_newer_finished_job(self):
+        with patch("server.FINISHED_JOB_SECONDS", 0.05):
+            app = self.queue_behind_a_job()
+            with app.lock:
+                app.job = {**app.job, "id": "newer"}
+            time.sleep(0.2)
+        self.assertTrue(app.job_unseen)
+        self.mock_download.assert_not_called()
+        self.assertEqual(self.finished_queue()[0]["status"], "completed")
+
     def test_album_list_says_whether_a_cover_exists(self):
         app = self.server.app
         self.assertIs(self.request("/api/albums")["albums"][0]["has_cover"], False)
