@@ -77,6 +77,34 @@ class SearchHTTPTest(unittest.TestCase):
         self.assertEqual(self.request("/api/search", {"q": "distante arvore"})["total"], 0)
         self.provider.assert_not_called()
 
+    def test_sort_orders_and_queue_follow_the_same_filters(self):
+        first, second, third = self.tracks
+        first.update(ano=["1999-05-01"], duracao_segundos=300, assinatura_antes={"mtime_ns": 3})
+        second.update(ano=[], duracao_segundos=100, assinatura_antes={"mtime_ns": 1})
+        third.update(ano=["2005"], duracao_segundos=200, assinatura_antes={"mtime_ns": 2})
+        def order(sort, direction="asc"):
+            return [t["id"] for t in self.request("/api/search", {"sort": sort, "direction": direction})["tracks"]]
+        self.assertEqual(order("default"), ["1", "2", "3"])
+        self.assertEqual(order("title"), ["3", "1", "2"])
+        self.assertEqual(order("title", "desc"), ["2", "1", "3"])
+        self.assertEqual(order("year"), ["1", "3", "2"])
+        self.assertEqual(order("year", "desc"), ["3", "1", "2"], "Tracks without a year stay last")
+        self.assertEqual(order("duration", "desc"), ["1", "3", "2"])
+        self.assertEqual(order("modified", "desc"), ["1", "3", "2"])
+        queue = self.request("/api/queue", {"q": "coracao", "sort": "title"})
+        self.assertEqual(queue["total"], 2)
+        self.assertEqual([t["id"] for t in queue["tracks"]], ["1", "2"])
+        self.assertEqual(set(queue["tracks"][0]), {"id", "title", "artist", "album", "duration_seconds"})
+        for params in ({"sort": "file"}, {"sort": "title", "direction": "sideways"}):
+            self.assertIn("error", self.request("/api/search", params, status=400))
+
+    def test_album_sort_keeps_disc_and_track_order(self):
+        one, two, three = self.tracks
+        one.update(album=["Same"], artista_album=["Band"], faixa=["10/12"], disco=["1"])
+        two.update(album=["Same"], artista_album=["Band"], faixa=["2/12"], disco=["2"])
+        three.update(album=["Same"], artista_album=["Band"], faixa=["2/12"], disco=["1"])
+        self.assertEqual([t["id"] for t in self.request("/api/search", {"sort": "album"})["tracks"]], ["3", "1", "2"])
+
     def test_local_suggestions_cache_index_and_rebuild_for_new_download(self):
         suggestions = self.request("/api/suggestions", {"q": "coracao"})
         self.assertEqual(suggestions['tracks'][0]["id"], "1")

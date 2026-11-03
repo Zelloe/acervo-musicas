@@ -114,6 +114,8 @@ register({
     "Select only lyrics ready to save": "Selecione somente letras prontas para salvar",
     "The track changed after lookup: {file}. Start another lookup": "A faixa mudou após a busca: {file}. Inicie outra busca",
     "The selected tracks already have exactly these lyrics": "As faixas selecionadas já têm exatamente essas letras",
+    "Invalid sort order": "Ordenação inválida",
+    "Invalid sort direction": "Direção de ordenação inválida",
     "Could not refresh track {file_name}; scan the library again: {error}": "Não foi possível atualizar a faixa {file_name}; analise a biblioteca novamente: {error}"
 })
 
@@ -128,6 +130,41 @@ def restart_required():
         return sha256(SERVER_SOURCE) != SERVER_CODE_HASH
     except OSError:
         return True
+
+
+def first_number(values):
+    match = re.search(r"\d+", " ".join(values or []))
+    return int(match.group()) if match else None
+
+
+def sort_text(track, field):
+    return normalize(" ".join(track.get(field) or [])) or None
+
+
+SORT_VALUES = {
+    "title": lambda t: sort_text(t, "titulo"),
+    "artist": lambda t: sort_text(t, "artista"),
+    "album": lambda t: sort_text(t, "album"),
+    "genre": lambda t: sort_text(t, "genero"),
+    "year": lambda t: first_number(t.get("ano")),
+    "duration": lambda t: t.get("duracao_segundos"),
+    "modified": lambda t: (t.get("assinatura_antes") or {}).get("mtime_ns"),
+}
+
+
+def sort_tracks(rows, sort="default", direction="asc"):
+    if sort != "default" and sort not in SORT_VALUES:
+        raise ValueError(_('Invalid sort order'))
+    if direction not in ("asc", "desc"):
+        raise ValueError(_('Invalid sort direction'))
+    if sort == "default":
+        return rows
+    # Tracks of one album stay in disc and track order inside any equal value.
+    ordered = sorted(rows, key=lambda t: (sort_text(t, "artista_album") or sort_text(t, "artista") or "", sort_text(t, "album") or "",
+                                          first_number(t.get("disco")) or 0, first_number(t.get("faixa")) or 0, sort_text(t, "titulo") or ""))
+    value = SORT_VALUES[sort]
+    known = [t for t in ordered if value(t) is not None]
+    return sorted(known, key=value, reverse=direction == "desc") + [t for t in ordered if value(t) is None]
 
 
 def album_key(track):
@@ -870,10 +907,14 @@ class Handler(BaseHTTPRequestHandler):
             self.json({"registro": clean_log(path.read_text(errors="replace")) if path.is_file() else _('No log available.')})
         elif url.path == "/api/suggestions" or (url.path == "/api/search" and query.get("escopo", ["biblioteca"])[0] == "global"):
             self.json(self.app.suggestions(query.get("q", [""])[0], query.get("escopo", ["biblioteca"])[0]))
-        elif url.path in ("/api/library", "/api/search"):
+        elif url.path in ("/api/library", "/api/search", "/api/queue"):
             self.app.search_query(query.get("q", [""])[0], query.get("escopo", ["biblioteca"])[0])
             rows = self.app.library(query.get("q", [""])[0], query.get("filter", ["todas"])[0],
                                     artist=query.get("artista", [""])[0], album_id=query.get("album_id", [""])[0], version=query.get("versao", ["todas"])[0])
+            rows = sort_tracks(rows, query.get("sort", ["default"])[0], query.get("direction", ["asc"])[0])
+            if url.path == "/api/queue":
+                self.json({"total": len(rows), "musicas": [{k: t[k] for k in ("id", "titulo", "artista", "album", "duracao_segundos")} for t in rows]})
+                return
             offset = max(0, int(query.get("offset", [0])[0]))
             limit = min(100, max(1, int(query.get("limit", [50])[0])))
             self.json({"total": len(rows), "musicas": [{**{k: t[k] for k in ("id", "titulo", "artista", "album", "genero", "ano", "faixa", "formato", "duracao_segundos", "bitrate_bps", "campos_ausentes", "capas")}, "versao": track_version(t)} for t in rows[offset:offset + limit]]})

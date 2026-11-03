@@ -79,9 +79,11 @@ async function previewDownloadImport() {
 async function playStaged(id) {
   const row=downloadState.batch.tracks.find(r=>r.id===id);
   if(!row?.real)throw new Error(tr("Audio is not available yet."));
+  playback.serial++;
   state.current={...row.real,id:`stage-${id}`};
   if(typeof setLyricsTrack==="function")setLyricsTrack(null);
   state.queue=[];
+  clearPlayback();
   $('#player-title').dataset.i18nUser="true";$('#player-title').textContent=join(row.real.title);
   $('#player-artist').dataset.i18nUser="true";$('#player-artist').textContent=join(row.real.artist)+" "+tr("· download preview");
   $('#player-cover').innerHTML=row.real.covers.length?`<img src="${stagedURL("cover",downloadState.batchId,id)}" alt="">`:icon("disc");

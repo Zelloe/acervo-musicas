@@ -10,7 +10,9 @@ const join = (values) => (values || []).join(" / ");
 const number = (value) => new Intl.NumberFormat(uiLocale()).format(value || 0);
 const duration = (value) => { const seconds = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`; };
 const cover = (id) => `/api/cover?id=${encodeURIComponent(id)}`;
-const state = {view:"home", summary:null, serverIncompatible:false, albums:[], proposals:null, pending:[], selected:new Set(), page:0, filter:"all", versionFilter:"all", reviewFilter:"all", albumFilter:"all", search:"", searchArtist:"", searchAlbum:"", searchLabel:"", queue:[], current:null, request:0, lastJob:null};
+const SORT_OPTIONS = [["default","Default order"],["title","Title"],["artist","Artist"],["album","Album"],["year","Year"],["genre","Genre"],["duration","Duration"],["modified","Date modified"]];
+const NEWEST_FIRST = new Set(["year","modified","duration"]);
+const state = {sort:"default", sortDirection:"asc", view:"home", summary:null, serverIncompatible:false, albums:[], proposals:null, pending:[], selected:new Set(), page:0, filter:"all", versionFilter:"all", reviewFilter:"all", albumFilter:"all", search:"", searchArtist:"", searchAlbum:"", searchLabel:"", queue:[], current:null, request:0, lastJob:null};
 const token = $('meta[name="library-token"]').content;
 const playlistState = {draft:null, pending:null, exists:false};
 let toastTimeout;
@@ -128,9 +130,17 @@ async function renderHome() {
   return `${breadcrumb(tr("Overview"))}<section class="hero"><div class="hero-copy"><div class="eyebrow">${icon("disc")} ${tr("YOUR PERSONAL LIBRARY")}</div><h1>${tr("Your music.")}<br><span>${tr("Every detail matters.")}</span></h1><p>${tr("A collection with your identity.")}<br>${tr("Find what's missing, review the suggestions and bring everything together.")}</p><div class="hero-actions"><button class="button primary" data-view="review">${tr("Review my collection")} ${icon("arrow")}</button><button class="button secondary" data-view="library">${tr("View library")}</button></div></div><div class="hero-art" aria-hidden="true">${albums.map(a=>`<img src="${cover(a.track_id)}" alt="">`).join("")}</div></section><div class="stat-grid">${statCard(tr("Tracks in your collection"),sum.read_count,"music",`${number(sum.formats?.MP3)} MP3 <span class="green">·</span> ${number(sum.formats?.FLAC)} FLAC`)}${statCard(tr("Albums in your library"),data.album_count,"disc",tr("Stories worth listening to"))}${statCard(tr("Missing genres"),sum.missing_fields?.genre,"tag",tr("A collection ready for the finishing touches"),true)}${statCard(tr("Tracks with covers"),sum.with_cover,"image",`<span class="green">${tr("The visual identity of your music")}</span>`)}</div><section class="section"><div class="section-heading"><div><h2>${tr("On your shelf")}</h2><p>${tr("Some of the records that make your collection yours.")}</p></div><button class="text-button" data-view="albums">${tr("View all")} ${icon("arrow")}</button></div><div class="album-grid">${albums.map(albumCard).join("")}</div></section><section class="section overview-table"><div class="section-heading"><div><h2>${tr("Tracks in your collection")}</h2><p>${number(sum.read_count)} ${tr("good reasons to press play.")}</p></div><button class="text-button" data-view="library">${tr("Explore library")} ${icon("arrow")}</button></div>${result.tracks.length ? trackTable(result.tracks) : empty(tr("Your library is being prepared"), tr("The first scan may take a few minutes. Follow its progress at the top of the page."))}</section>`;
 }
 
+function libraryParams() {
+  return {q:state.search, artist:state.searchArtist, album_id:state.searchAlbum, filter:state.filter, version:state.versionFilter, sort:state.sort, direction:state.sortDirection};
+}
+
 function libraryPage(offset, limit) {
-  const query = new URLSearchParams({q:state.search, artist:state.searchArtist, album_id:state.searchAlbum, filter:state.filter, version:state.versionFilter, offset, limit});
-  return api(`/api/search?${query}`);
+  return api(`/api/search?${new URLSearchParams({...libraryParams(), offset, limit})}`);
+}
+
+function sortControl() {
+  const descending = state.sortDirection==="desc";
+  return `<div class="sort-control"><label for="library-sort">${tr("Sort by")}</label><select id="library-sort" class="language-select">${SORT_OPTIONS.map(([key,label])=>`<option value="${key}" ${state.sort===key?"selected":""}>${tr(label)}</option>`).join("")}</select>${state.sort==="default"?"":`<button class="icon-button sort-direction ${descending?"descending":""}" data-action="sort-direction" aria-label="${tr(descending?"Descending order":"Ascending order")}" title="${tr(descending?"Descending order":"Ascending order")}">${icon("arrow")}</button>`}</div>`;
 }
 
 function libraryCount(shown, total) {
@@ -150,7 +160,6 @@ async function loadMoreTracks() {
     $('#content tbody').insertAdjacentHTML("beforeend",trackRows(result.tracks,offset));
     const shown = offset+result.tracks.length;
     $('#library-shown').textContent = libraryCount(shown,result.total);
-    if (state.current && state.queue.includes(state.current.id)) $('#next').disabled = state.queue.indexOf(state.current.id)===state.queue.length-1;
     if (!result.tracks.length || shown>=result.total) end.remove();
     else watchLibraryEnd();
   } catch(error) {
@@ -181,7 +190,7 @@ async function renderLibrary() {
   state.queue = result.tracks.map(t=>t.id);
   const searching = !!(state.search || state.searchArtist || state.searchAlbum);
   const description = searching ? `${number(result.total)} ${tr("tracks for “")}${escapeHTML(state.searchLabel || state.search)}${tr("” · results ranked by relevance")}` : `${number(result.total)} ${tr("tracks ·")} ${number(state.summary.artist_count)} ${tr("artist credits")}`;
-  return `${heading(tr("YOUR MUSIC, YOUR COLLECTION"),searching?tr("Search results"):tr("All your tracks"),description, `<button class="button ghost" data-view="lyrics">${icon("lyrics")} ${tr("Lyrics for all tracks")}</button><button class="button ghost" data-action="export-playlist" ${state.summary.job?.status==="running"?"disabled":""}>${icon("download")} ${tr("Export M3U8")}</button><button class="button ghost" data-action="analyze">${icon("refresh")} ${tr("Refresh library")}</button>`)}<div class="table-toolbar"><div class="tabs">${[["all",tr("All tracks")],["missing-genre",tr("Genre missing")],["flac","FLAC"],["versions",tr("Versions and extras")]].map(([key,label])=>`<button class="tab ${state.filter===key?"active":""}" data-filter="${key}">${label}</button>`).join("")}</div><span class="table-note">${icon("shield")} ${tr("Your original files")}</span></div>${recordingChips(state.versionFilter,"data-library-version")}${result.tracks.length ? trackTable(result.tracks) : empty(tr("No tracks here"), tr("Try another search or change the filters."), "search")}<div class="table-footer"><span id="library-shown">${libraryCount(result.tracks.length,result.total)}</span>${result.tracks.length && result.tracks.length<result.total ? `<span id="library-end" role="status">${tr("Loading…")}</span>` : ""}</div>`;
+  return `${heading(tr("YOUR MUSIC, YOUR COLLECTION"),searching?tr("Search results"):tr("All your tracks"),description, `<button class="button ghost" data-view="lyrics">${icon("lyrics")} ${tr("Lyrics for all tracks")}</button><button class="button ghost" data-action="shuffle-all" ${result.total?"":"disabled"}>${icon("shuffle")} ${tr("Shuffle all")}</button><button class="button ghost" data-action="export-playlist" ${state.summary.job?.status==="running"?"disabled":""}>${icon("download")} ${tr("Export M3U8")}</button><button class="button ghost" data-action="analyze">${icon("refresh")} ${tr("Refresh library")}</button>`)}<div class="table-toolbar"><div class="tabs">${[["all",tr("All tracks")],["missing-genre",tr("Genre missing")],["flac","FLAC"],["versions",tr("Versions and extras")]].map(([key,label])=>`<button class="tab ${state.filter===key?"active":""}" data-filter="${key}">${label}</button>`).join("")}</div>${sortControl()}<span class="table-note">${icon("shield")} ${tr("Your original files")}</span></div>${recordingChips(state.versionFilter,"data-library-version")}${result.tracks.length ? trackTable(result.tracks) : empty(tr("No tracks here"), tr("Try another search or change the filters."), "search")}<div class="table-footer"><span id="library-shown">${libraryCount(result.tracks.length,result.total)}</span>${result.tracks.length && result.tracks.length<result.total ? `<span id="library-end" role="status">${tr("Loading…")}</span>` : ""}</div>`;
 }
 
 function filteredProposals() {
@@ -335,12 +344,13 @@ async function analyze() {
 
 const audio=$('#audio');
 audio.volume=.7;
-async function play(id) {
+async function play(id, serial = ++playback.serial) {
   if (state.current?.id === id) {
     if (audio.paused) await audio.play(); else audio.pause();
     return;
   }
   const track=await api(`/api/track?id=${encodeURIComponent(id)}`);
+  if (serial !== playback.serial) return;
   state.current=track;
   if(typeof setLyricsTrack==="function")setLyricsTrack(track);
   $('#player-title').dataset.i18nUser="true";$('#player-title').textContent=join(track.title);
@@ -351,9 +361,7 @@ async function play(id) {
   $('#play-toggle').disabled=false;
   $('#seek').disabled=false;
   $('#time-total').textContent=duration(track.duration_seconds);
-  const inQueue=state.queue.includes(id);
-  $('#previous').disabled=!inQueue || state.queue.indexOf(id)===0;
-  $('#next').disabled=!inQueue || state.queue.indexOf(id)===state.queue.length-1;
+  syncPlayback(track);
   await audio.play();
 }
 audio.addEventListener("play",()=>{ $('#play-toggle').innerHTML=icon("pause"); $('#play-toggle').setAttribute("aria-label",tr("Pause")); $('#playing-dot').hidden=false; });
@@ -361,18 +369,16 @@ audio.addEventListener("pause",()=>{ $('#play-toggle').innerHTML=icon("play"); $
 audio.addEventListener("timeupdate",()=>{ $('#time-current').textContent=duration(audio.currentTime); $('#seek').value=Number.isFinite(audio.duration)&&audio.duration>0 ? audio.currentTime/audio.duration*1000 : 0; });
 audio.addEventListener("loadedmetadata",()=>{ $('#time-total').textContent=duration(audio.duration); });
 audio.addEventListener("error",()=>toast(tr("Could not play this file in the browser.")));
-audio.addEventListener("ended",()=>{ const next=state.queue[state.queue.indexOf(state.current?.id)+1]; if(next)play(next).catch(e=>toast(e.message)); });
 $('#play-toggle').addEventListener("click",()=>{ if (audio.paused)audio.play().catch(e=>toast(e.message));else audio.pause(); });
 $('#volume').addEventListener("input",e=>{ audio.volume=Number(e.target.value)/100; });
 $('#seek').addEventListener("input",e=>{ if(Number.isFinite(audio.duration))audio.currentTime=Number(e.target.value)/1000*audio.duration; });
-for (const [selector,delta] of [["#previous",-1],["#next",1]]) $(selector).addEventListener("click",()=>{ const id=state.queue[state.queue.indexOf(state.current?.id)+delta];if(id)play(id).catch(e=>toast(e.message)); });
 
 document.addEventListener("click",async event=>{
   const button=event.target.closest("button,a");
   if(!button || button.disabled)return;
   try {
     if(button.dataset.view){ if($('#modal').open)$('#modal').close();state.search="";state.searchArtist="";state.searchAlbum="";state.searchLabel="";$('#search').value="";navigate(button.dataset.view); }
-    else if(button.dataset.play)await play(button.dataset.play);
+    else if(button.dataset.play)await startPlayback(button);
     else if(button.dataset.info)await showDetails(button.dataset.info);
     else if(button.dataset.playlistAlbum)showPlaylist(button.dataset.playlistAlbum);
     else if(button.dataset.album){ state.search=button.dataset.album;state.searchArtist="";state.searchAlbum="";state.searchLabel="";$('#search').value=state.search;state.filter="all";navigate("library"); }
@@ -437,6 +443,7 @@ document.addEventListener("languagechange",async()=>{
     const label=tr(scope==="global"?"Search tracks or artists in the global catalog":"Search tracks, artists or albums");
     $('#search').placeholder=label;$('#search').setAttribute("aria-label",label);
     if(typeof refreshLyricsLanguage==="function")refreshLyricsLanguage();
+    if(typeof refreshPlayerLanguage==="function")refreshPlayerLanguage();
     await render();
   }catch(error){toast(error.message);}
 });
