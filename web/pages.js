@@ -24,7 +24,7 @@ function pageHash(view) {
 
 function pageSnapshot() {
   const keys=["search","searchArtist","searchAlbum","searchLabel","filter","versionFilter","sort","sortDirection","page"];
-  return {view:state.view, detail:pagesState.current?{...pagesState.current}:null, values:Object.fromEntries(keys.map(key=>[key,state[key]])), scroll:scrollY};
+  return {view:state.view, detail:pagesState.current?{...pagesState.current}:null, values:Object.fromEntries(keys.map(key=>[key,state[key]])), version:pagesState.version, scroll:scrollY};
 }
 
 async function openPage(view, detail, remember=true) {
@@ -55,6 +55,7 @@ async function goBackPage() {
   const previous=pagesState.history.pop();
   if (!previous) return navigate("library");
   pagesState.current=previous.detail;
+  pagesState.version=previous.version||"all";
   Object.assign(state,previous.values);
   await navigate(previous.view,previous.values.page||0);
   window.scrollTo({top:previous.scroll});
