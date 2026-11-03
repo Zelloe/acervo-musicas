@@ -151,7 +151,7 @@ function renderNowView() {
   $('#now-artist').dataset.i18nUser = "true";
   $('#now-artist').textContent = join(track.artist);
   $('#now-album').dataset.i18nUser = "true";
-  $('#now-album').textContent = [join(track.album), join(track.year||[]), track.format].filter(Boolean).join(" · ");
+  $('#now-album').textContent = [join(track.album), (join(track.year||[]).match(/\d{4}/)||[""])[0], track.format].filter(Boolean).join(" · ");
   $('#now-cover').innerHTML = real ? `<img src="${cover(track.id)}" alt="">` : icon("disc");
   const backdrop = $('#now-backdrop');
   backdrop.hidden = !real;
