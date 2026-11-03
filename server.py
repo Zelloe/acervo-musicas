@@ -698,8 +698,9 @@ class App:
             if entry["arquivo"] in self.incremental_paths:
                 continue
             track = tracks[entry["arquivo"]]
+            protected = protections.protected(policy, self.root, entry["arquivo"])
             for change in entry["alteracoes"]:
-                if change["campo"] in protections.protected(policy, self.root, entry["arquivo"]):
+                if change["campo"] in protected:
                     continue
                 rows.append({**change, "arquivo": entry["arquivo"], "track_id": track["id"], "titulo": " / ".join(track["titulo"]), "artista": " / ".join(track["artista"]), "album": " / ".join(track["album"]), "tamanho_bytes": entry["tamanho_bytes"]})
         return rows
