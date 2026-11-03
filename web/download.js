@@ -111,7 +111,7 @@ function updateDownloadQueue() {
 
 function setCatalogControls() {
   const readOnly=state.serverIncompatible, blocked=readOnly||!!state.summary?.protection_error||simpleDownloadState.enqueuing;
-  document.querySelectorAll('#simple-download-form [type="submit"],[data-simple-open]').forEach(button=>{button.disabled=readOnly||simpleDownloadState.loading;});
+  document.querySelectorAll('#simple-download-form [type="submit"],[data-simple-open]').forEach(button=>{button.disabled=readOnly||simpleDownloadState.loading||button.getAttribute('aria-busy')==='true';});
   document.querySelectorAll('[data-action="simple-download"]').forEach(button=>{button.disabled=blocked;});
 }
 
@@ -146,6 +146,17 @@ async function runCatalogSearch() {
   finally{if(serial===simpleDownloadState.serial){simpleDownloadState.loading=false;if(state.view==="downloads")await render();}}
 }
 
+async function openSimpleCatalog(button) {
+  const serial=++simpleDownloadState.serial,request=state.request,old=simpleDownloadState.catalogId;
+  button.disabled=true;button.setAttribute('aria-busy','true');
+  try{
+    const catalog=await browseCatalog('/api/catalog/open',{catalog:old,item:button.dataset.simpleOpen});
+    if(serial!==simpleDownloadState.serial||request!==state.request)return;
+    simpleDownloadState.parents.push(old);useCatalog(catalog);await render();
+  }catch(error){if(serial===simpleDownloadState.serial&&request===state.request)throw error;}
+  finally{if(button.isConnected){button.removeAttribute('aria-busy');setCatalogControls();}}
+}
+
 document.addEventListener('input',event=>{if(event.target.closest('#simple-download-form'))simpleFormValues(event.target.closest('form'));});
 document.addEventListener('change',event=>{
   if(event.target.matches('.simple-track-check')){if(event.target.checked)simpleDownloadState.selected.add(event.target.value);else simpleDownloadState.selected.delete(event.target.value);updateSimpleSelection();}
@@ -157,12 +168,8 @@ document.addEventListener('click',async event=>{
   try {
     if(button.dataset.simpleVersion){simpleDownloadState.versionFilter=button.dataset.simpleVersion;applySimpleVersionFilter();}
     else if(button.dataset.simpleMode){simpleFormValues($('#simple-download-form'));simpleDownloadState.serial++;simpleDownloadState.loading=false;simpleDownloadState.mode=button.dataset.simpleMode;simpleDownloadState.query='';await render();}
-    else if(button.dataset.simpleOpen){
-      const request=state.request,old=simpleDownloadState.catalogId;button.disabled=true;
-      const catalog=await browseCatalog('/api/catalog/open',{catalog:old,item:button.dataset.simpleOpen});
-      if(request!==state.request)return;
-      simpleDownloadState.parents.push(old);useCatalog(catalog);await render();
-    } else if(button.dataset.action==='simple-back'){const id=simpleDownloadState.parents.pop();if(id){useCatalog(await storedCatalog(id));await render();}}
+    else if(button.dataset.simpleOpen)await openSimpleCatalog(button);
+    else if(button.dataset.action==='simple-back'){const id=simpleDownloadState.parents.pop();if(id){useCatalog(await storedCatalog(id));await render();}}
     else if(['simple-select-new','simple-select-all','simple-clear'].includes(button.dataset.action)){
       const clear=button.dataset.action==='simple-clear';if(clear)simpleDownloadState.selected.clear();
       document.querySelectorAll('.simple-track-check').forEach(input=>{
