@@ -19,6 +19,7 @@
   <script src="/app.js" defer></script>
   <script src="/player.js" defer></script>
   <script src="/pages.js" defer></script>
+  <script src="/library_picker.js" defer></script>
   <script src="/search.js" defer></script>
 </head>
 <body>
@@ -71,7 +72,7 @@
     <div class="sidebar-note"><span class="tiny-label">MADE FOR YOUR COLLECTION</span><p>More music.<br>Less clutter.</p><span>Your files, right where they belong.</span></div>
     <div class="sidebar-bottom">
       <button class="settings-button" id="settings"><svg><use href="#i-settings"/></svg>Preferences</button>
-      <div class="library-location"><span class="location-icon"><svg><use href="#i-folder"/></svg></span><div><strong>Local library <i class="status-dot"></i></strong><span id="folder-label">Loading…</span></div></div>
+      <div class="library-location"><span class="location-icon"><svg><use href="#i-folder"/></svg></span><div><strong>Local library <i class="status-dot"></i></strong><span id="folder-label">Loading…</span></div><button class="icon-button library-change" data-action="choose-library" title="Change music folder" aria-label="Change music folder"><svg><use href="#i-edit"/></svg></button></div>
     </div>
   </aside>
 

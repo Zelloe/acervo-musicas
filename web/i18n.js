@@ -1,6 +1,17 @@
 "use strict";
 
 const portugueseMessages = {
+  "Change music folder": "Trocar pasta de músicas",
+  "Choose your music folder": "Escolha sua pasta de músicas",
+  "Acervo reads this folder. Nothing is moved or renamed, and this browser remembers your choice.": "O Acervo lê esta pasta. Nada é movido nem renomeado, e este navegador lembra da sua escolha.",
+  "Opening another folder stops the current track.": "Abrir outra pasta interrompe a faixa atual.",
+  "Folder path": "Caminho da pasta",
+  "Go": "Ir",
+  "Parent folder": "Pasta acima",
+  "No subfolders here": "Nenhuma subpasta aqui",
+  "Open this folder": "Abrir esta pasta",
+  "Opening…": "Abrindo…",
+  "The folder you used last time is not available. Opening the default one.": "A pasta usada da última vez não está disponível. Abrindo a pasta padrão.",
   "Global catalog": "Catálogo global",
   "Start with an artist, album or track": "Comece por um artista, álbum ou música",
   "No artists found": "Nenhum artista encontrado",

@@ -46,7 +46,7 @@ async function api(path, data) {
   const options = data === undefined ? {headers:languageHeaders()} : {method:"POST", headers:{...languageHeaders(), "Content-Type":"application/json", "X-Library-Token":token}, body:JSON.stringify(data)};
   const response = await fetch(path, options);
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || tr("Could not complete the operation."));
+  if (!response.ok) throw Object.assign(new Error(result.error || tr("Could not complete the operation.")),{status:response.status});
   return result;
 }
 
@@ -345,7 +345,7 @@ async function showDetails(id) {
 
 function showSettings() {
   const options=settings();
-  modal(`${modalHead(tr("Make it yours."),tr("Preferences for the next library scan."))}<div class="modal-body"><div class="form-row"><label><input type="checkbox" class="check" id="use-musicbrainz" ${options.musicbrainz?"checked":""}> ${tr("Look up MusicBrainz for genres without a local rule")}</label><p>${tr("Looks up artist and album names. Suggestions always require your approval. No audio files are uploaded.")}</p><input id="musicbrainz-contact" class="field" type="text" placeholder="${tr("Your contact email or URL")}" aria-label="${tr("MusicBrainz client contact")}" value="${escapeHTML(options.contact)}"></div><div class="form-row"><label>${icon("folder")} ${tr("Current library")}</label><p>${escapeHTML(state.summary.library)}</p></div><div class="form-row"><label>${icon("tag")} ${tr("Editable genre rules")}</label><p>${tr("Local suggestions are stored in genre_rules.csv. Genres already present in your files are preserved.")}</p></div><div class="form-row"><label>${icon("lock")} ${tr("Preserved choices")}</label><p><button class="text-button" data-action="protection-list">${tr("View protected fields and unlock")}</button></p></div><div class="form-row"><label>${icon("download")} ${tr("More options")}</label><p><button class="text-button" data-view="lyrics">${tr("Lyrics for all tracks")}</button></p><p><button class="text-button" data-view="advanced-downloads">${tr("Advanced downloads with review and import")}</button></p></div></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${tr("Cancel")}</button><button class="button primary" data-action="save-settings">${tr("Save preferences")}</button></div>`);
+  modal(`${modalHead(tr("Make it yours."),tr("Preferences for the next library scan."))}<div class="modal-body"><div class="form-row"><label><input type="checkbox" class="check" id="use-musicbrainz" ${options.musicbrainz?"checked":""}> ${tr("Look up MusicBrainz for genres without a local rule")}</label><p>${tr("Looks up artist and album names. Suggestions always require your approval. No audio files are uploaded.")}</p><input id="musicbrainz-contact" class="field" type="text" placeholder="${tr("Your contact email or URL")}" aria-label="${tr("MusicBrainz client contact")}" value="${escapeHTML(options.contact)}"></div><div class="form-row"><label>${icon("folder")} ${tr("Current library")}</label><p>${escapeHTML(state.summary.library)}</p><button type="button" class="button small ghost" data-action="choose-library">${tr("Change music folder")}</button></div><div class="form-row"><label>${icon("tag")} ${tr("Editable genre rules")}</label><p>${tr("Local suggestions are stored in genre_rules.csv. Genres already present in your files are preserved.")}</p></div><div class="form-row"><label>${icon("lock")} ${tr("Preserved choices")}</label><p><button class="text-button" data-action="protection-list">${tr("View protected fields and unlock")}</button></p></div><div class="form-row"><label>${icon("download")} ${tr("More options")}</label><p><button class="text-button" data-view="lyrics">${tr("Lyrics for all tracks")}</button></p><p><button class="text-button" data-view="advanced-downloads">${tr("Advanced downloads with review and import")}</button></p></div></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${tr("Cancel")}</button><button class="button primary" data-action="save-settings">${tr("Save preferences")}</button></div>`);
 }
 
 async function analyze() {
@@ -505,6 +505,7 @@ document.addEventListener("visibilitychange",()=>{if(!state.summary)return;clear
 document.addEventListener("DOMContentLoaded",async()=>{
   try {
     await updateState();
+    await openRememberedLibrary();
     state.albums=(await api("/api/albums")).albums;
     routeFromHash();
     poll();

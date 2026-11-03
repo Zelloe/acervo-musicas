@@ -167,6 +167,10 @@ O navegador abre em <http://127.0.0.1:8765>. Mantenha o terminal aberto
 enquanto usa a interface. Ctrl+C encerra o servidor. Depois de atualizar o
 Acervo, reinicie o servidor (a página avisa quando isso for necessário).
 
+Para abrir outra pasta, clique no lápis ao lado do caminho na barra lateral ou use
+**Preferências**. O navegador lembra da sua escolha para a próxima vez, exceto se você
+iniciar o Acervo com `--folder`.
+
 Sem abrir o navegador automaticamente, ou com outra porta:
 
 ```bash

@@ -106,7 +106,7 @@ def main() -> int:
     playlist.add_argument("--validate", "--validar", dest="validate", action="store_true", help=_("Only check the paths of an existing playlist"))
 
     serve = command("serve", "Open the local web interface")
-    serve.add_argument("--folder", "--pasta", dest="folder", type=Path, default=default_music_folder(), help=_("Default: the system music folder (e.g. ~/Music)"))
+    serve.add_argument("--folder", "--pasta", dest="folder", type=Path, help=_("Default: the system music folder (e.g. ~/Music)"))
     serve.add_argument("--port", "--porta", dest="port", type=int, default=8765)
     data_option(serve, None)
     serve.add_argument("--open", "--abrir", dest="open", action="store_true", help=_("Open in the default browser"))
@@ -148,7 +148,7 @@ def main() -> int:
                 result["erros_de_leitura"] = errors
         else:
             from server import serve
-            serve(require_folder(args.folder), args.port, args.data, args.open)
+            serve(require_folder(args.folder or default_music_folder()), args.port, args.data, args.open, args.folder is not None)
             return 0
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 2 if result.get("resumo", {}).get("erros") or result.get("ausentes") else 0

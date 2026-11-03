@@ -165,6 +165,10 @@ The browser opens at <http://127.0.0.1:8765>. Keep the terminal open while you
 use the interface; Ctrl+C stops the server. After updating Acervo, restart the
 server (the page warns you when that is needed).
 
+To open another folder, click the pencil next to the folder path in the sidebar, or
+use **Preferences**. The browser remembers your choice for the next time, unless you
+start Acervo with `--folder`.
+
 Without opening the browser automatically, or on another port:
 
 ```bash

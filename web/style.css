@@ -131,3 +131,15 @@
 .simple-choice[aria-busy="true"]>svg:last-child{visibility:hidden}
 .simple-choice[aria-busy="true"]::after{content:"";position:absolute;top:50%;right:17px;width:16px;height:16px;margin-top:-8px;border:2px solid #ffffff30;border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite}
 @media(prefers-reduced-motion:reduce){.simple-choice[aria-busy="true"]::after{animation-duration:2.4s}}
+.library-location>div{min-width:0;flex:1}
+.library-change{flex:none;width:28px;height:28px;color:#85a28e}
+.library-change svg{width:14px;height:14px}
+.library-path{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.library-path .field{flex:1;min-width:0}
+.library-path>.button:first-child svg{transform:rotate(180deg);width:14px;height:14px}
+.library-folders{max-height:min(320px,45vh);overflow:auto;border:1px solid #2a362d;border-radius:8px;padding:5px;scrollbar-width:thin;scrollbar-color:#ffffff30 transparent}
+.library-folder{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;color:#d7e6dc;background:none;border:0;border-radius:6px;font-size:12px;text-align:left}
+.library-folder:hover,.library-folder:focus-visible{background:#ffffff12}
+.library-folder svg{width:15px;height:15px;flex:none;color:#85a28e}
+.library-folder span{overflow-wrap:anywhere}
+.library-note{font-size:11px;color:#8ea596;margin:11px 0 0}

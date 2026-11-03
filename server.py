@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
 import json
+import os
 import mimetypes
 from pathlib import Path
 import re
@@ -116,6 +117,10 @@ register({
     "The track changed after lookup: {file}. Start another lookup": "A faixa mudou após a busca: {file}. Inicie outra busca",
     "The selected tracks already have exactly these lyrics": "As faixas selecionadas já têm exatamente essas letras",
     "Invalid sort order": "Ordenação inválida",
+    "Choose an existing folder using its full path": "Escolha uma pasta existente usando o caminho completo",
+    "Could not read this folder: {error}": "Não foi possível ler esta pasta: {error}",
+    "Another folder is already opening": "Outra pasta já está sendo aberta",
+    "Wait for the current operation to finish before opening another folder": "Aguarde a operação atual terminar antes de abrir outra pasta",
     "Only waiting downloads can be removed": "Só é possível remover downloads que ainda estão aguardando",
     "Invalid sort direction": "Direção de ordenação inválida",
     "Could not refresh track {file_name}; scan the library again: {error}": "Não foi possível atualizar a faixa {file_name}; analise a biblioteca novamente: {error}"
@@ -124,6 +129,7 @@ register({
 
 WRITING_JOBS = {"import", "apply", "restore"}
 FINISHED_JOB_SECONDS = 5
+LIBRARY_SWITCH = threading.Lock()
 SERVER_SOURCE = Path(__file__).resolve()
 SERVER_CODE_HASH = sha256(SERVER_SOURCE)
 
@@ -212,6 +218,8 @@ class App:
         self.lock = threading.RLock()
         self.download_queue = []
         self.job_unseen = False
+        self.fixed_folder = False
+        self.closed = False
         self.token = secrets.token_urlsafe(32)
         self.job = None
         self.worker = None
@@ -284,7 +292,7 @@ class App:
 
     def start(self, kind, operation):
         with self.lock:
-            if self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
+            if self.occupied():
                 raise ValueError(_('Wait for the current operation to finish'))
             if kind in WRITING_JOBS or kind == "direct_download":
                 protections.load(self.storage, self.root)
@@ -305,6 +313,9 @@ class App:
                         self.finish_job()
         self.worker = threading.Thread(target=run, daemon=True)
         self.worker.start()
+
+    def occupied(self):
+        return self.closed or self.playlist_busy or self.policy_busy or self.lyrics_busy or bool(self.job and self.job["status"] == "running")
 
     def finish_job(self):
         # The interface reacts to a finished job, so the next batch must not replace it unseen.
@@ -328,6 +339,8 @@ class App:
         entry = {"id": secrets.token_hex(8), "titulo": catalog["titulo"], "artista": catalog["artista"], "estado": "aguardando",
                  "total": len(rows), "baixadas": 0, "erros": 0, "mensagem": "", "avisos": [], "preparado": prepared}
         with self.lock:
+            if self.closed:
+                raise ValueError(_('Wait for the current operation to finish'))
             self.download_queue.append(entry)
             self.pump_downloads()
         return entry["id"]
@@ -341,7 +354,7 @@ class App:
 
     def pump_downloads(self):
         with self.lock:
-            if self.job_unseen or self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
+            if self.job_unseen or self.occupied():
                 return
             entry = next((e for e in self.download_queue if e["estado"] == "aguardando"), None)
             if entry is None:
@@ -422,7 +435,7 @@ class App:
             raise ValueError(_('Empty or invalid lyrics'))
         text = prepare_text(text)
         with self.lock:
-            if self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
+            if self.occupied():
                 raise ValueError(_('Wait for the current operation to finish'))
             protections.load(self.storage, self.root)
             track = self.by_id.get(data["id"])
@@ -480,7 +493,7 @@ class App:
         if data:
             raise ValueError(_("Start a lyrics lookup using the library inventory"))
         with self.lock:
-            if self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
+            if self.occupied():
                 raise ValueError(_("Wait for the current operation to finish"))
             tracks = [dict(track) for track in self.tracks]
             if not tracks or len(tracks) > 20_000:
@@ -550,7 +563,7 @@ class App:
         if not isinstance(ids, list) or not ids or len(ids) > 20_000 or any(not isinstance(ident, str) for ident in ids) or len(ids) != len(set(ids)):
             raise ValueError(_("Select lyrics from the lookup results"))
         with self.lock:
-            if self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
+            if self.occupied():
                 raise ValueError(_("Wait for the current operation to finish"))
             protections.load(self.storage, self.root)
             lookup = self.bulk_lyrics
@@ -737,7 +750,7 @@ class App:
         if not isinstance(ids, list) or len(ids) > 10000 or any(not isinstance(i, str) for i in ids) or not isinstance(album_id, str) or bool(ids) == bool(album_id):
             raise ValueError(_('Select tracks or an album from the library'))
         with self.lock:
-            if self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
+            if self.occupied():
                 raise ValueError(_('Wait for the current operation to finish'))
             if album_id:
                 track = self.by_id.get(album_id)
@@ -818,7 +831,7 @@ class App:
 
     def playlist(self, data, write=False):
         with self.lock:
-            if self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
+            if self.occupied():
                 raise ValueError(_('Wait for the current operation to finish'))
             self.playlist_busy = True
             tracks, by_id = list(self.tracks), dict(self.by_id)
@@ -913,7 +926,7 @@ class App:
                        "arquivos_com_propostas": len({p["arquivo"] for p in proposals}),
                        "propostas_por_campo": dict(Counter(p["campo"] for p in proposals))}
             revision = hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest() if policy is not None else None
-            return {"biblioteca": str(self.root), "biblioteca_revisao": self.library_revision, "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "revisao_letras_lote": self.bulk_lyrics_revision, "fila_download": self.download_queue_view(), "erro": self.error, "erro_protecoes": policy_error, "protecoes_revisao": revision, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(proposals), "lyrics_tools": True, "lyrics_busy": self.lyrics_busy, "bulk_lyrics_id": self.bulk_lyrics["id"] if self.bulk_lyrics else None, "reinicio_necessario": restart_required()}
+            return {"biblioteca": str(self.root), "biblioteca_revisao": self.library_revision, "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "pasta_fixa": self.fixed_folder, "revisao_letras_lote": self.bulk_lyrics_revision, "fila_download": self.download_queue_view(), "erro": self.error, "erro_protecoes": policy_error, "protecoes_revisao": revision, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(proposals), "lyrics_tools": True, "lyrics_busy": self.lyrics_busy, "bulk_lyrics_id": self.bulk_lyrics["id"] if self.bulk_lyrics else None, "reinicio_necessario": restart_required()}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1153,6 +1166,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.app.queue_download(data)
             elif route == "/api/download/queue/remove":
                 self.app.remove_download(data)
+            elif route == "/api/folders":
+                self.json(list_folders(data.get("path")))
+                return
+            elif route == "/api/library/open":
+                self.json({"biblioteca": str(open_library(self.server, data.get("pasta")).root)})
+                return
             elif route == "/api/catalog/search":
                 self.json({"catalogo": self.app.download_picker.browse_search(data)})
                 return
@@ -1237,8 +1256,66 @@ class Handler(BaseHTTPRequestHandler):
             self.json({"erro": str(error)}, 400)
 
 
-def serve(root: Path, port: int = 8765, storage: Path | None = None, open_browser: bool = False):
+def existing_folder(value):
+    if not isinstance(value, str) or len(value) > 4096 or any(ord(c) < 32 for c in value):
+        raise ValueError(_('Choose an existing folder using its full path'))
+    path = Path(value).expanduser()
+    try:
+        if path.is_absolute() and path.resolve(strict=True).is_dir():
+            return path.resolve()
+    except OSError:
+        pass
+    raise ValueError(_('Choose an existing folder using its full path'))
+
+
+def list_folders(value):
+    path = existing_folder(value)
+    try:
+        with os.scandir(path) as entries:
+            names = [e.name for e in entries if not e.name.startswith(".") and e.is_dir(follow_symlinks=False)]
+    except OSError as error:
+        raise ValueError(_('Could not read this folder: {error}', error=error.strerror or error)) from error
+    names.sort(key=str.casefold)
+    return {"path": str(path), "parent": str(path.parent) if path.parent != path else None,
+            "folders": [{"name": name, "path": str(path / name)} for name in names[:1000]]}
+
+
+def open_library(server, value):
+    folder = existing_folder(value)
+    if not LIBRARY_SWITCH.acquire(blocking=False):
+        raise ValueError(_('Another folder is already opening'))
+    try:
+        app = server.app
+        if folder == app.root:
+            return app
+        with app.lock:
+            # A scan only reads files and can finish unattended; anything else needs this library.
+            scanning = app.job and app.job["status"] == "running" and app.job["type"] == "analysis"
+            running = app.job and app.job["status"] == "running" and not scanning
+            queued = any(entry["estado"] in ("aguardando", "baixando") for entry in app.download_queue)
+            if running or queued or app.playlist_busy or app.policy_busy or app.lyrics_busy:
+                raise ValueError(_('Wait for the current operation to finish before opening another folder'))
+            # From here on, this library refuses new work, even from requests already in flight.
+            app.closed = True
+        try:
+            opened = App(folder, app.storage)
+            opened.token, opened.fixed_folder = app.token, app.fixed_folder
+            if opened.plan is None:
+                opened.start("analysis", opened.analyze)
+        except Exception:
+            with app.lock:
+                app.closed = False
+            raise
+        server.app = opened
+        app.global_search.close()
+        return opened
+    finally:
+        LIBRARY_SWITCH.release()
+
+
+def serve(root: Path, port: int = 8765, storage: Path | None = None, open_browser: bool = False, fixed_folder: bool = False):
     app = App(root, storage)
+    app.fixed_folder = fixed_folder
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     server.app = app
     print(f"Acervo · http://127.0.0.1:{port}", flush=True)
@@ -1252,6 +1329,7 @@ def serve(root: Path, port: int = 8765, storage: Path | None = None, open_browse
         server.serve_forever()
     except KeyboardInterrupt:
         server.server_close()
+        app = server.app
         while app.writing():
             print(_('\nWaiting for the current write to finish so files are not left incomplete…'), flush=True)
             try:
@@ -1261,4 +1339,4 @@ def serve(root: Path, port: int = 8765, storage: Path | None = None, open_browse
         print(_('\nInterface closed.'))
     finally:
         server.server_close()
-        app.global_search.close()
+        server.app.global_search.close()
