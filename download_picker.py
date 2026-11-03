@@ -8,6 +8,7 @@ from collections import OrderedDict
 from pathlib import Path
 import secrets
 import threading
+import time
 
 import downloader
 
@@ -36,6 +37,9 @@ register({
 })
 
 
+ALBUM_LIST_SECONDS = 600
+
+
 class DownloadPicker:
     def __init__(self, root: Path, progress=None, inventory=None, on_download=None):
         self.root = root
@@ -47,6 +51,38 @@ class DownloadPicker:
         self.catalogs = OrderedDict()
         self.current = None
         self.results = []
+        self.album_lists = {}
+        self.browsing = threading.local()
+
+    def _say(self, message):
+        # Browsing runs beside a download, whose progress must stay on screen.
+        if not getattr(self.browsing, "active", False):
+            self.progress(message, None)
+
+    def _albums(self, artist):
+        key = artist.casefold()
+        with self.lock:
+            saved = self.album_lists.get(key)
+        if saved and time.monotonic() - saved[0] < ALBUM_LIST_SECONDS:
+            return saved[1]
+        rows = downloader.search_albums(artist)
+        if rows:
+            with self.lock:
+                self.album_lists[key] = (time.monotonic(), rows)
+        return rows
+
+    def _browse(self, operation, data):
+        self.browsing.active = True
+        try:
+            return self._catalog(operation(data)["catalogo"])
+        finally:
+            self.browsing.active = False
+
+    def browse_search(self, data):
+        return self._browse(self.search, data)
+
+    def browse_open(self, data):
+        return self._browse(self.open, data)
 
     def local_index(self, folder):
         if self.inventory is None or not folder.is_relative_to(self.root):
@@ -89,7 +125,7 @@ class DownloadPicker:
             raise ValueError(_('The search returned invalid results'))
         rows = [{**row, "id": secrets.token_hex(12)} for row in rows]
         if kind == "faixas":
-            self.progress(_('Checking tracks already in the folder…'), None)
+            self._say(_('Checking tracks already in the folder…'))
             rows = downloader.mark_owned(rows, self.local_index(folder))
         ident = secrets.token_hex(16)
         catalog = {"id": ident, "tipo": kind, "titulo": title, "artista": artist, "pasta": str(folder), "itens": rows}
@@ -115,9 +151,9 @@ class DownloadPicker:
     def search(self, data):
         kind, text, folder = self.search_options(data)
         if kind == "artista":
-            self.progress(_('Finding artist albums…'), None)
-            return self._remember("albuns", text, downloader.search_albums(text), folder, text)
-        self.progress(_('Finding tracks…') if kind == "musica" else _('Looking up tracks from the link…'), None)
+            self._say(_('Finding artist albums…'))
+            return self._remember("albuns", text, self._albums(text), folder, text)
+        self._say(_('Finding tracks…') if kind == "musica" else _('Looking up tracks from the link…'))
         rows = downloader.search_songs(text) if kind == "musica" else downloader.tracks(text)
         return self._remember("faixas", text, rows, folder)
 
@@ -134,13 +170,13 @@ class DownloadPicker:
     def open(self, data):
         catalog, item, folder = self.open_options(data)
         if catalog["tipo"] == "albuns":
-            self.progress(_('Finding album editions…'), None)
+            self._say(_('Finding album editions…'))
             rows = downloader.editions(catalog["artista"], item["titulo"])
             if len(rows) == 1:
-                self.progress(_('Looking up edition tracks…'), None)
+                self._say(_('Looking up edition tracks…'))
                 return self._remember("faixas", rows[0]["titulo"], downloader.tracks(rows[0]["url"]), folder, catalog["artista"])
             return self._remember("edicoes", item["titulo"], rows, folder, catalog["artista"])
-        self.progress(_('Looking up edition tracks…'), None)
+        self._say(_('Looking up edition tracks…'))
         return self._remember("faixas", item["titulo"], downloader.tracks(item["url"]), folder, catalog["artista"])
 
     def download_options(self, data):
@@ -160,7 +196,10 @@ class DownloadPicker:
         return catalog, [dict(known[ident]) for ident in ids], folder, bitrate
 
     def download(self, data):
-        catalog, rows, folder, bitrate = self.download_options(data)
+        return self.download_prepared(self.download_options(data))
+
+    def download_prepared(self, prepared):
+        catalog, rows, folder, bitrate = prepared
         results = downloader.download(rows, folder, progress=self.progress, bitrate=bitrate)
         with self.lock:
             self.results, self.folder = results, folder

@@ -7,12 +7,14 @@ import shutil
 import subprocess
 import tempfile
 import threading
+import time
+import time
 import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from mutagen.id3 import ID3, TALB, TIT2, TPE1
+from mutagen.id3 import APIC, ID3, TALB, TIT2, TPE1
 
 from library_core import sha256
 from library_plan import create_plan
@@ -188,7 +190,7 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         self.assertIn("spotDL indisponível", self.request("/api/state")['error'])
         self.assertEqual(sha256(self.music), self.before)
 
-    def test_query_is_a_job_and_blocks_concurrent_downloads(self):
+    def test_query_is_a_job_and_downloads_wait_for_it(self):
         catalog = self.search()
         entered, release = threading.Event(), threading.Event()
         def slow_search(*args):
@@ -201,11 +203,108 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
             self.assertTrue(entered.wait(2))
             self.assertEqual(self.request("/api/state")["job"]['status'], 'running')
             self.request("/api/download")
-            self.request("/api/download/download", {"catalogo": catalog["id"], "ids": [catalog['items'][1]["id"]]}, status=400)
+            self.request("/api/download/download", {"catalogo": catalog["id"], "ids": [catalog['items'][1]["id"]]}, status=202)
+            self.assertEqual(self.request("/api/state")["download_queue"][0]["status"], "waiting")
+            self.mock_download.assert_not_called()
         finally:
             release.set()
-            self.server.app.worker.join(timeout=5)
-        self.mock_download.assert_not_called()
+        self.assertEqual(self.finished_queue()[0]["status"], "completed")
+        self.mock_download.assert_called_once()
+
+    def catalog(self, route="/api/catalog/search", **data):
+        return self.request(route, {"pasta": str(self.lib), **data})["catalog"]
+
+    def finished_queue(self):
+        for _ in range(200):
+            rows = self.request("/api/state")["download_queue"]
+            if rows and all(row["status"] in ("completed", "error") for row in rows):
+                return rows
+            time.sleep(0.02)
+        self.fail(rows)
+
+    def test_browsing_does_not_need_or_disturb_the_running_job(self):
+        app = self.server.app
+        app.job = {"id": "x", "type": "direct_download", "status": "running", "message": "Baixando 1 de 9", "progress": None}
+        try:
+            albums = self.catalog(tipo="artista", consulta="Banda Teste")
+            self.assertEqual(albums["type"], "albums")
+            editions = self.catalog("/api/catalog/open", catalogo=albums["id"], item=albums["items"][0]["id"])
+            self.assertEqual(editions["type"], "editions")
+            tracks = self.catalog("/api/catalog/open", catalogo=editions["id"], item=editions["items"][0]["id"])
+            self.assertEqual(tracks["type"], "tracks")
+            self.assertEqual(self.catalog(tipo="musica", consulta="Banda Teste")["type"], "tracks")
+            self.assertEqual(app.job["message"], "Baixando 1 de 9")
+        finally:
+            app.job = None
+        self.request("/api/catalog/search", {"tipo": "outro", "consulta": "x", "pasta": str(self.lib)}, status=400)
+
+    def test_artist_album_list_is_reused_for_a_while(self):
+        self.catalog(tipo="artista", consulta="Banda Teste")
+        self.catalog(tipo="artista", consulta="banda teste")
+        self.mock_albums.assert_called_once()
+        with patch("download_picker.ALBUM_LIST_SECONDS", 0):
+            self.catalog(tipo="artista", consulta="Banda Teste")
+        self.assertEqual(self.mock_albums.call_count, 2)
+
+    def test_queue_runs_batches_in_order_and_only_waiting_ones_can_be_removed(self):
+        release = threading.Event()
+        def slow(rows, *args, **kwargs):
+            release.wait(5)
+            return [{**row, "estado": "baixado" if index == 0 else "erro"} for index, row in enumerate(rows)]
+        self.mock_download.side_effect = slow
+        catalog = self.catalog(tipo="musica", consulta="Banda Teste")
+        ids = [row["id"] for row in catalog["items"]]
+        def add(chosen):
+            self.request("/api/download/download", {"catalogo": catalog["id"], "ids": chosen, "pasta": str(self.lib)}, status=202)
+        add(ids)
+        add(ids[:1])
+        add(ids[:1])
+        rows = self.request("/api/state")["download_queue"]
+        self.assertEqual([row["status"] for row in rows], ["downloading", "waiting", "waiting"])
+        self.assertNotIn("prepared", rows[0])
+        self.request("/api/download/queue/remove", {"id": rows[0]["id"]}, status=400)
+        self.request("/api/download/queue/remove", {"id": rows[2]["id"]}, status=202)
+        self.assertEqual(len(self.catalog(tipo="artista", consulta="Banda Teste")["items"]), 1)
+        release.set()
+        rows = self.finished_queue()
+        self.assertEqual([(row["status"], row["total"], row["downloaded"], row["errors"]) for row in rows], [("completed", 2, 1, 1), ("completed", 1, 1, 0)])
+        self.assertEqual(self.mock_download.call_count, 2)
+
+    def test_failed_batch_does_not_stop_the_next_one(self):
+        self.mock_download.side_effect = [ValueError("Sem rede"), []]
+        catalog = self.catalog(tipo="musica", consulta="Banda Teste")
+        chosen = {"catalogo": catalog["id"], "ids": [catalog["items"][0]["id"]], "pasta": str(self.lib)}
+        app = self.server.app
+        app.job = {"id": "x", "type": "analysis", "status": "running", "message": "", "progress": None}
+        self.request("/api/download/download", chosen, status=202)
+        self.request("/api/download/download", chosen, status=202)
+        self.assertEqual({row["status"] for row in self.request("/api/state")["download_queue"]}, {"waiting"})
+        app.job["status"] = "completed"
+        rows = self.finished_queue()
+        self.assertEqual([(row["status"], row["message"]) for row in rows[:1]], [("error", "Sem rede")])
+        self.assertEqual(rows[1]["status"], "completed")
+
+    def test_album_list_says_whether_a_cover_exists(self):
+        app = self.server.app
+        self.assertIs(self.request("/api/albums")["albums"][0]["has_cover"], False)
+        app.tracks[0]["capas"] = [{"tipo": 3}]
+        self.assertIs(self.request("/api/albums")["albums"][0]["has_cover"], True)
+
+    def test_cover_can_be_revalidated_without_reading_tags_again(self):
+        tags = ID3(self.music)
+        tags.add(APIC(encoding=3, mime="image/jpeg", type=3, desc="", data=b"cover bytes"))
+        tags.save(self.music, v2_version=3)
+        ident = self.request("/api/search")["tracks"][0]["id"]
+        url = f"{self.url}/api/cover?id={ident}"
+        with urlopen(url, timeout=5) as response:
+            self.assertEqual(response.read(), b"cover bytes")
+            tag = response.headers["ETag"]
+            self.assertIn("max-age", response.headers["Cache-Control"])
+        with patch("server.ID3", side_effect=AssertionError("tags were read")):
+            with self.assertRaises(HTTPError) as caught:
+                urlopen(Request(url, headers={"If-None-Match": tag}), timeout=5)
+            self.assertEqual(caught.exception.code, 304)
+            caught.exception.close()
 
 
 if __name__ == "__main__":

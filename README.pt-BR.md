@@ -79,6 +79,9 @@ a aba Artista, Música ou Link, confira a pasta de destino e marque as faixas. A
 que faltam já vêm marcadas; as que você já tem aparecem desmarcadas. Quando o
 destino fica dentro da coleção aberta, as músicas novas aparecem na Biblioteca
 logo depois do download, sem precisar refazer a análise.
+Os downloads entram em uma fila, um lote de cada vez, então você pode continuar
+navegando; lotes que ainda não começaram podem ser removidos. Mantenha o Acervo
+aberto até terminar: a fila se perde se o servidor reiniciar.
 
 **No terminal:**
 
@@ -115,9 +118,10 @@ de baixar no seu país.
 **Busca:** a barra no topo tem um interruptor **Sua biblioteca | Global**.
 Na biblioteca, as sugestões aparecem enquanto você digita (artistas, álbuns e
 músicas), sem depender de acentos, maiúsculas ou pontuação e tolerando pequenos
-erros de digitação (`metalica`, `acdc`). O Enter lista as músicas por
-relevância. No modo Global, as sugestões vêm do catálogo do spotDL e escolher
-um artista abre a página **Baixar**; nada é baixado sem a sua escolha.
+erros de digitação (`metalica`, `acdc`). O Enter abre uma página de resultados
+com artistas, álbuns e músicas. Os nomes de artistas e álbuns abrem páginas próprias,
+com as suas faixas e a discografia. No modo Global, as sugestões vêm do catálogo do
+spotDL; nada é baixado sem a sua escolha.
 
 **Filtros de gravação:** Biblioteca e Baixar mostram um selo em cada música ou
 álbum e filtros **Estúdio, Ao vivo, Acústico, Demo/Remix e Coletânea**. A

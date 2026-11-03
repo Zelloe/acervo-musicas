@@ -79,6 +79,9 @@ behaviour.
 and tick the tracks. Missing tracks come pre-selected; the ones you already
 have are left unticked. When the destination is inside the open library, new
 songs show up in the Library right after the download, without a new analysis.
+Downloads go into a queue that runs one batch at a time, so you can keep browsing;
+batches that have not started can be removed. Keep Acervo open until it finishes:
+the queue is lost if the server restarts.
 
 **In the terminal:**
 
@@ -117,9 +120,9 @@ the right to download in your country.
 **Search:** the top bar has a **Your library | Global** switch. In your library,
 suggestions (artists, albums and songs) appear as you type, ignoring accents,
 case and punctuation and tolerating small typos (`metalica`, `acdc`). Enter
-lists the songs by relevance. In Global mode, suggestions come from spotDL's
-catalogue, and choosing an artist opens the **Download** page; nothing is
-downloaded until you choose.
+opens a results page with artists, albums and songs. Artist and album names open
+their own pages, with your tracks and the discography. In Global mode, suggestions
+come from spotDL's catalogue; nothing is downloaded until you choose.
 
 **Recording filters:** the Library and the Download page show a label on every song or
 album, plus **Studio, Live, Acoustic, Demo/Remix and Compilation** filters.

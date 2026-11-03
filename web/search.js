@@ -95,10 +95,11 @@ async function selectSearchSuggestion(index) {
   const item=searchState.items[index];
   if(!item)return;
   closeSearch();
-  if(item.type==="artist")await searchLibrary("",item.label,"",item.label);
-  else if(item.type==="album")await searchLibrary("","",item.id,`${item.label} · ${item.detail}`);
+  if(item.type==="artist")await openPage("artist",{name:item.label,scope:"library"});
+  else if(item.type==="album")await openPage("album",{id:item.id,scope:"library"});
   else if(item.type==="song")await showDetails(item.id);
-  else await searchFromGlobal(item.type==="global-artist"?"artist":"song",item.label);
+  else if(item.type==="global-artist")await openPage("artist",{name:item.label,scope:"global",photo:item.photo||""});
+  else await openPage("search",{query:item.label,scope:"global"});
 }
 
 function highlightSearch(index) {
@@ -115,8 +116,7 @@ $('#search-form').addEventListener("submit",async event=>{
   try {
     if(searchState.active>=0 && !searchPanel.hidden){await selectSearchSuggestion(searchState.active);return;}
     closeSearch();
-    if(searchState.scope==="library")await searchLibrary(query);
-    else if(query)await searchFromGlobal("song",query);
+    await openPage("search",{query,scope:searchState.scope});
   }catch(error){toast(error.message);}
 });
 searchInput.addEventListener("input",()=>{

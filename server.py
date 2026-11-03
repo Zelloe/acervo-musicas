@@ -116,6 +116,7 @@ register({
     "The track changed after lookup: {file}. Start another lookup": "A faixa mudou após a busca: {file}. Inicie outra busca",
     "The selected tracks already have exactly these lyrics": "As faixas selecionadas já têm exatamente essas letras",
     "Invalid sort order": "Ordenação inválida",
+    "Only waiting downloads can be removed": "Só é possível remover downloads que ainda estão aguardando",
     "Invalid sort direction": "Direção de ordenação inválida",
     "Could not refresh track {file_name}; scan the library again: {error}": "Não foi possível atualizar a faixa {file_name}; analise a biblioteca novamente: {error}"
 })
@@ -208,6 +209,7 @@ class App:
         self.state_dir = self.storage / ".biblioteca"
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
+        self.download_queue = []
         self.token = secrets.token_urlsafe(32)
         self.job = None
         self.worker = None
@@ -297,8 +299,61 @@ class App:
                     with self.lock:
                         self.error = str(error)
                         self.job.update(status="error", message=str(error), progress=None)
+                self.pump_downloads()
         self.worker = threading.Thread(target=run, daemon=True)
         self.worker.start()
+
+    def queue_download(self, data):
+        prepared = self.download_picker.download_options(data)
+        catalog, rows = prepared[:2]
+        entry = {"id": secrets.token_hex(8), "titulo": catalog["titulo"], "artista": catalog["artista"], "estado": "aguardando",
+                 "total": len(rows), "baixadas": 0, "erros": 0, "mensagem": "", "avisos": [], "preparado": prepared}
+        with self.lock:
+            self.download_queue.append(entry)
+            self.pump_downloads()
+        return entry["id"]
+
+    def remove_download(self, data):
+        with self.lock:
+            entry = next((e for e in self.download_queue if e["id"] == data.get("id") and e["estado"] == "aguardando"), None)
+            if entry is None:
+                raise ValueError(_('Only waiting downloads can be removed'))
+            self.download_queue.remove(entry)
+
+    def pump_downloads(self):
+        with self.lock:
+            if self.playlist_busy or self.policy_busy or self.lyrics_busy or (self.job and self.job["status"] == "running"):
+                return
+            entry = next((e for e in self.download_queue if e["estado"] == "aguardando"), None)
+            if entry is None:
+                return
+            entry["estado"] = "baixando"
+            prepared = entry.pop("preparado")
+            def operation():
+                try:
+                    result = self.download_picker.download_prepared(prepared)
+                except Exception as error:
+                    with self.lock:
+                        entry.update(estado="erro", mensagem=str(error))
+                    raise
+                with self.lock:
+                    states = [row.get("estado") for row in result["resultado"]]
+                    entry.update(estado="concluido", baixadas=states.count("baixado"), erros=states.count("erro") + states.count("nao_baixado"), avisos=result.get("avisos") or [])
+                return result
+            try:
+                self.start("direct_download", operation)
+            except Exception as error:
+                entry.update(estado="erro", mensagem=str(error))
+            finished = [e for e in self.download_queue if e["estado"] in ("concluido", "erro")]
+            for old in finished[:-20]:
+                self.download_queue.remove(old)
+
+    def download_queue_view(self):
+        rows = [{k: v for k, v in entry.items() if k != "preparado"} for entry in self.download_queue]
+        for row in rows:
+            if row["estado"] == "baixando" and self.job:
+                row["mensagem"] = self.job.get("message", "")
+        return rows
 
     def writing(self):
         """Whether a job is writing to the collection and must finish before exit."""
@@ -803,6 +858,7 @@ class App:
 
     def snapshot(self):
         with self.lock:
+            self.pump_downloads()
             policy, policy_error = self.read_protections()
             proposals = self.proposals(policy) if policy is not None else []
             summary = {**(self.plan or {}).get("resumo", {}), "alteracoes_propostas": len(proposals),
@@ -812,7 +868,7 @@ class App:
                        "arquivos_com_propostas": len({p["arquivo"] for p in proposals}),
                        "propostas_por_campo": dict(Counter(p["campo"] for p in proposals))}
             revision = hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest() if policy is not None else None
-            return {"biblioteca": str(self.root), "biblioteca_revisao": self.library_revision, "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "erro": self.error, "erro_protecoes": policy_error, "protecoes_revisao": revision, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(proposals), "lyrics_tools": True, "lyrics_busy": self.lyrics_busy, "bulk_lyrics_id": self.bulk_lyrics["id"] if self.bulk_lyrics else None, "reinicio_necessario": restart_required()}
+            return {"biblioteca": str(self.root), "biblioteca_revisao": self.library_revision, "analisado_em": (self.plan or {}).get("criado_em"), "resumo": summary, "job": self.job, "fila_download": self.download_queue_view(), "erro": self.error, "erro_protecoes": policy_error, "protecoes_revisao": revision, "total_albuns": len({(tuple(t["artista_album"] or t["artista"]), tuple(t["album"])) for t in self.tracks}), "total_artistas": len({tuple(t["artista_album"] or t["artista"]) for t in self.tracks}), "duracao_segundos": sum(t["duracao_segundos"] for t in self.tracks), "propostas": len(proposals), "lyrics_tools": True, "lyrics_busy": self.lyrics_busy, "bulk_lyrics_id": self.bulk_lyrics["id"] if self.bulk_lyrics else None, "reinicio_necessario": restart_required()}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -835,9 +891,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
-        self.send_header("Cache-Control", "no-store")
+        extra = dict(extra or {})
+        self.send_header("Cache-Control", extra.pop("Cache-Control", "no-store"))
         self.send_header("Content-Security-Policy", "default-src 'self'; img-src 'self' data: https://*.googleusercontent.com https://i.scdn.co https://mosaic.scdn.co https://*.spotifycdn.com; media-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; connect-src 'self'")
-        for key, value in (extra or {}).items():
+        for key, value in extra.items():
             self.send_header(key, value)
         self.end_headers()
         self.wfile.write(data)
@@ -928,7 +985,7 @@ class Handler(BaseHTTPRequestHandler):
             groups = defaultdict(list)
             for track in self.app.tracks:
                 groups[(tuple(track["artista_album"] or track["artista"]), tuple(track["album"]))].append(track)
-            rows = [{"artista": " / ".join(artist), "album": " / ".join(album), "track_id": members[0]["id"], "faixas": len(members), "ano": " / ".join(members[0]["ano"]), "genero": " / ".join(members[0]["genero"])} for (artist, album), members in groups.items()]
+            rows = [{"artista": " / ".join(artist), "album": " / ".join(album), "track_id": members[0]["id"], "tem_capa": bool(members[0].get("capas")), "faixas": len(members), "ano": " / ".join(members[0]["ano"]), "genero": " / ".join(members[0]["genero"])} for (artist, album), members in groups.items()]
             self.json({"albuns": rows})
         elif url.path == "/api/proposals":
             self.json({"alteracoes": self.app.proposals()})
@@ -946,13 +1003,20 @@ class Handler(BaseHTTPRequestHandler):
             self.json({**track, "campos_protegidos": fields, "erro_protecoes": error})
         elif url.path in ("/api/cover", "/api/downloads/cover"):
             path = self.app.downloads.file(query.get("id", [""])[0], query.get("faixa", [""])[0]) if url.path.startswith("/api/downloads/") else Path(self.track(query)["arquivo"])
+            tag = None
+            if url.path == "/api/cover":
+                stat = path.stat()
+                tag = f'"{stat.st_mtime_ns:x}-{stat.st_size:x}"'
+                if self.headers.get("If-None-Match") == tag:
+                    self.send(304, b"", extra={"ETag": tag, "Cache-Control": "private, max-age=60"})
+                    return
             covers = ID3(path).getall("APIC") if path.suffix.casefold() == ".mp3" else FLAC(path).pictures
             if not covers:
                 self.send(404, b"")
                 return
             cover = next((c for c in covers if c.type == 3), covers[0])
             mime = cover.mime if cover.mime in ("image/jpeg", "image/png", "image/webp", "image/gif") else "application/octet-stream"
-            self.send(200, cover.data, mime)
+            self.send(200, cover.data, mime, extra={"ETag": tag, "Cache-Control": "private, max-age=60"} if tag else None)
         elif url.path in ("/api/audio", "/api/downloads/audio"):
             path = self.app.downloads.file(query.get("id", [""])[0], query.get("faixa", [""])[0]) if url.path.startswith("/api/downloads/") else Path(self.track(query)["arquivo"])
             size = path.stat().st_size
@@ -1040,8 +1104,15 @@ class Handler(BaseHTTPRequestHandler):
                 self.app.download_picker.open_options(data)
                 self.app.start("direct_search", lambda: self.app.download_picker.open(data))
             elif route == "/api/download/download":
-                self.app.download_picker.download_options(data)
-                self.app.start("direct_download", lambda: self.app.download_picker.download(data))
+                self.app.queue_download(data)
+            elif route == "/api/download/queue/remove":
+                self.app.remove_download(data)
+            elif route == "/api/catalog/search":
+                self.json({"catalogo": self.app.download_picker.browse_search(data)})
+                return
+            elif route == "/api/catalog/open":
+                self.json({"catalogo": self.app.download_picker.browse_open(data)})
+                return
             elif route in ("/api/playlists/preview", "/api/playlists/export"):
                 self.json(self.app.playlist(data, write=route.endswith("export")))
                 return

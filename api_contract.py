@@ -24,7 +24,7 @@ KEYS = {
     "arquivos_com_propostas": "files_with_proposals", "artista": "artist", "artista_album": "album_artist",
     "artista_grupo": "group_artist", "artistas": "artists", "assinatura_antes": "before_signature",
     "atual": "current", "atualizado_em": "updated_at", "ausentes": "missing", "avisos": "warnings",
-    "baixadas": "downloaded", "biblioteca": "library", "biblioteca_revisao": "library_revision",
+    "baixadas": "downloaded", "erros": "errors", "tem_capa": "has_cover", "fila_download": "download_queue", "biblioteca": "library", "biblioteca_revisao": "library_revision",
     "bits_por_amostra": "bits_per_sample", "campo": "field", "campos": "fields",
     "campos_ausentes": "missing_fields", "campos_protegidos": "protected_fields",
     "canais": "channels", "cancelamento_solicitado": "cancellation_requested", "capas": "covers", "capa": "cover",
@@ -63,7 +63,7 @@ KEYS = {
 }
 
 ENUMS = {
-    "acustico": "acoustic", "adicionar": "add", "analise": "analysis", "ao_vivo": "live",
+    "acustico": "acoustic", "adicionar": "add", "aguardando": "waiting", "analise": "analysis", "ao_vivo": "live",
     "aplicacao": "apply", "aplicando": "applying", "artista": "artist", "albuns": "albums",
     "baixado": "downloaded", "baixando": "downloading", "biblioteca": "library",
     "busca_direta": "direct_search", "cancelado": "cancelled", "catalogado": "cataloged",

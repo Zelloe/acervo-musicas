@@ -1,6 +1,17 @@
 "use strict";
 
 const portugueseMessages = {
+  "Global catalog": "Catálogo global",
+  "Start with an artist, album or track": "Comece por um artista, álbum ou música",
+  "No artists found": "Nenhum artista encontrado",
+  "Discography": "Discografia",
+  "Download queue": "Fila de downloads",
+  "Downloads run one at a time. You can keep browsing. Keep Acervo open until the queue finishes.": "Os downloads são feitos um por vez. Você pode continuar navegando. Mantenha o Acervo aberto até a fila terminar.",
+  "Your download queue is empty.": "Sua fila de downloads está vazia.",
+  "Add to queue (": "Adicionar à fila (",
+  "Added to the download queue.": "Adicionado à fila de downloads.",
+  "Waiting": "Aguardando",
+  "Remove": "Remover",
   "Unverified": "Não confirmado",
   "Sort by": "Ordenar por",
   "Default order": "Ordem padrão",

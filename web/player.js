@@ -64,6 +64,8 @@ async function queueFor(button) {
   if (button?.closest(".album-card")) {
     return (await api(`/api/queue?${new URLSearchParams({album_id:id, sort:"album"})}`)).tracks;
   }
+  const pageParams=pageLibraryParams();
+  if(pageParams)return (await api(`/api/queue?${new URLSearchParams(pageParams)}`)).tracks;
   if (state.view === "library") return (await api(`/api/queue?${new URLSearchParams(libraryParams())}`)).tracks;
   if (state.queue.includes(id)) return Promise.all(state.queue.map(item=>api(`/api/track?id=${encodeURIComponent(item)}`)));
   return null;
@@ -96,7 +98,7 @@ async function shuffleAll() {
 function syncPlayback(track) {
   playback.index = playback.order.indexOf(track.id);
   if (playback.index < 0) setQueue([track],track.id);
-  if (!playback.tracks.has(track.id)) playback.tracks.set(track.id,track);
+  playback.tracks.set(track.id,track);
   $('#now-toggle').disabled = false;
   updatePlayerControls();
   renderNowView();
@@ -136,7 +138,7 @@ function renderQueue() {
   const rows = visible.map(id=>{
     const track = playback.tracks.get(id);
     if (!track) return "";
-    return `<li><button class="queue-row" data-queue-play="${escapeHTML(id)}"><img src="${cover(id)}" alt="" loading="lazy"><span class="queue-text"><strong>${escapeHTML(join(track.title))}</strong><span>${escapeHTML(join(track.artist))}</span></span><span class="queue-time">${duration(track.duration_seconds)}</span></button></li>`;
+    return `<li><button class="queue-row" data-queue-play="${escapeHTML(id)}">${trackArtwork(track,"queue-cover")}<span class="queue-text"><strong>${escapeHTML(join(track.title))}</strong><span>${escapeHTML(join(track.artist))}</span></span><span class="queue-time">${duration(track.duration_seconds)}</span></button></li>`;
   }).join("");
   const more = upcoming.length-visible.length;
   $('#now-queue').innerHTML = `<h3>${tr("Up next")} · ${number(upcoming.length)}</h3>${rows ? `<ol>${rows}</ol>` : `<p class="queue-empty">${tr("Nothing else in the queue")}</p>`}${more > 0 ? `<p class="queue-empty">${tr("and {count} more").replace("{count}",number(more))}</p>` : ""}`;
@@ -149,13 +151,14 @@ function renderNowView() {
   $('#now-title').dataset.i18nUser = "true";
   $('#now-title').textContent = join(track.title);
   $('#now-artist').dataset.i18nUser = "true";
-  $('#now-artist').textContent = join(track.artist);
+  $('#now-artist').innerHTML = artistLinks(track.artist);
   $('#now-album').dataset.i18nUser = "true";
-  $('#now-album').textContent = [join(track.album), (join(track.year||[]).match(/\d{4}/)||[""])[0], track.format].filter(Boolean).join(" · ");
-  $('#now-cover').innerHTML = real ? `<img src="${cover(track.id)}" alt="">` : icon("disc");
+  $('#now-album').innerHTML = [real?albumLink(join(track.album),track.id):escapeHTML(join(track.album)),escapeHTML((join(track.year||[]).match(/\d{4}/)||[""])[0]),escapeHTML(track.format)].filter(Boolean).join(" · ");
+  $('#now-cover').innerHTML = real ? trackArtwork(track) : icon("disc");
   const backdrop = $('#now-backdrop');
-  backdrop.hidden = !real;
-  if (real && backdrop.getAttribute("src") !== cover(track.id)) backdrop.src = cover(track.id);
+  const hasCover=real && !(Array.isArray(track.covers)&&!track.covers.length);
+  backdrop.hidden = !hasCover;
+  if (hasCover && backdrop.getAttribute("src") !== cover(track.id)) backdrop.src = cover(track.id);
   renderQueue();
 }
 
