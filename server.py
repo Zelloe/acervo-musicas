@@ -83,6 +83,7 @@ register({
     "{done} of {total} · {name}": "{done} de {total} · {name}",
     "The track changed in the inventory; review it again": "A faixa mudou no inventário; confira novamente",
     "The file changed while being read": "O arquivo mudou durante a leitura",
+    "{count} downloaded tracks were moved or removed; refresh the library to find them": "{count} faixas baixadas foram movidas ou removidas; atualize a biblioteca para encontrá-las",
     "Download saved, but the track was not added to the inventory: {file_name}. {error}": "Download salvo, mas a faixa não entrou no inventário: {file_name}. {error}",
     "Downloads saved; refresh the library after restarting: {error}": "Downloads salvos; atualize a biblioteca após reiniciar: {error}",
     "Invalid track selection; refresh the library": "Seleção de faixas inválida; atualize a biblioteca",
@@ -538,7 +539,12 @@ class App:
             data = json.loads(self.download_cache.read_text(encoding="utf-8"))
             if not isinstance(data, dict) or data.get("biblioteca") != str(self.root) or not isinstance(data.get("arquivos"), list) or any(not isinstance(p, str) for p in data["arquivos"]):
                 raise ValueError(_('Incompatible cache of new tracks'))
-            notices = self.refresh_downloaded([{"estado": "baixado", "arquivo": p} for p in data["arquivos"]], persist=False)
+            present = [p for p in data["arquivos"] if Path(p).is_file()]
+            notices = self.refresh_downloaded([{"estado": "baixado", "arquivo": p} for p in present], persist=False)
+            # A file moved after an earlier session is not a failed download: say so once and forget it.
+            if len(present) != len(data["arquivos"]):
+                notices.append(_('{count} downloaded tracks were moved or removed; refresh the library to find them', count=len(data["arquivos"]) - len(present)))
+                atomic_json(self.download_cache, {"biblioteca": str(self.root), "arquivos": present})
             if notices:
                 self.error = " ".join(notices)
         except FileNotFoundError:

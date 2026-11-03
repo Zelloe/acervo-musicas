@@ -173,6 +173,17 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
         self.assertEqual(app.snapshot()["resumo"]["campos_ausentes"]["genero"], 0)
         self.assert_saved_analysis_untouched()
 
+    def test_download_moved_after_a_session_is_reported_once_and_forgotten(self):
+        cache = self.open_app().download_cache
+        moved = self.root / "moved away.mp3"
+        cache.write_text(json.dumps({"biblioteca": str(self.root), "arquivos": [str(self.unchanged), str(moved)]}), encoding="utf-8")
+        app = self.open_app()
+        self.assertIn("1 downloaded tracks were moved or removed", app.error)
+        self.assertNotIn("Download saved", app.error)
+        self.assertEqual(json.loads(cache.read_text(encoding="utf-8"))["arquivos"], [str(self.unchanged)])
+        self.assertIn(str(self.unchanged), self.open_app().incremental_paths)
+        self.assertIsNone(self.open_app().error)
+
 
 if __name__ == "__main__":
     unittest.main()
