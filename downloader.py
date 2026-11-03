@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import atexit
 import errno
 import json
 import os
@@ -11,6 +12,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import threading
 
 from mutagen import File as MutagenFile
 from mutagen.id3 import ID3, ID3NoHeaderError, TCON
@@ -74,7 +76,34 @@ def spotdl_python() -> list[str]:
     return command
 
 
+_lookup_process = None
+_lookup_process_lock = threading.Lock()
+
+
+def _open_lookup_process():
+    global _lookup_process
+    with _lookup_process_lock:
+        if _lookup_process is None:
+            from search import GlobalSearch
+            # Its own process, so a slow album lookup never delays search suggestions.
+            _lookup_process = GlobalSearch(timeout=120)
+            atexit.register(_lookup_process.close)
+        return _lookup_process
+
+
 def _adapter(command: str, *args: str, timeout: int = 120) -> list[dict]:
+    # Starting spotDL takes seconds; a process kept open answers without that wait.
+    process = _open_lookup_process()
+    try:
+        with process.lock:
+            process.timeout = timeout
+            return process._call(command, *args)
+    except (OSError, RuntimeError, ValueError):
+        process.close()  # A long-lived session may have expired, so retry from a clean start.
+    return _adapter_once(command, *args, timeout=timeout)
+
+
+def _adapter_once(command: str, *args: str, timeout: int = 120) -> list[dict]:
     with tempfile.TemporaryDirectory(prefix="acervo-busca-") as folder:
         output = Path(folder) / "resultado.json"
         process = subprocess.run([*spotdl_python(), "-I", str(ADAPTER), command, str(output), *args], capture_output=True, text=True, timeout=timeout)

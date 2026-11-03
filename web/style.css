@@ -126,3 +126,8 @@
 
 #download-queue-count{display:inline-flex;align-items:center;justify-content:center;min-width:16px;line-height:16px;color:var(--green2)}
 @media(max-width:900px){.nav-item[data-view="downloads"]{position:relative}#download-queue-count{position:absolute;top:3px;right:4px;min-width:14px;height:14px;margin:0;padding:0 3px;border-radius:20px;background:var(--green);color:#062c12;font-size:9px;font-weight:700;line-height:14px}}
+.simple-choice{position:relative}
+.simple-choice[aria-busy="true"]{border-color:var(--green);background:#22352a;cursor:progress;opacity:1}
+.simple-choice[aria-busy="true"]>svg:last-child{visibility:hidden}
+.simple-choice[aria-busy="true"]::after{content:"";position:absolute;top:50%;right:17px;width:16px;height:16px;margin-top:-8px;border:2px solid #ffffff30;border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite}
+@media(prefers-reduced-motion:reduce){.simple-choice[aria-busy="true"]::after{animation-duration:2.4s}}

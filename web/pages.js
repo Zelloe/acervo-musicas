@@ -197,9 +197,9 @@ document.addEventListener("click",async event=>{
     if(button.dataset.pageArtist) {event.preventDefault();await openPage("artist",{name:button.dataset.pageArtist,scope:button.dataset.pageScope||"library"});}
     else if(button.dataset.pageAlbum) await openPage("album",{id:button.dataset.pageAlbum,scope:"library"});
     else if(button.dataset.pageCatalog) {
-      button.disabled=true;button.setAttribute("aria-busy","true");
+      button.disabled=true;button.setAttribute("aria-busy","true");button.title=tr("Loading…");
       try{await openCatalogAlbum(button.dataset.pageCatalog,button.dataset.pageItem);}
-      finally{if(button.isConnected){button.disabled=false;button.removeAttribute("aria-busy");}}
+      finally{if(button.isConnected){button.disabled=false;button.removeAttribute("aria-busy");button.removeAttribute("title");}}
     }
     else if(button.dataset.findAlbum){
       event.preventDefault();const request=state.request,serial=++pagesState.openSerial;

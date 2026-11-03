@@ -24,10 +24,16 @@ def ytmusic():
     return _ytmusic
 
 
+_spotify = None
+
+
 def client():
-    from spotdl.utils.spotify import SpotifyClient
-    SpotifyClient.init(client_id="", client_secret="", headless=True, max_retries=1, use_official_api=False)
-    return SpotifyClient()
+    global _spotify
+    if _spotify is None:
+        from spotdl.utils.spotify import SpotifyClient
+        SpotifyClient.init(client_id="", client_secret="", headless=True, max_retries=1, use_official_api=False)
+        _spotify = SpotifyClient()
+    return _spotify
 
 
 def picture(images, prefer: int = 300) -> str:

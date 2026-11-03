@@ -148,13 +148,13 @@ async function runCatalogSearch() {
 
 async function openSimpleCatalog(button) {
   const serial=++simpleDownloadState.serial,request=state.request,old=simpleDownloadState.catalogId;
-  button.disabled=true;button.setAttribute('aria-busy','true');
+  button.disabled=true;button.setAttribute('aria-busy','true');button.title=tr('Loading…');
   try{
     const catalog=await browseCatalog('/api/catalog/open',{catalog:old,item:button.dataset.simpleOpen});
     if(serial!==simpleDownloadState.serial||request!==state.request)return;
     simpleDownloadState.parents.push(old);useCatalog(catalog);await render();
   }catch(error){if(serial===simpleDownloadState.serial&&request===state.request)throw error;}
-  finally{if(button.isConnected){button.removeAttribute('aria-busy');setCatalogControls();}}
+  finally{if(button.isConnected){button.removeAttribute('aria-busy');button.removeAttribute('title');setCatalogControls();}}
 }
 
 document.addEventListener('input',event=>{if(event.target.closest('#simple-download-form'))simpleFormValues(event.target.closest('form'));});

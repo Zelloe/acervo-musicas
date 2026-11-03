@@ -1,7 +1,9 @@
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
+import threading
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -276,6 +278,41 @@ class AlbumListTest(unittest.TestCase):
         with patch("spotdl_search.ytmusic", return_value=fake):
             self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["Available Preview", "Available EP"])
         self.assertEqual(fake.search.call_count, 1)
+
+
+class LookupProcessTest(unittest.TestCase):
+    def process(self, **call):
+        process = MagicMock()
+        process.lock = threading.Lock()
+        process._call.configure_mock(**call)
+        patcher = patch("downloader._lookup_process", process)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return process
+
+    def test_lookups_reuse_the_open_process(self):
+        process = self.process(return_value=[{"titulo": "A"}])
+        with patch("downloader._adapter_once") as once:
+            self.assertEqual(downloader._adapter("faixas", "url"), [{"titulo": "A"}])
+            self.assertEqual(downloader._adapter("faixas", "url"), [{"titulo": "A"}])
+        once.assert_not_called()
+        self.assertEqual(process._call.call_count, 2)
+        downloader._adapter("faixas", "url", timeout=300)
+        self.assertEqual(process.timeout, 300)
+
+    def test_failed_process_is_closed_and_the_lookup_retries_from_a_clean_start(self):
+        process = self.process(side_effect=RuntimeError("session expired"))
+        with patch("downloader._adapter_once", return_value=[{"titulo": "B"}]) as once:
+            self.assertEqual(downloader._adapter("faixas", "url", timeout=300), [{"titulo": "B"}])
+        process.close.assert_called_once()
+        once.assert_called_once_with("faixas", "url", timeout=300)
+
+    def test_spotify_client_is_started_only_once_in_a_process(self):
+        spotify = MagicMock()
+        modules = {"spotdl": MagicMock(), "spotdl.utils": MagicMock(), "spotdl.utils.spotify": MagicMock(SpotifyClient=spotify)}
+        with patch.dict(sys.modules, modules), patch("spotdl_search._spotify", None):
+            self.assertIs(spotdl_search.client(), spotdl_search.client())
+        spotify.init.assert_called_once()
 
 
 if __name__ == "__main__":
