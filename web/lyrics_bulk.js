@@ -96,6 +96,10 @@ async function reviewBulkLyrics() {
 }
 
 async function captureBulkLyricsJob(job) {
+  if(bulkLyricsState.data&&!bulkLyricsState.data.complete&&job?.type!=="lyrics_lookup"){
+    await loadBulkLyrics(true);
+    return true;
+  }
   if(!job)return false;
   let newLookup=false;
   if(job.type==="lyrics_lookup"&&job.id!==bulkLyricsState.jobId){bulkLyricsState.jobId=job.id;bulkLyricsState.data=null;bulkLyricsState.initialized=null;bulkLyricsState.selected.clear();bulkLyricsState.cancelling=false;newLookup=true;}
