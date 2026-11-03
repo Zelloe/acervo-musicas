@@ -72,7 +72,7 @@ ENUMS = {
     "edicoes": "editions", "erro": "error", "estudio": "studio", "executando": "running",
     "faixas": "tracks", "faltantes": "missing", "importacao": "import", "importado": "imported",
     "interrompido": "interrupted", "ja_existia": "already_existed", "letra": "lyrics",
-    "metadados": "metadata", "musica": "song", "nao_baixado": "not_downloaded",
+    "metadados": "metadata", "musica": "song", "nao_baixado": "not_downloaded", "nao_confirmado": "unverified",
     "preparando_backups": "preparing_backups", "pronto": "ready", "restauracao": "restore",
     "restaurado": "restored", "revisao": "review", "sem-genero": "missing-genre",
     "substituir": "replace", "todas": "all", "versoes": "versions",

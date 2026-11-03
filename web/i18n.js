@@ -1,6 +1,7 @@
 "use strict";
 
 const portugueseMessages = {
+  "Unverified": "Não confirmado",
   "Sort by": "Ordenar por",
   "Default order": "Ordem padrão",
   "Duration": "Duração",
@@ -416,7 +417,7 @@ const portugueseMessages = {
   "Try another search or check the available suggestions.": "Tente outro termo de busca ou confira as sugestões disponíveis.",
   "Try another search or change the filters.": "Tente outro termo de busca ou mude os filtros.",
   "Recording type": "Tipo de gravação",
-  "Type estimated from track and album names; check the edition when no type is specified.": "Tipo estimado pelos nomes da faixa e do álbum; confira a edição quando não houver indicação.",
+  "Type estimated from track and album names and, for albums, checked on MusicBrainz when possible; check the edition when no type is specified.": "Tipo estimado pelos nomes da faixa e do álbum e, nos álbuns, conferido no MusicBrainz quando possível; confira a edição quando não houver indicação.",
   "Title": "Título",
   "TITLE": "TÍTULO",
   "All": "Todos",

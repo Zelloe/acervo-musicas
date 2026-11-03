@@ -300,8 +300,10 @@ are never deleted automatically.
 
 ## MusicBrainz
 
-Lookups are optional and off by default. Only artist and album names are sent,
-never audio. A real contact is required to identify the client, as the
+Lookups during a library scan are optional and off by default. Only artist and
+album names are sent, never audio. Album lists on the download screen send the
+artist name to confirm which albums are studio, live or compilations; without a
+connection they fall back to an estimate from the names. A real contact is required to identify the client, as the
 [usage policy](https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting) asks;
 the minimum interval between requests is respected and results are cached for
 30 days. A genre is only suggested when the album itself is matched, so a band

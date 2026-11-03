@@ -19,7 +19,9 @@ from library_plan import BASE, rules
 from library_scan import TEMP_PREFIXES, album_base, normalized
 from lyrics import LyricsClient, embed_lyrics
 from messages import _, register
-from versions import classify
+from musicbrainz_client import MusicBrainz
+from search import normalize
+from versions import classify, replace_studio
 
 register({
     "spotDL not found. Install it with: pipx install spotdl": "spotDL não encontrado. Instale com: pipx install spotdl",
@@ -105,8 +107,55 @@ def _enrich(items: list[dict], title_key: str | None, album_key: str, kind_key: 
     return items
 
 
+def _plain_title(title: str) -> str:
+    return normalize(re.sub(r"\([^)]*\)|\[[^\]]*\]", " ", title))
+
+
+def _album_kinds(artist: str) -> dict | None:
+    """Plain album title -> MusicBrainz secondary types; None when it cannot answer."""
+    try:
+        groups = MusicBrainz(BASE / ".biblioteca/cache/musicbrainz", "https://github.com/Zelloe/acervo-musicas", max_requests=6).release_groups(artist)
+    except (ValueError, OSError):
+        return None
+    if not groups:
+        return None
+    kinds = {}
+    for group in groups:
+        key, secondary = _plain_title(group.get("title", "")), set(group.get("secondary-types") or [])
+        # A studio album wins over a live or compilation release with the same name.
+        if key not in kinds or not secondary:
+            kinds[key] = secondary
+    return kinds
+
+
+def _album_rank(item: dict) -> tuple:
+    version = item["versao"]
+    studio = version["tipo"] == "estudio" and "coletanea" not in version["marcas"]
+    year = re.match(r"\d{4}", str(item.get("ano") or ""))
+    return (2 if item.pop("_sem_confirmacao", False) else 0 if studio else 1, year.group() if year else "9999")
+
+
 def search_albums(artist: str) -> list[dict]:
-    return _enrich(_adapter("albuns", _text(artist, _("Enter the artist name"))), None, "titulo", "tipo")
+    artist = _text(artist, _("Enter the artist name"))
+    items = _enrich(_adapter("albuns", artist), None, "titulo", "tipo")
+    kinds = _album_kinds(artist)
+    for item in items if kinds else []:
+        # "Among the Living - Deluxe Edition" is still that album.
+        secondary = kinds.get(_plain_title(item["titulo"]), kinds.get(_plain_title(re.split(r" - |: ", item["titulo"])[0])))
+        item["_sem_confirmacao"] = secondary is None
+        if item["versao"]["tipo"] != "estudio":
+            continue
+        if secondary is None:
+            item["versao"] = replace_studio(item["versao"], "nao_confirmado")
+        elif "Live" in secondary:
+            item["versao"] = replace_studio(item["versao"], "ao_vivo")
+        elif "Demo" in secondary:
+            item["versao"] = replace_studio(item["versao"], "demo")
+        elif "Remix" in secondary:
+            item["versao"] = replace_studio(item["versao"], "remix")
+        elif secondary & {"Compilation", "Soundtrack"}:
+            item["versao"] = replace_studio(item["versao"], "coletanea")
+    return sorted(items, key=_album_rank)
 
 
 def editions(artist: str, album: str) -> list[dict]:

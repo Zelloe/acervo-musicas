@@ -98,6 +98,19 @@ class MusicBrainz:
         # Never picks by popularity among artists with the same name.
         return candidates[0] if len(candidates) == 1 else None
 
+    def release_groups(self, name: str, max_pages: int = 5) -> list[dict] | None:
+        """Albums and EPs of an unambiguous artist; None when the artist is not certain."""
+        artist = self.artist(name)
+        if artist is None:
+            return None
+        groups = []
+        for page in range(max_pages):
+            result = self.get("release-group", artist=artist["id"], type="album|ep", limit=100, offset=page * 100)
+            groups += result.get("release-groups", [])
+            if len(groups) >= result.get("release-group-count", 0):
+                break
+        return groups
+
     @staticmethod
     def choose_genre(data: dict) -> str | None:
         genres = [g for g in data.get("genres", []) if int(g.get("count", 0)) > 0]

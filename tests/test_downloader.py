@@ -3,13 +3,14 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from mutagen.id3 import ID3, TIT2, TPE1
 
 import downloader
 from download_menu import parse_selection
 from messages import language
+import spotdl_search
 
 ITEMS = [{"titulo": "A", "ja_tenho": True}, {"titulo": "B", "ja_tenho": False}, {"titulo": "C", "ja_tenho": False}]
 RULES = [
@@ -182,6 +183,100 @@ class DownloadTest(unittest.TestCase):
         run.assert_not_called()
         self.assertEqual(result[0]["mensagem"], "Link de faixa inválido")
         self.assertEqual(progress, ["Baixando 1 de 1 · AC/DC - Back In Black", "Downloads concluídos"])
+
+class AlbumListTest(unittest.TestCase):
+    ROWS = [
+        {"titulo": "Later Live (Live)", "ano": "2012", "tipo": "Album"},
+        {"titulo": "Second Album", "ano": "1990", "tipo": "Album"},
+        {"titulo": "Radio Bootleg", "ano": "2018", "tipo": "Album"},
+        {"titulo": "First Album - Deluxe Edition", "ano": "1980", "tipo": "Album"},
+        {"titulo": "Greatest Songs", "ano": "2001", "tipo": "Album"},
+        {"titulo": "Concert", "ano": "1985", "tipo": "Album"},
+    ]
+    GROUPS = [
+        {"title": "First Album", "secondary-types": []},
+        {"title": "Second Album", "secondary-types": ["Live"]},
+        {"title": "Second Album", "secondary-types": []},
+        {"title": "Later Live", "secondary-types": ["Live"]},
+        {"title": "Greatest Songs", "secondary-types": ["Compilation"]},
+        {"title": "Concert", "secondary-types": ["Live"]},
+    ]
+
+    def search(self, groups):
+        rows = [dict(row) for row in self.ROWS]
+        with patch("downloader._adapter", return_value=rows), patch("downloader.MusicBrainz") as client:
+            if isinstance(groups, Exception):
+                client.return_value.release_groups.side_effect = groups
+            else:
+                client.return_value.release_groups.return_value = groups
+            return downloader.search_albums("Band")
+
+    def test_confirmed_studio_albums_come_first_in_release_order(self):
+        result = self.search(self.GROUPS)
+        self.assertEqual([r["titulo"] for r in result[:2]], ["First Album - Deluxe Edition", "Second Album"])
+        by_title = {r["titulo"]: r["versao"] for r in result}
+        self.assertEqual(by_title["Second Album"]["tipo"], "estudio")
+        self.assertEqual(by_title["Concert"]["tipo"], "ao_vivo")
+        self.assertIn("coletanea", by_title["Greatest Songs"]["marcas"])
+        self.assertEqual(result[-1]["titulo"], "Radio Bootleg")
+        self.assertEqual(result[-1]["versao"]["marcas"], ["nao_confirmado"])
+        self.assertTrue(all("_sem_confirmacao" not in r for r in result))
+
+    def test_without_an_answer_the_estimate_from_names_stays(self):
+        for groups in (None, [], ValueError("offline"), OSError("cache")):
+            with self.subTest(groups=groups):
+                by_title = {r["titulo"]: r["versao"] for r in self.search(groups)}
+                self.assertEqual(by_title["Radio Bootleg"]["tipo"], "estudio")
+                self.assertEqual(by_title["Later Live (Live)"]["tipo"], "ao_vivo")
+
+    def test_artist_page_lists_more_than_the_text_search(self):
+        fake = MagicMock()
+        fake.search.side_effect = lambda text, filter, limit: [{"artist": "Other", "browseId": "x"}, {"artist": "band", "browseId": "b"}] if filter == "artists" else [{"title": "Tribute", "artists": [{"name": "Band"}]}]
+        fake.get_artist.return_value = {"albums": {"browseId": "all", "params": "p", "results": [{"title": "Only preview"}]},
+                                        "singles": {"results": [{"title": "Small EP", "type": "EP"}, {"title": "One song", "type": "Single"}]}}
+        fake.get_artist_albums.return_value = [{"title": "Full One", "year": "1990", "type": "Album"}, {"title": "Band Karaoke", "type": "Album"}, {"title": "full one", "type": "Album"}]
+        with patch("spotdl_search.ytmusic", return_value=fake):
+            self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["Full One", "Small EP"])
+        fake.get_artist.assert_called_once_with("b")
+
+    def test_bands_with_the_same_name_are_both_listed(self):
+        fake = MagicMock()
+        fake.search.return_value = [{"artist": "Band", "browseId": "a"}, {"artist": "Band", "browseId": "b"}]
+        fake.get_artist.side_effect = lambda ident: {"singles": {"results": []}, "albums": {"results": [{"title": "From " + ident}]}}
+        with patch("spotdl_search.ytmusic", return_value=fake):
+            self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["From a", "From b"])
+
+    def test_text_search_remains_when_the_artist_page_fails(self):
+        fake = MagicMock()
+        fake.search.side_effect = lambda text, filter, limit: [{"title": "Found", "artists": [{"name": "Band"}]}, {"title": "Cover", "artists": [{"name": "Other"}]}] if filter == "albums" else [{"artist": "Band", "browseId": "b"}]
+        fake.get_artist.side_effect = KeyError("layout changed")
+        with patch("spotdl_search.ytmusic", return_value=fake):
+            self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["Found"])
+
+    def test_one_unavailable_namesake_keeps_the_other_artist_albums(self):
+        fake = MagicMock()
+        fake.search.return_value = [{"artist": "Band", "browseId": "unavailable"}, {"artist": "Band", "browseId": "available"}]
+        def page(ident):
+            if ident == "unavailable":
+                raise KeyError("artist page unavailable")
+            return {"albums": {"results": [{"title": "Available Album"}]}}
+        fake.get_artist.side_effect = page
+        with patch("spotdl_search.ytmusic", return_value=fake):
+            self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["Available Album"])
+        self.assertEqual(fake.search.call_count, 1, "Do not discard the artist catalog for a shorter text search")
+
+    def test_unavailable_pagination_keeps_preview_and_other_sections(self):
+        fake = MagicMock()
+        fake.search.return_value = [{"artist": "Band", "browseId": "artist"}]
+        fake.get_artist.return_value = {
+            "albums": {"browseId": "all", "params": "p", "results": [{"title": "Available Preview"}]},
+            "singles": {"results": [{"title": "Available EP", "type": "EP"}]},
+        }
+        fake.get_artist_albums.side_effect = KeyError("pagination unavailable")
+        with patch("spotdl_search.ytmusic", return_value=fake):
+            self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["Available Preview", "Available EP"])
+        self.assertEqual(fake.search.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

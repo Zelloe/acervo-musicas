@@ -3,7 +3,7 @@
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from musicbrainz_client import MusicBrainz
 
@@ -38,6 +38,27 @@ class GenreIdentityTest(unittest.TestCase):
         self.assertEqual(result["fonte"], "https://musicbrainz.org/artist/artist")
         self.assertIn("matching an album", result["criterio"])
         self.assertEqual(get.call_count, 4)
+
+
+class ReleaseGroupsTest(unittest.TestCase):
+    def client(self, responses):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        client = MusicBrainz(Path(temp.name), "tests@example.invalid")
+        client.get = MagicMock(side_effect=responses)
+        return client
+
+    def test_all_pages_of_an_unambiguous_artist(self):
+        artist = {"artists": [{"id": "a", "name": "Band", "score": 100}]}
+        client = self.client([artist, {"release-group-count": 3, "release-groups": [{"title": "One"}, {"title": "Two"}]}, {"release-group-count": 3, "release-groups": [{"title": "Three"}]}])
+        self.assertEqual([g["title"] for g in client.release_groups("Band")], ["One", "Two", "Three"])
+        self.assertEqual(client.get.call_args.kwargs["offset"], 100)
+
+    def test_ambiguous_artist_is_not_guessed(self):
+        same = [{"id": "a", "name": "Band", "score": 100}, {"id": "b", "name": "Band", "score": 100}]
+        client = self.client([{"artists": same}])
+        self.assertIsNone(client.release_groups("Band"))
+        self.assertEqual(client.get.call_count, 1)
 
 
 if __name__ == "__main__":

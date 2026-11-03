@@ -16,12 +16,12 @@ KINDS = ("ao_vivo", "acustico", "demo", "remix", "instrumental", "estudio")
 LABELS = {
     "ao_vivo": "Live", "acustico": "Acoustic", "demo": "Demo", "remix": "Remix",
     "instrumental": "Instrumental", "estudio": "Studio", "remaster": "Remaster",
-    "coletanea": "Compilation", "edicao_especial": "Special edition",
+    "coletanea": "Compilation", "edicao_especial": "Special edition", "nao_confirmado": "Unverified",
 }
 register({
     "Live": "Ao vivo", "Acoustic": "Acústico", "Demo": "Demo", "Remix": "Remix",
     "Instrumental": "Instrumental", "Studio": "Estúdio", "Remaster": "Remaster",
-    "Compilation": "Coletânea", "Special edition": "Edição especial",
+    "Compilation": "Coletânea", "Special edition": "Edição especial", "Unverified": "Não confirmado",
 })
 
 _LIVE = r"\b(live|ao vivo|en vivo|en directo|in concert|unplugged)\b"
@@ -66,6 +66,18 @@ def classify(title: str = "", album: str = "", album_kind: str = "") -> dict:
         marks.add("coletanea")
     kind = next((t for t in KINDS if t in marks), "estudio")
     marks.add(kind)
-    order = list(KINDS) + ["remaster", "coletanea", "edicao_especial"]
+    return version_result(kind, marks)
+
+
+def version_result(kind: str, marks) -> dict:
+    order = list(KINDS) + ["remaster", "coletanea", "edicao_especial", "nao_confirmado"]
     marks = sorted(marks, key=order.index)
     return {"tipo": kind, "marcas": marks, "rotulos": [_(LABELS[m]) for m in marks]}
+
+
+def replace_studio(version: dict, mark: str) -> dict:
+    """Corrects an estimated studio recording using an authoritative source."""
+    marks = set(version["marcas"]) | {mark}
+    if mark == "coletanea":
+        return version_result(version["tipo"], marks)
+    return version_result(mark, marks - {"estudio"})

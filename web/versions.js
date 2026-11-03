@@ -1,7 +1,7 @@
 "use strict";
 
 const versionFilters = [["all","All"],["studio","Studio"],["live","Live"],["acoustic","Acoustic"],["demo-remix","Demo / Remix"],["compilation","Compilation"]];
-const recordingLabels = {studio:"Studio",live:"Live",acoustic:"Acoustic",demo:"Demo",remix:"Remix",instrumental:"Instrumental",remaster:"Remaster",compilation:"Compilation",special_edition:"Special edition"};
+const recordingLabels = {studio:"Studio",live:"Live",acoustic:"Acoustic",demo:"Demo",remix:"Remix",instrumental:"Instrumental",remaster:"Remaster",compilation:"Compilation",unverified:"Unverified",special_edition:"Special edition"};
 
 function versionMatches(version, choice) {
   const marks=version?.marks||[];

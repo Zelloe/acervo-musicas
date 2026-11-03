@@ -42,13 +42,40 @@ def same(a: str, b: str) -> bool:
     return a.strip().casefold() == b.strip().casefold()
 
 
+def discography(artist: str) -> list[dict]:
+    """Albums and EPs from the artist page; a text search misses most of them."""
+    rows = []
+    # Bands can share a name, and only the person choosing can tell them apart.
+    for match in ytmusic().search(artist, filter="artists", limit=5):
+        if not match.get("browseId") or not same(match.get("artist") or "", artist):
+            continue
+        try:
+            page = ytmusic().get_artist(match["browseId"])
+        except Exception:
+            continue
+        for section, only_eps in (("albums", False), ("singles", True)):
+            info = page.get(section) or {}
+            listed = info.get("results") or []
+            if info.get("browseId") and info.get("params"):
+                try:
+                    listed = ytmusic().get_artist_albums(info["browseId"], info["params"], limit=None)
+                except Exception:
+                    pass  # Keep the available preview and other artist sections.
+            rows += [row for row in listed if not only_eps or row.get("type") == "EP"]
+    return rows
+
+
 def albums(artist: str) -> list[dict]:
     # Album search without the official API comes back empty on Spotify; YouTube Music lists them well.
+    try:
+        listed = discography(artist)
+    except Exception:
+        listed = []
     found, seen = [], set()
-    for item in ytmusic().search(artist, filter="albums", limit=40):
+    for item in listed or ytmusic().search(artist, filter="albums", limit=40):
         names = [a.get("name", "") for a in item.get("artists") or []]
         title = item.get("title") or ""
-        if not any(same(n, artist) for n in names) or any(word in title.casefold() for word in NOISE):
+        if (not listed and not any(same(n, artist) for n in names)) or any(word in title.casefold() for word in NOISE):
             continue
         key = title.casefold()
         if key not in seen:

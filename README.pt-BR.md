@@ -308,8 +308,10 @@ são apagados automaticamente.
 
 ## MusicBrainz
 
-A consulta é opcional e desligada por padrão. Envia apenas nomes de artista e
-álbum, nunca áudio. Exige um contato real para identificar o cliente, como pede
+A consulta durante a análise da biblioteca é opcional e desligada por padrão.
+Envia apenas nomes de artista e álbum, nunca áudio. As listas de álbuns da tela de
+download enviam o nome do artista para confirmar o que é estúdio, ao vivo ou
+coletânea; sem conexão, usam uma estimativa pelos nomes. Exige um contato real para identificar o cliente, como pede
 a [política de uso](https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting),
 respeita o intervalo mínimo entre requisições e guarda cache por 30 dias.
 Um gênero só é sugerido quando o próprio álbum é encontrado, para que uma banda
