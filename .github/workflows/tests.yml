@@ -41,8 +41,8 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Compile modules
-        run: python -m compileall -q .
+        run: python -m compileall -q src tests
       - name: Run tests
-        run: python -m unittest discover -s tests -v
+        run: PYTHONPATH=src python -m unittest discover -s tests -v
       - name: Check interface syntax
-        run: for f in web/*.js; do node --check "$f"; done
+        run: for f in src/acervo/web/static/*.js; do node --check "$f"; done

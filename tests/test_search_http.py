@@ -11,8 +11,8 @@ from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from api_contract import to_api
-from server import App, Handler
+from acervo.web.api_contract import to_api
+from acervo.web.server import App, Handler
 
 
 class SearchHTTPTest(unittest.TestCase):
@@ -141,7 +141,7 @@ class SearchHTTPTest(unittest.TestCase):
         self.request("/api/suggestions", {"q": "arvore"})
         self.assertIs(self.app.search_index, index)
         new = self.track("4", "Faixa nova", "Nova banda", "Álbum novo")
-        with patch("server.read_track", return_value=new):
+        with patch("acervo.web.server.read_track", return_value=new):
             self.app.refresh_downloaded([{"estado": "baixado", "arquivo": new["arquivo"]}])
         suggestions = self.request("/api/suggestions", {"q": "Faixa nova"})
         self.assertEqual(len(suggestions["tracks"]), 1)

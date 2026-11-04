@@ -14,9 +14,10 @@ from urllib.request import Request, urlopen
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3, TALB, TCON, TIT2, TPE1, TPOS, TRCK, TXXX, TYER
 
-from library_core import apply_plan, integrity, restore, sha256, write_validated
-from library_plan import BASE, create_plan, propose, rules
-from library_scan import read_track
+from acervo.library.core import apply_plan, integrity, restore, sha256, write_validated
+from acervo.library.plan import create_plan, propose, rules
+from acervo.library.scan import read_track
+from acervo.paths import RULES
 
 
 @unittest.skipUnless(shutil.which("ffmpeg"), "Os testes de integração usam ffmpeg para gerar áudio temporário")
@@ -215,7 +216,7 @@ class LibraryTest(unittest.TestCase):
         tags.add(TIT2(encoding=1, text=["One"]))
         tags.add(TRCK(encoding=1, text=["4"]))
         tags.save(path, v2_version=3)
-        albums = rules(BASE / "album_rules.csv")
+        albums = rules(RULES / "album_rules.csv")
         changes, _ = propose(read_track(path), [], albums)
         self.assertTrue(any(c["campo"] == "album" for c in changes))
         for title, disc in (("One - Live", "1"), ("One - Demo", "1"), ("One", "2"), ("Another Song", "1")):
@@ -255,7 +256,7 @@ class LibraryTest(unittest.TestCase):
         files = [self.music("a.mp3"), self.music("b.mp3")]
         before = {str(p): sha256(p) for p in files}
         plan = self.plan()
-        import library_core
+        from acervo.library import core as library_core
 
         original_replace = library_core.os.replace
 
@@ -264,7 +265,7 @@ class LibraryTest(unittest.TestCase):
                 raise OSError("interrupção simulada")
             return original_replace(source, target)
 
-        with patch("library_core.os.replace", fail_second):
+        with patch("acervo.library.core.os.replace", fail_second):
             with self.assertRaisesRegex(RuntimeError, "interrupção simulada"):
                 apply_plan(plan, self.approvals(plan), self.root / "backups")
         manifest = next((self.root / "backups").glob("*/manifesto.json"))
@@ -275,7 +276,7 @@ class LibraryTest(unittest.TestCase):
     def test_http_approval_restore_and_origin_validation(self):
         from http.server import ThreadingHTTPServer
 
-        from server import App, Handler
+        from acervo.web.server import App, Handler
 
         files = [self.music(), self.music("teste.flac")]
         before = {str(p): sha256(p) for p in files}
@@ -332,7 +333,7 @@ class LibraryTest(unittest.TestCase):
 
 class MusicBrainzTest(unittest.TestCase):
     def test_homonyms_are_not_chosen(self):
-        from musicbrainz_client import MusicBrainz
+        from acervo.library.musicbrainz import MusicBrainz
 
         with tempfile.TemporaryDirectory() as folder:
             client = MusicBrainz(Path(folder), "unit-tests@example.invalid")
@@ -349,7 +350,7 @@ class MusicBrainzTest(unittest.TestCase):
                 self.assertIsNone(client.artist("Death"))
 
     def test_specific_genre_and_unconfirmed_album_needs_review(self):
-        from musicbrainz_client import MusicBrainz
+        from acervo.library.musicbrainz import MusicBrainz
 
         self.assertEqual(
             MusicBrainz.choose_genre(

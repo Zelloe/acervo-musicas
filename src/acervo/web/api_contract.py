@@ -5,7 +5,7 @@ known enum values are translated; music metadata and external provider data
 must pass through unchanged.
 """
 
-from messages import _, register
+from acervo.messages import _, register
 
 register({"Duplicate request fields": "Campos repetidos na requisição"})
 

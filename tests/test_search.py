@@ -5,7 +5,7 @@ import time
 import unittest
 from pathlib import Path
 
-from search import GlobalSearch, LibraryIndex, normalize
+from acervo.search import GlobalSearch, LibraryIndex, normalize
 
 
 def track(ident, title, artist, album, genre="", album_artist=""):

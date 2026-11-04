@@ -17,11 +17,11 @@ from urllib.request import Request, urlopen
 
 from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, TRCK
 
-from api_contract import to_api
-from library_core import library_lock, sha256
-from library_plan import create_plan
-from playlists import validate_m3u8
-from server import App, Handler
+from acervo.library.core import library_lock, sha256
+from acervo.library.plan import create_plan
+from acervo.library.playlists import validate_m3u8
+from acervo.web.api_contract import to_api
+from acervo.web.server import App, Handler
 
 
 @unittest.skipUnless(shutil.which("ffmpeg"), "Tests generate temporary audio with ffmpeg")
@@ -185,7 +185,7 @@ class PlaylistHTTPTest(unittest.TestCase):
         self.assertEqual(backup.read_text(encoding="utf-8"), "editada por outro programa\n")
         preview = self.preview()
         original = path.read_bytes()
-        with patch("server.durable_copy", side_effect=OSError("disco cheio")):
+        with patch("acervo.web.server.durable_copy", side_effect=OSError("disco cheio")):
             self.export(status=400, sobrescrever=True, anterior_sha256=preview["previous_sha256"])
         self.assertEqual(path.read_bytes(), original)
 
@@ -193,7 +193,7 @@ class PlaylistHTTPTest(unittest.TestCase):
         os.link(self.lib / "Ação 01.mp3", self.base / "seed.mp3")
         self.assertEqual(self.preview()["tracks"], 53)
         entered, release = threading.Event(), threading.Event()
-        from server import render_m3u8
+        from acervo.web.server import render_m3u8
 
         def slow_render(*args):
             entered.set()
@@ -201,7 +201,7 @@ class PlaylistHTTPTest(unittest.TestCase):
             return render_m3u8(*args)
 
         result = []
-        with patch("server.render_m3u8", side_effect=slow_render):
+        with patch("acervo.web.server.render_m3u8", side_effect=slow_render):
             request = threading.Thread(target=lambda: result.append(self.preview()))
             request.start()
             try:

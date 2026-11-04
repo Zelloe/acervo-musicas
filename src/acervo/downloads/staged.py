@@ -19,12 +19,13 @@ from urllib.parse import urlsplit
 
 from mutagen.id3 import ID3, ID3NoHeaderError
 
-import protections
-from library_core import atomic_json, metadata_values, secure_file, sha256, write_validated
-from library_import import import_reviewed, new_destination
-from library_plan import BASE, propose, rules
-from library_scan import album_base, normalized, read_track
-from messages import _, register
+from acervo.library import protections
+from acervo.library.core import atomic_json, metadata_values, secure_file, sha256, write_validated
+from acervo.library.importer import import_reviewed, new_destination
+from acervo.library.plan import propose, rules
+from acervo.library.scan import album_base, normalized, read_track
+from acervo.messages import _, register
+from acervo.paths import RULES
 
 register(
     {
@@ -250,7 +251,11 @@ class Downloads:
             except (UnicodeError, OSError):
                 interpreter = []
             if interpreter and any("python" in Path(v).name for v in interpreter):
-                return interpreter + [str(BASE / "spotdl_catalog.py"), query, str(path / "catalogo.spotdl")]
+                return interpreter + [
+                    str(Path(__file__).resolve().with_name("spotdl_catalog.py")),
+                    query,
+                    str(path / "catalogo.spotdl"),
+                ]
             return [
                 executable,
                 "save",
@@ -345,7 +350,7 @@ class Downloads:
             origin = _("genre chosen in this review")
         else:
             probe = {**metadata, "arquivo": ""}
-            changes, _reviews = propose(probe, rules(BASE / "genre_rules.csv"), [])
+            changes, _reviews = propose(probe, rules(RULES / "genre_rules.csv"), [])
             if changes:
                 metadata["genero"] = changes[0]["proposto"]
                 origin = changes[0]["fonte"]

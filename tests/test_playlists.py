@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, TRCK
 
-import playlists
-from playlists import album_order, collect, matches, validate_m3u8, write_m3u8
+from acervo.library import playlists
+from acervo.library.playlists import album_order, collect, matches, validate_m3u8, write_m3u8
 
 
 @unittest.skipUnless(shutil.which("ffmpeg"), "Os testes de integração usam ffmpeg para gerar áudio temporário")

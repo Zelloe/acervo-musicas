@@ -10,8 +10,8 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-import acervo
-from server import App, Handler
+from acervo import cli as acervo
+from acervo.web.server import App, Handler
 
 
 class LibraryOpenHTTPTest(unittest.TestCase):
@@ -23,7 +23,7 @@ class LibraryOpenHTTPTest(unittest.TestCase):
         self.first.mkdir()
         self.second.mkdir()
         self.storage = self.base / "data"
-        analyze = patch("server.App.analyze", return_value={})
+        analyze = patch("acervo.web.server.App.analyze", return_value={})
         self.analyze = analyze.start()
         self.addCleanup(analyze.stop)
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -128,7 +128,7 @@ class LibraryOpenHTTPTest(unittest.TestCase):
                 refused.append(True)
             return real(*args)
 
-        with patch("server.App", side_effect=build):
+        with patch("acervo.web.server.App", side_effect=build):
             self.post("/api/library/open", {"folder": str(self.second)})
         self.assertEqual(len(refused), 3)
         self.assertEqual(self.server.app.root, self.second)
@@ -146,8 +146,8 @@ class LibraryOpenHTTPTest(unittest.TestCase):
             with (
                 self.subTest(arguments=arguments),
                 patch("sys.argv", ["acervo.py", "serve", *arguments]),
-                patch("acervo.default_music_folder", return_value=default),
-                patch("server.serve") as serve,
+                patch("acervo.cli.default_music_folder", return_value=default),
+                patch("acervo.web.server.serve") as serve,
             ):
                 acervo.main()
                 self.assertIs(serve.call_args.args[4], fixed)

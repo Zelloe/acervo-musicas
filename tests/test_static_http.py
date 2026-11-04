@@ -10,8 +10,8 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
-from library_core import sha256
-from server import App, Handler
+from acervo.library.core import sha256
+from acervo.web.server import App, Handler
 
 
 class StaticHTTPTest(unittest.TestCase):
@@ -32,7 +32,7 @@ class StaticHTTPTest(unittest.TestCase):
         self.worker.start()
         self.addCleanup(self.stop)
         self.url = f"http://127.0.0.1:{self.server.server_port}"
-        self.patch_base = patch("server.BASE", self.assets)
+        self.patch_base = patch("acervo.web.server.STATIC", self.web)
         self.patch_base.start()
         self.addCleanup(self.patch_base.stop)
 
@@ -94,7 +94,10 @@ class StaticHTTPTest(unittest.TestCase):
     def test_state_detects_server_code_change_from_the_loaded_version(self):
         source = self.assets / "server-source.py"
         source.write_text("loaded version", encoding="utf-8")
-        with patch("server.SERVER_SOURCE", source), patch("server.SERVER_CODE_HASH", sha256(source)):
+        with (
+            patch("acervo.web.server.SERVER_SOURCE", source),
+            patch("acervo.web.server.SERVER_CODE_HASH", sha256(source)),
+        ):
             self.assertFalse(json.loads(self.get("/api/state")[0])["restart_required"])
             source.write_text("updated version", encoding="utf-8")
             self.assertTrue(json.loads(self.get("/api/state")[0])["restart_required"])

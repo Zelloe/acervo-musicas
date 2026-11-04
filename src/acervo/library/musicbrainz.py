@@ -12,9 +12,9 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from library_core import atomic_json
-from library_scan import album_base, normalized
-from messages import _, register
+from acervo.library.core import atomic_json
+from acervo.library.scan import album_base, normalized
+from acervo.messages import _, register
 
 register(
     {

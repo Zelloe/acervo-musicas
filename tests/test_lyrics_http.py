@@ -13,9 +13,9 @@ from urllib.request import Request, urlopen
 
 from mutagen.id3 import ID3, USLT
 
-from api_contract import to_api
-from library_core import sha256
-from server import App, Handler
+from acervo.library.core import sha256
+from acervo.web.api_contract import to_api
+from acervo.web.server import App, Handler
 
 
 class LyricsHTTPTest(unittest.TestCase):

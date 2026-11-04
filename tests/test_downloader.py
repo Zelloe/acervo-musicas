@@ -9,10 +9,9 @@ from unittest.mock import MagicMock, patch
 
 from mutagen.id3 import ID3, TIT2, TPE1
 
-import downloader
-import spotdl_search
-from download_menu import parse_selection
-from messages import language
+from acervo.downloads import downloader, spotdl_search
+from acervo.downloads.menu import parse_selection
+from acervo.messages import language
 
 ITEMS = [{"titulo": "A", "ja_tenho": True}, {"titulo": "B", "ja_tenho": False}, {"titulo": "C", "ja_tenho": False}]
 RULES = [
@@ -260,7 +259,10 @@ class AlbumListTest(unittest.TestCase):
 
     def search(self, groups):
         rows = [dict(row) for row in self.ROWS]
-        with patch("downloader._adapter", return_value=rows), patch("downloader.MusicBrainz") as client:
+        with (
+            patch("acervo.downloads.downloader._adapter", return_value=rows),
+            patch("acervo.downloads.downloader.MusicBrainz") as client,
+        ):
             if isinstance(groups, Exception):
                 client.return_value.release_groups.side_effect = groups
             else:
@@ -301,7 +303,7 @@ class AlbumListTest(unittest.TestCase):
             {"title": "Band Karaoke", "type": "Album"},
             {"title": "full one", "type": "Album"},
         ]
-        with patch("spotdl_search.ytmusic", return_value=fake):
+        with patch("acervo.downloads.spotdl_search.ytmusic", return_value=fake):
             self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["Full One", "Small EP"])
         fake.get_artist.assert_called_once_with("b")
 
@@ -312,7 +314,7 @@ class AlbumListTest(unittest.TestCase):
             "singles": {"results": []},
             "albums": {"results": [{"title": "From " + ident}]},
         }
-        with patch("spotdl_search.ytmusic", return_value=fake):
+        with patch("acervo.downloads.spotdl_search.ytmusic", return_value=fake):
             self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["From a", "From b"])
 
     def test_text_search_remains_when_the_artist_page_fails(self):
@@ -323,7 +325,7 @@ class AlbumListTest(unittest.TestCase):
             else [{"artist": "Band", "browseId": "b"}]
         )
         fake.get_artist.side_effect = KeyError("layout changed")
-        with patch("spotdl_search.ytmusic", return_value=fake):
+        with patch("acervo.downloads.spotdl_search.ytmusic", return_value=fake):
             self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["Found"])
 
     def test_one_unavailable_namesake_keeps_the_other_artist_albums(self):
@@ -339,7 +341,7 @@ class AlbumListTest(unittest.TestCase):
             return {"albums": {"results": [{"title": "Available Album"}]}}
 
         fake.get_artist.side_effect = page
-        with patch("spotdl_search.ytmusic", return_value=fake):
+        with patch("acervo.downloads.spotdl_search.ytmusic", return_value=fake):
             self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["Available Album"])
         self.assertEqual(fake.search.call_count, 1, "Do not discard the artist catalog for a shorter text search")
 
@@ -351,7 +353,7 @@ class AlbumListTest(unittest.TestCase):
             "singles": {"results": [{"title": "Available EP", "type": "EP"}]},
         }
         fake.get_artist_albums.side_effect = KeyError("pagination unavailable")
-        with patch("spotdl_search.ytmusic", return_value=fake):
+        with patch("acervo.downloads.spotdl_search.ytmusic", return_value=fake):
             self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["Available Preview", "Available EP"])
         self.assertEqual(fake.search.call_count, 1)
 
@@ -361,14 +363,14 @@ class LookupProcessTest(unittest.TestCase):
         process = MagicMock()
         process.lock = threading.Lock()
         process._call.configure_mock(**call)
-        patcher = patch("downloader._lookup_process", process)
+        patcher = patch("acervo.downloads.downloader._lookup_process", process)
         patcher.start()
         self.addCleanup(patcher.stop)
         return process
 
     def test_lookups_reuse_the_open_process(self):
         process = self.process(return_value=[{"titulo": "A"}])
-        with patch("downloader._adapter_once") as once:
+        with patch("acervo.downloads.downloader._adapter_once") as once:
             self.assertEqual(downloader._adapter("faixas", "url"), [{"titulo": "A"}])
             self.assertEqual(downloader._adapter("faixas", "url"), [{"titulo": "A"}])
         once.assert_not_called()
@@ -378,7 +380,7 @@ class LookupProcessTest(unittest.TestCase):
 
     def test_failed_process_is_closed_and_the_lookup_retries_from_a_clean_start(self):
         process = self.process(side_effect=RuntimeError("session expired"))
-        with patch("downloader._adapter_once", return_value=[{"titulo": "B"}]) as once:
+        with patch("acervo.downloads.downloader._adapter_once", return_value=[{"titulo": "B"}]) as once:
             self.assertEqual(downloader._adapter("faixas", "url", timeout=300), [{"titulo": "B"}])
         process.close.assert_called_once()
         once.assert_called_once_with("faixas", "url", timeout=300)
@@ -390,7 +392,7 @@ class LookupProcessTest(unittest.TestCase):
             "spotdl.utils": MagicMock(),
             "spotdl.utils.spotify": MagicMock(SpotifyClient=spotify),
         }
-        with patch.dict(sys.modules, modules), patch("spotdl_search._spotify", None):
+        with patch.dict(sys.modules, modules), patch("acervo.downloads.spotdl_search._spotify", None):
             self.assertIs(spotdl_search.client(), spotdl_search.client())
         spotify.init.assert_called_once()
 

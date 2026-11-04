@@ -34,7 +34,7 @@ def text_call_without_encoding(call):
 class SourceRulesTest(unittest.TestCase):
     def test_text_files_and_processes_always_name_their_encoding(self):
         found = []
-        for path in sorted(ROOT.glob("*.py")) + sorted((ROOT / "tests").glob("*.py")):
+        for path in sorted((ROOT / "src").rglob("*.py")) + sorted((ROOT / "tests").glob("*.py")):
             for node in ast.walk(ast.parse(path.read_bytes())):
                 if isinstance(node, ast.Call) and text_call_without_encoding(node):
                     found.append(f"{path.relative_to(ROOT)}:{node.lineno}")

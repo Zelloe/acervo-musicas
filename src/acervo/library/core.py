@@ -16,7 +16,7 @@ from pathlib import Path
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX, TYER, USLT
 
-from messages import _, register
+from acervo.messages import _, register
 
 register(
     {
@@ -372,7 +372,7 @@ def durable_copy(source: Path, destination: Path) -> None:
 
 
 def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Path | None = None) -> dict:
-    import protections
+    from acervo.library import protections
 
     plan = load_plan(plan_path)
     root = Path(plan["biblioteca"]).resolve(strict=True)
@@ -472,14 +472,14 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Pat
 
 
 def restore(manifest_path: Path, storage: Path | None = None) -> dict:
-    import protections
+    from acervo.library import protections
 
     manifest_path = manifest_path.resolve(strict=True)
     # Manifests live in <data>/backups/<run>/manifesto.json.
     storage = storage or manifest_path.parent.parent.parent
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("tipo") == "downloads":
-        from library_import import restore_import
+        from acervo.library.importer import restore_import
 
         return restore_import(manifest_path, storage)
     if manifest.get("schema") != 1:

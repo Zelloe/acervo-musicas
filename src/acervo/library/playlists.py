@@ -7,8 +7,8 @@ import re
 import tempfile
 from pathlib import Path
 
-from library_scan import TEMP_PREFIXES, read_track
-from messages import _, register
+from acervo.library.scan import TEMP_PREFIXES, read_track
+from acervo.messages import _, register
 
 register(
     {

@@ -23,7 +23,7 @@ from mutagen import File
 from mutagen.flac import FLAC
 from mutagen.mp3 import MP3
 
-from messages import _, register, use_environment_language
+from acervo.messages import _, register, use_environment_language
 
 register(
     {

@@ -9,12 +9,12 @@ from unittest.mock import patch
 
 from mutagen.id3 import ID3, TCON, TIT2, TPE1
 
-import protections
-from library_core import apply_plan, library_lock, metadata_values, restore, sha256
-from library_import import import_reviewed, restore_import
-from library_plan import create_plan
-from messages import language
-from staged_downloads import changes_for
+from acervo.downloads.staged import changes_for
+from acervo.library import protections
+from acervo.library.core import apply_plan, library_lock, metadata_values, restore, sha256
+from acervo.library.importer import import_reviewed, restore_import
+from acervo.library.plan import create_plan
+from acervo.messages import language
 
 
 @unittest.skipUnless(shutil.which("ffmpeg"), "Os testes de integração usam ffmpeg para gerar áudio temporário")

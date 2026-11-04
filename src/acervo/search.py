@@ -12,7 +12,7 @@ import unicodedata
 from collections import OrderedDict
 from pathlib import Path
 
-from messages import _, register
+from acervo.messages import _, register
 
 FIELDS = {"titulo": 3.0, "artista": 2.5, "album": 2.0, "genero": 1.0}
 LABELS = {"titulo": "title", "artista": "artist", "album": "album", "genero": "genre"}
@@ -196,7 +196,7 @@ class GlobalSearch:
 
     def __init__(self, command_factory=None, timeout: float = 15.0, cache_size: int = 200):
         if command_factory is None:
-            import downloader
+            from acervo.downloads import downloader
 
             def command_factory():
                 return [*downloader.spotdl_python(), "-I", str(Path(downloader.ADAPTER)), "servir"]
@@ -277,7 +277,7 @@ class GlobalSearch:
                 self.cache.move_to_end(key)
                 return self.cache[key]
             result = self._call("sugestoes", query.strip()[:200])
-            from downloader import safe_photo
+            from acervo.downloads.downloader import safe_photo
 
             for artist in result.get("artistas", []):
                 artist["foto"] = safe_photo(artist.get("foto"))

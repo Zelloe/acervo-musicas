@@ -14,10 +14,10 @@ from urllib.request import Request, urlopen
 
 from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, USLT
 
-from api_contract import to_api
-from library_core import integrity, sha256
-from library_plan import create_plan
-from server import App, Handler
+from acervo.library.core import integrity, sha256
+from acervo.library.plan import create_plan
+from acervo.web.api_contract import to_api
+from acervo.web.server import App, Handler
 
 
 @unittest.skipUnless(shutil.which("ffmpeg"), "Tests generate temporary audio with ffmpeg")
@@ -184,7 +184,7 @@ class SaveLyricsHTTPTest(unittest.TestCase):
         self.app.job = {"status": "running", "type": "apply"}
         self.request("/api/lyrics/save", {"previa": preview["preview"]}, status=400)
         self.app.job = None
-        import protections
+        from acervo.library import protections
 
         policy = protections.policy_path(self.storage, self.root)
         policy.parent.mkdir(parents=True, exist_ok=True)

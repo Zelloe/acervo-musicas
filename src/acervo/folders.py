@@ -6,7 +6,7 @@ import os
 import shlex
 from pathlib import Path
 
-from messages import _, register
+from acervo.messages import _, register
 
 register(
     {

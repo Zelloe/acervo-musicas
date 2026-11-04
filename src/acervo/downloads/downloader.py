@@ -17,13 +17,14 @@ from pathlib import Path
 from mutagen import File as MutagenFile
 from mutagen.id3 import ID3, TCON, ID3NoHeaderError
 
-from library_plan import BASE, rules
-from library_scan import TEMP_PREFIXES, album_base, normalized
-from lyrics import LyricsClient, embed_lyrics
-from messages import _, register
-from musicbrainz_client import MusicBrainz
-from search import normalize
-from versions import classify, replace_studio
+from acervo.library.musicbrainz import MusicBrainz
+from acervo.library.plan import rules
+from acervo.library.scan import TEMP_PREFIXES, album_base, normalized
+from acervo.library.versions import classify, replace_studio
+from acervo.lyrics import LyricsClient, embed_lyrics
+from acervo.messages import _, register
+from acervo.paths import DATA, RULES
+from acervo.search import normalize
 
 register(
     {
@@ -52,7 +53,7 @@ register(
 )
 
 
-ADAPTER = BASE / "spotdl_search.py"
+ADAPTER = Path(__file__).resolve().with_name("spotdl_search.py")
 TEMPLATE = "{artist} - {title}.{output-ext}"
 REMASTER = re.compile(
     r"\s*(?:-\s*|\(|\[)\s*(?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?(?:\s+version)?\s*[\])]?\s*$", re.I
@@ -88,7 +89,7 @@ def _open_lookup_process():
     global _lookup_process
     with _lookup_process_lock:
         if _lookup_process is None:
-            from search import GlobalSearch
+            from acervo.search import GlobalSearch
 
             # Its own process, so a slow album lookup never delays search suggestions.
             _lookup_process = GlobalSearch(timeout=120)
@@ -162,7 +163,7 @@ def _album_kinds(artist: str) -> dict | None:
     """Plain album title -> MusicBrainz secondary types; None when it cannot answer."""
     try:
         groups = MusicBrainz(
-            BASE / ".biblioteca/cache/musicbrainz", "https://github.com/Zelloe/acervo-musicas", max_requests=6
+            DATA / ".biblioteca/cache/musicbrainz", "https://github.com/Zelloe/acervo-musicas", max_requests=6
         ).release_groups(artist)
     except (ValueError, OSError):
         return None
@@ -267,7 +268,7 @@ def mark_owned(items: list[dict], indice: set[str]) -> list[dict]:
 
 def genre_from_rules(artist: str, album: str, rule_rows: list[dict] | None = None) -> str:
     """Same priority as the analysis: album rule, then artist rule; only if it is unique."""
-    rule_rows = rules(BASE / "genre_rules.csv") if rule_rows is None else rule_rows
+    rule_rows = rules(RULES / "genre_rules.csv") if rule_rows is None else rule_rows
     by_artist = [r for r in rule_rows if normalized(r["artista"]) == normalized(artist)]
     specific = [r for r in by_artist if r.get("album") and normalized(r["album"]) == normalized(album_base(album))]
     chosen = specific or [r for r in by_artist if not r.get("album")]
@@ -429,7 +430,7 @@ def download(
     if bitrate not in ("128k", "192k", "256k", "320k"):
         raise ValueError(_("Invalid bitrate"))
     progress = progress or (lambda *args: None)
-    genre_rules = rules(BASE / "genre_rules.csv")
+    genre_rules = rules(RULES / "genre_rules.csv")
     executable = spotdl_executable()
     lyrics = LyricsClient() if lyrics is True else (lyrics or None)
     results = []

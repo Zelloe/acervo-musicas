@@ -12,9 +12,9 @@ from unittest.mock import patch
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3, TIT2, TPE1, USLT
 
-import downloader
-from library_import import restore_import
-from lyrics import (
+from acervo.downloads import downloader
+from acervo.library.importer import restore_import
+from acervo.lyrics import (
     LyricsClient,
     bulk_lookup,
     current_lyrics,
@@ -25,7 +25,7 @@ from lyrics import (
     save_lyrics,
     save_lyrics_batch,
 )
-from messages import language
+from acervo.messages import language
 
 LRC = "[00:00.00] 作词 : Johnson\n[00:27.24]Back in black\n[00:31.00][01:40.50]I hit the sack\n[ar:AC/DC]\nsem tempo\n"
 
@@ -371,7 +371,7 @@ class EmbeddedLyricsTest(unittest.TestCase):
         self.assertEqual({r["status"] for r in bulk_lookup(rows[:2], client, cancel=cancel)}, {"not_checked"})
 
     def test_write_refuses_track_changed_since_preview(self):
-        from library_core import sha256
+        from acervo.library.core import sha256
 
         library, storage = self.dir / "musicas", self.dir / "dados"
         library.mkdir()

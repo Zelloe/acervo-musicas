@@ -8,8 +8,8 @@ import stat
 from datetime import datetime, timezone
 from pathlib import Path
 
-from library_core import TAG_FIELDS, atomic_json, library_lock, metadata_values
-from messages import _, register
+from acervo.library.core import TAG_FIELDS, atomic_json, library_lock, metadata_values
+from acervo.messages import _, register
 
 register(
     {

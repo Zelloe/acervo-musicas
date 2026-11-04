@@ -10,8 +10,8 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from messages import _, current_language
-from server import App, Handler
+from acervo.messages import _, current_language
+from acervo.web.server import App, Handler
 
 
 class LanguageHTTPTest(unittest.TestCase):

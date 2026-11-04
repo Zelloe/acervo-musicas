@@ -23,8 +23,8 @@ from pathlib import Path
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3, USLT, ID3NoHeaderError
 
-from messages import _, register
-from search import normalize
+from acervo.messages import _, register
+from acervo.search import normalize
 
 register(
     {
@@ -293,7 +293,7 @@ def prepare_text(text: str) -> str:
 
 
 def _operation(root: Path, file: str, text: str, previous_sha256: str | None) -> dict | None:
-    from library_core import secure_file, sha256
+    from acervo.library.core import secure_file, sha256
 
     path = secure_file(root, file)
     text = prepare_text(text)
@@ -316,7 +316,7 @@ def save_lyrics(root: Path, storage: Path, file: str, text: str, previous_sha256
     With previous_sha256 (the hash seen in the preview), the write is refused if the
     track has changed since then; the check happens under library_lock.
     """
-    from library_import import import_reviewed
+    from acervo.library.importer import import_reviewed
 
     root = Path(root).resolve(strict=True)
     operation = _operation(root, file, text, previous_sha256)
@@ -332,7 +332,7 @@ def save_lyrics_batch(root: Path, storage: Path, items: list[dict]) -> dict:
     items: [{"file": path, "text": lyrics, "previous_sha256": optional hash seen in the review}].
     Tracks that already have exactly that text are skipped and reported.
     """
-    from library_import import import_reviewed
+    from acervo.library.importer import import_reviewed
 
     if not isinstance(items, list) or not items or len(items) > 20_000:
         raise ValueError(_("Select at least one track"))

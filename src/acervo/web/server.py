@@ -17,13 +17,26 @@ from urllib.parse import parse_qs, urlsplit
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3
 
-import protections
-from api_contract import from_api, to_api
-from download_picker import DownloadPicker
-from library_core import apply_plan, atomic_json, durable_copy, library_lock, load_plan, restore, secure_file, sha256
-from library_plan import BASE, create_plan
-from library_scan import read_track, signature
-from lyrics import (
+from acervo.downloads.picker import DownloadPicker
+from acervo.downloads.staged import Downloads, clean_log, tool_status
+from acervo.library import protections
+from acervo.library.core import (
+    apply_plan,
+    atomic_json,
+    durable_copy,
+    library_lock,
+    load_plan,
+    restore,
+    secure_file,
+    sha256,
+)
+from acervo.library.musicbrainz import MusicBrainz
+from acervo.library.plan import create_plan
+from acervo.library.playlists import album_order, write_m3u8
+from acervo.library.playlists import render as render_m3u8
+from acervo.library.scan import read_track, signature
+from acervo.library.versions import classify
+from acervo.lyrics import (
     LyricsClient,
     bulk_lookup,
     current_lyrics,
@@ -33,13 +46,10 @@ from lyrics import (
     save_lyrics,
     save_lyrics_batch,
 )
-from messages import _, current_language, language, normalize_language, register
-from musicbrainz_client import MusicBrainz
-from playlists import album_order, write_m3u8
-from playlists import render as render_m3u8
-from search import GlobalSearch, LibraryIndex, normalize
-from staged_downloads import Downloads, clean_log, tool_status
-from versions import classify
+from acervo.messages import _, current_language, language, normalize_language, register
+from acervo.paths import DATA, STATIC
+from acervo.search import GlobalSearch, LibraryIndex, normalize
+from acervo.web.api_contract import from_api, to_api
 
 register(
     {
@@ -226,7 +236,7 @@ class App:
         self.root = root.expanduser().resolve(strict=True)
         if not self.root.is_dir():
             raise ValueError(_("The library must be a folder"))
-        self.storage = (storage or BASE).expanduser().resolve()
+        self.storage = (storage or DATA).expanduser().resolve()
         if self.storage == self.root or self.root in self.storage.parents:
             raise ValueError(_("Application data must stay outside the music library"))
         self.state_dir = self.storage / ".biblioteca"
@@ -1260,10 +1270,10 @@ class Handler(BaseHTTPRequestHandler):
         url = urlsplit(self.path)
         query = from_api(parse_qs(url.query))
         if url.path in ("/", "/index.html"):
-            html = (BASE / "web/index.html").read_text(encoding="utf-8").replace("__TOKEN__", self.app.token)
+            html = (STATIC / "index.html").read_text(encoding="utf-8").replace("__TOKEN__", self.app.token)
             self.send(200, html.encode(), "text/html; charset=utf-8")
         elif re.fullmatch(r"/[a-z0-9_-]+\.(js|css)", url.path):
-            web = BASE / "web"
+            web = STATIC
             asset = web / url.path[1:]
             if web.is_symlink() or asset.is_symlink() or not asset.is_file() or asset.resolve().parent != web.resolve():
                 self.send(404, _("Asset not found").encode(), "text/plain; charset=utf-8")

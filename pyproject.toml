@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "acervo"
 version = "0.1.0"
@@ -7,10 +11,20 @@ requires-python = ">=3.10"
 license = { file = "LICENSE" }
 dependencies = ["mutagen>=1.47,<2"]
 
+[project.scripts]
+acervo = "acervo.cli:main"
+
 [dependency-groups]
 dev = ["ruff==0.17.3"]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+acervo = ["data/*.csv", "web/static/*"]
+
 [tool.ruff]
+src = ["src", "tests"]
 line-length = 120
 target-version = "py310"
 

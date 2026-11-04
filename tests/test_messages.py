@@ -3,8 +3,8 @@ import threading
 import unittest
 from unittest.mock import patch
 
-import messages
-from messages import _, current_language, language, normalize_language
+from acervo import messages
+from acervo.messages import _, current_language, language, normalize_language
 
 
 class MessagesTest(unittest.TestCase):

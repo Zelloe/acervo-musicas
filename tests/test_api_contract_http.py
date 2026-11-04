@@ -11,9 +11,9 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-import protections
-from library_core import sha256
-from server import App, Handler
+from acervo.library import protections
+from acervo.library.core import sha256
+from acervo.web.server import App, Handler
 
 
 class APIContractHTTPTest(unittest.TestCase):

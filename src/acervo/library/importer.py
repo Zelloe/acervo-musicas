@@ -12,7 +12,7 @@ from pathlib import Path
 
 from mutagen.id3 import ID3
 
-from library_core import (
+from acervo.library.core import (
     atomic_json,
     durable_copy,
     id3_size,
@@ -23,7 +23,7 @@ from library_core import (
     sync_dir,
     write_validated,
 )
-from messages import _, register
+from acervo.messages import _, register
 
 register(
     {
@@ -155,7 +155,7 @@ def require_hard_links(directory: Path) -> None:
 def import_reviewed(
     root: Path, backup_root: Path, operations: list[dict], batch_id: str, storage: Path | None = None
 ) -> dict:
-    import protections
+    from acervo.library import protections
 
     root = root.resolve(strict=True)
     backup_root = backup_root.resolve()
@@ -290,7 +290,7 @@ def import_reviewed(
 
 
 def restore_import(manifest_path: Path, storage: Path | None = None) -> dict:
-    import protections
+    from acervo.library import protections
 
     manifest_path = manifest_path.resolve(strict=True)
     storage = storage or manifest_path.parent.parent.parent

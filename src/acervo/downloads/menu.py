@@ -8,9 +8,9 @@ import re
 import sys
 from pathlib import Path
 
-import downloader
-from folders import default_music_folder, require_folder
-from messages import _, register, use_environment_language
+from acervo.downloads import downloader
+from acervo.folders import default_music_folder, require_folder
+from acervo.messages import _, register, use_environment_language
 
 register(
     {

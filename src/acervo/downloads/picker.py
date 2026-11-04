@@ -8,8 +8,8 @@ import time
 from collections import OrderedDict
 from pathlib import Path
 
-import downloader
-from messages import _, register
+from acervo.downloads import downloader
+from acervo.messages import _, register
 
 register(
     {

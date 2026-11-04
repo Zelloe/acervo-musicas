@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from musicbrainz_client import MusicBrainz
+from acervo.library.musicbrainz import MusicBrainz
 
 
 class GenreIdentityTest(unittest.TestCase):

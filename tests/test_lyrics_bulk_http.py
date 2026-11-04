@@ -15,12 +15,12 @@ from urllib.request import Request, urlopen
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, USLT
 
-import protections
-import server as server_module
-from library_core import integrity, sha256
-from library_plan import create_plan
-from lyrics import current_lyrics
-from server import App, Handler
+from acervo.library import protections
+from acervo.library.core import integrity, sha256
+from acervo.library.plan import create_plan
+from acervo.lyrics import current_lyrics
+from acervo.web import server as server_module
+from acervo.web.server import App, Handler
 
 
 @unittest.skipUnless(shutil.which("ffmpeg"), "Tests generate temporary audio with ffmpeg")
@@ -315,7 +315,7 @@ class BulkLyricsHTTPTest(unittest.TestCase):
                 release.wait(5)
             return original(file, *args)
 
-        with patch("server.sha256", side_effect=slow):
+        with patch("acervo.web.server.sha256", side_effect=slow):
             worker = threading.Thread(
                 target=lambda: results.append(
                     self.request(
@@ -345,7 +345,7 @@ class BulkLyricsHTTPTest(unittest.TestCase):
             release.wait(5)
             return original(*args)
 
-        with patch("server.save_lyrics_batch", side_effect=slow):
+        with patch("acervo.web.server.save_lyrics_batch", side_effect=slow):
             self.request("/api/lyrics/bulk/save", {"preview": preview["preview"]}, status=202)
             try:
                 self.assertTrue(entered.wait(2))

@@ -7,13 +7,14 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from folders import default_music_folder, require_folder
-from library_core import apply_plan, restore
-from library_plan import create_plan
-from messages import _, register, use_environment_language
-from musicbrainz_client import MusicBrainz
+from acervo.folders import default_music_folder, require_folder
+from acervo.library.core import apply_plan, restore
+from acervo.library.musicbrainz import MusicBrainz
+from acervo.library.plan import create_plan
+from acervo.messages import _, register, use_environment_language
+from acervo.paths import DATA
 
-PROGRAM = Path(__file__).resolve().parent
+PROGRAM = DATA
 
 register(
     {
@@ -193,7 +194,7 @@ def main() -> int:
         elif args.command == "restore":
             result = restore(args.manifest.expanduser(), args.data.expanduser() if args.data else None)
         elif args.command in ("protect", "unprotect"):
-            import protections
+            from acervo.library import protections
 
             change = protections.protect if args.command == "protect" else protections.unprotect
             files = [str(p.expanduser().resolve()) for p in args.file]
@@ -204,7 +205,7 @@ def main() -> int:
                 [c.strip() for c in args.fields.split(",") if c.strip()],
             )
         elif args.command == "protections":
-            import protections
+            from acervo.library import protections
 
             root = args.folder.expanduser().resolve(strict=True)
             result = {
@@ -212,7 +213,7 @@ def main() -> int:
                 "faixas": protections.listing(protections.load(args.data.expanduser(), root)),
             }
         elif args.command == "playlist":
-            from playlists import album_order, collect, matches, validate_m3u8, write_m3u8
+            from acervo.library.playlists import album_order, collect, matches, validate_m3u8, write_m3u8
 
             if args.validate:
                 result = validate_m3u8(args.output)
@@ -233,7 +234,7 @@ def main() -> int:
                 result = write_m3u8(args.output, chosen, args.name, args.overwrite)
                 result["erros_de_leitura"] = errors
         else:
-            from server import serve
+            from acervo.web.server import serve
 
             serve(
                 require_folder(args.folder or default_music_folder()),

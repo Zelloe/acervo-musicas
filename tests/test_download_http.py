@@ -15,10 +15,10 @@ from urllib.request import Request, urlopen
 
 from mutagen.id3 import APIC, ID3, TALB, TIT2, TPE1
 
-from api_contract import to_api
-from library_core import sha256
-from library_plan import create_plan
-from server import App, Handler
+from acervo.library.core import sha256
+from acervo.library.plan import create_plan
+from acervo.web.api_contract import to_api
+from acervo.web.server import App, Handler
 
 
 @unittest.skipUnless(shutil.which("ffmpeg"), "Tests generate temporary audio with ffmpeg")
@@ -86,20 +86,20 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
             }
             for index, title in enumerate(("Existente", "Nova"), 1)
         ]
-        self.mock_songs = patch("download_picker.downloader.search_songs", return_value=self.songs).start()
-        self.mock_tracks = patch("download_picker.downloader.tracks", return_value=self.songs).start()
+        self.mock_songs = patch("acervo.downloads.picker.downloader.search_songs", return_value=self.songs).start()
+        self.mock_tracks = patch("acervo.downloads.picker.downloader.tracks", return_value=self.songs).start()
         self.mock_albums = patch(
-            "download_picker.downloader.search_albums",
+            "acervo.downloads.picker.downloader.search_albums",
             return_value=[{"titulo": "Álbum", "artista": "Banda Teste", "ano": "2026"}],
         ).start()
         self.mock_editions = patch(
-            "download_picker.downloader.editions",
+            "acervo.downloads.picker.downloader.editions",
             return_value=[
                 {"titulo": "Álbum (Deluxe)", "url": "https://open.spotify.com/album/AlbumTeste"},
                 {"titulo": "Álbum", "url": "https://open.spotify.com/album/AlbumOriginal"},
             ],
         ).start()
-        self.mock_download = patch("download_picker.downloader.download", return_value=[]).start()
+        self.mock_download = patch("acervo.downloads.picker.downloader.download", return_value=[]).start()
         self.addCleanup(patch.stopall)
 
     def stop_server(self):
@@ -176,7 +176,7 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         self.mock_tracks.assert_called_once_with("https://open.spotify.com/album/AlbumOriginal")
 
     def test_new_downloads_update_only_their_inventory_and_survive_restart(self):
-        from library_scan import read_track
+        from acervo.library.scan import read_track
 
         app = self.server.app
         plan_path = app.plan_path
@@ -198,10 +198,11 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         self.mock_download.side_effect = fake_download
         with (
             patch(
-                "download_picker.downloader.local_index", side_effect=AssertionError("A coleção já está no inventário")
+                "acervo.downloads.picker.downloader.local_index",
+                side_effect=AssertionError("A coleção já está no inventário"),
             ),
-            patch("server.create_plan", side_effect=AssertionError("Não reanalisar a coleção no download")),
-            patch("server.read_track", wraps=read_track) as reader,
+            patch("acervo.web.server.create_plan", side_effect=AssertionError("Não reanalisar a coleção no download")),
+            patch("acervo.web.server.read_track", wraps=read_track) as reader,
         ):
             catalog = self.search()
             self.request(
@@ -334,7 +335,7 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         self.catalog(tipo="artista", consulta="Banda Teste")
         self.catalog(tipo="artista", consulta="banda teste")
         self.mock_albums.assert_called_once()
-        with patch("download_picker.LOOKUP_SECONDS", 0):
+        with patch("acervo.downloads.picker.LOOKUP_SECONDS", 0):
             self.catalog(tipo="artista", consulta="Banda Teste")
         self.assertEqual(self.mock_albums.call_count, 2)
 
@@ -408,7 +409,7 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
             release.wait(5)
             raise ValueError("Falha simulada")
 
-        with patch("server.protections.protect", side_effect=blocking_write):
+        with patch("acervo.web.server.protections.protect", side_effect=blocking_write):
             worker = threading.Thread(
                 target=lambda: self.request(
                     "/api/protections", {"ids": [ident], "campos": ["genero"], "proteger": True}, status=400
@@ -462,7 +463,7 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         self.finished_queue()
 
     def test_queue_continues_without_any_open_page(self):
-        with patch("server.FINISHED_JOB_SECONDS", 0.05):
+        with patch("acervo.web.server.FINISHED_JOB_SECONDS", 0.05):
             self.queue_behind_a_job()
             for _ in range(200):
                 if self.mock_download.called:
@@ -471,7 +472,7 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         self.mock_download.assert_called_once()
 
     def test_old_timer_does_not_release_a_newer_finished_job(self):
-        with patch("server.FINISHED_JOB_SECONDS", 0.05):
+        with patch("acervo.web.server.FINISHED_JOB_SECONDS", 0.05):
             app = self.queue_behind_a_job()
             with app.lock:
                 app.job = {**app.job, "id": "newer"}
@@ -496,7 +497,7 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
             self.assertEqual(response.read(), b"cover bytes")
             tag = response.headers["ETag"]
             self.assertIn("max-age", response.headers["Cache-Control"])
-        with patch("server.ID3", side_effect=AssertionError("tags were read")):
+        with patch("acervo.web.server.ID3", side_effect=AssertionError("tags were read")):
             with self.assertRaises(HTTPError) as caught:
                 urlopen(Request(url, headers={"If-None-Match": tag}), timeout=5)
             self.assertEqual(caught.exception.code, 304)

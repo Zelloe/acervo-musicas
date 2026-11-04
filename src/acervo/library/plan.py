@@ -11,10 +11,11 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-import protections
-from library_core import atomic_json, integrity, previous_album, sha256
-from library_scan import TEMP_PREFIXES, album_base, normalized, read_track, signature, write_csv
-from messages import _, register
+from acervo.library import protections
+from acervo.library.core import atomic_json, integrity, previous_album, sha256
+from acervo.library.scan import TEMP_PREFIXES, album_base, normalized, read_track, signature, write_csv
+from acervo.messages import _, register
+from acervo.paths import RULES
 
 register(
     {
@@ -34,9 +35,6 @@ register(
         "Analysis complete": "Análise concluída",
     }
 )
-
-
-BASE = Path(__file__).resolve().parent
 
 
 def rules(path: Path) -> list[dict]:
@@ -143,8 +141,8 @@ def create_plan(
         raise ValueError(_("The library must be a folder and the reports must be kept outside it"))
     if output.exists():
         raise ValueError(_("The output folder already exists; choose another one"))
-    genres = rules(genre_path or BASE / "genre_rules.csv")
-    albums = rules(album_path or BASE / "album_rules.csv") if normalize_albums else []
+    genres = rules(genre_path or RULES / "genre_rules.csv")
+    albums = rules(album_path or RULES / "album_rules.csv") if normalize_albums else []
     files, ignored, errors = [], [], []
 
     def walk_error(error):

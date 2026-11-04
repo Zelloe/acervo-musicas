@@ -1,9 +1,9 @@
 import unittest
 from unittest.mock import patch
 
-import downloader
-from messages import language
-from versions import classify
+from acervo.downloads import downloader
+from acervo.library.versions import classify
+from acervo.messages import language
 
 
 class VersionTest(unittest.TestCase):

@@ -11,9 +11,9 @@ from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from api_contract import to_api
-from server import App, Handler
-from versions import classify
+from acervo.library.versions import classify
+from acervo.web.api_contract import to_api
+from acervo.web.server import App, Handler
 
 
 class VersionHTTPTest(unittest.TestCase):
@@ -153,8 +153,8 @@ class VersionHTTPTest(unittest.TestCase):
             "url": "https://open.spotify.com/track/Fixture",
         }
         with (
-            patch("download_picker.downloader.search_songs", return_value=[song]),
-            patch("download_picker.downloader.download") as download,
+            patch("acervo.downloads.picker.downloader.search_songs", return_value=[song]),
+            patch("acervo.downloads.picker.downloader.download") as download,
         ):
             self.request("/api/download/search", data={"tipo": "musica", "consulta": "Angra"}, status=202)
             self.app.worker.join(5)

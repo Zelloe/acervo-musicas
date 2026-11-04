@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import re
 
-from messages import _, register
-from search import normalize
+from acervo.messages import _, register
+from acervo.search import normalize
 
 KINDS = ("ao_vivo", "acustico", "demo", "remix", "instrumental", "estudio")
 # English source labels; classify() translates them for the current language.

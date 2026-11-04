@@ -15,11 +15,11 @@ from urllib.request import Request, urlopen
 
 from mutagen.id3 import ID3, TALB, TIT2, TPE1
 
-import protections
-from api_contract import to_api
-from library_core import library_lock, metadata_values, sha256
-from library_plan import create_plan
-from server import App, Handler
+from acervo.library import protections
+from acervo.library.core import library_lock, metadata_values, sha256
+from acervo.library.plan import create_plan
+from acervo.web.api_contract import to_api
+from acervo.web.server import App, Handler
 
 
 @unittest.skipUnless(shutil.which("ffmpeg"), "Tests generate temporary audio with ffmpeg")
@@ -222,7 +222,7 @@ class ProtectionHTTPTest(unittest.TestCase):
             return original(*args)
 
         results = []
-        with patch("server.protections.protect", side_effect=slow_save):
+        with patch("acervo.web.server.protections.protect", side_effect=slow_save):
             request = threading.Thread(target=lambda: results.append(self.change()))
             request.start()
             try:
