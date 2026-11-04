@@ -223,18 +223,32 @@ function heading(kicker, title, text, actions = "") {
   return `${breadcrumb(title)}<div class="page-heading"><div><span class="section-kicker">${kicker}</span><h1>${title}</h1><p>${text}</p></div><div class="page-heading-actions">${actions}</div></div>`;
 }
 
+function homeHero(albums) {
+  return `<section class="hero"><div class="hero-copy"><div class="eyebrow">${icon("disc")} ${tr("YOUR PERSONAL LIBRARY")}</div><h1>${tr("Your music.")}<br><span>${tr("Every detail matters.")}</span></h1><p>${tr("A collection with your identity.")}<br>${tr("Find what's missing, review the suggestions and bring everything together.")}</p><div class="hero-actions"><button class="button primary" data-view="review">${tr("Review my collection")} ${icon("arrow")}</button><button class="button secondary" data-view="library">${tr("View library")}</button></div></div><div class="hero-art" aria-hidden="true">${albums
+    .filter((a) => a.has_cover !== false)
+    .map((a) => `<img src="${cover(a.track_id)}" alt="">`)
+    .join("")}</div></section>`;
+}
+
+function homeStats(summary, albumCount) {
+  return `<div class="stat-grid">${statCard(tr("Tracks in your collection"), summary.read_count, "music", `${number(summary.formats?.MP3)} MP3 <span class="green">·</span> ${number(summary.formats?.FLAC)} FLAC`)}${statCard(tr("Albums in your library"), albumCount, "disc", tr("Stories worth listening to"))}${statCard(tr("Missing genres"), summary.missing_fields?.genre, "tag", tr("A collection ready for the finishing touches"), true)}${statCard(tr("Tracks with covers"), summary.with_cover, "image", `<span class="green">${tr("The visual identity of your music")}</span>`)}</div>`;
+}
+
+function homeAlbumShelf(albums) {
+  return `<section class="section"><div class="section-heading"><div><h2>${tr("On your shelf")}</h2><p>${tr("Some of the records that make your collection yours.")}</p></div><button class="text-button" data-view="albums">${tr("View all")} ${icon("arrow")}</button></div><div class="album-grid">${albums.map(albumCard).join("")}</div></section>`;
+}
+
+function homeTracks(tracks, total) {
+  return `<section class="section overview-table"><div class="section-heading"><div><h2>${tr("Tracks in your collection")}</h2><p>${number(total)} ${tr("good reasons to press play.")}</p></div><button class="text-button" data-view="library">${tr("Explore library")} ${icon("arrow")}</button></div>${tracks.length ? trackTable(tracks) : empty(tr("Your library is being prepared"), tr("The first scan may take a few minutes. Follow its progress at the top of the page."))}</section>`;
+}
+
 async function renderHome() {
   const result = await api("/api/library?limit=8");
   state.queue = result.tracks.map((t) => t.id);
   const data = state.summary;
   const sum = data.summary;
   const albums = featuredAlbums();
-  return `${breadcrumb(tr("Overview"))}<section class="hero"><div class="hero-copy"><div class="eyebrow">${icon("disc")} ${tr("YOUR PERSONAL LIBRARY")}</div><h1>${tr("Your music.")}<br><span>${tr("Every detail matters.")}</span></h1><p>${tr("A collection with your identity.")}<br>${tr("Find what's missing, review the suggestions and bring everything together.")}</p><div class="hero-actions"><button class="button primary" data-view="review">${tr("Review my collection")} ${icon("arrow")}</button><button class="button secondary" data-view="library">${tr("View library")}</button></div></div><div class="hero-art" aria-hidden="true">${albums
-    .filter((a) => a.has_cover !== false)
-    .map((a) => `<img src="${cover(a.track_id)}" alt="">`)
-    .join(
-      "",
-    )}</div></section><div class="stat-grid">${statCard(tr("Tracks in your collection"), sum.read_count, "music", `${number(sum.formats?.MP3)} MP3 <span class="green">·</span> ${number(sum.formats?.FLAC)} FLAC`)}${statCard(tr("Albums in your library"), data.album_count, "disc", tr("Stories worth listening to"))}${statCard(tr("Missing genres"), sum.missing_fields?.genre, "tag", tr("A collection ready for the finishing touches"), true)}${statCard(tr("Tracks with covers"), sum.with_cover, "image", `<span class="green">${tr("The visual identity of your music")}</span>`)}</div><section class="section"><div class="section-heading"><div><h2>${tr("On your shelf")}</h2><p>${tr("Some of the records that make your collection yours.")}</p></div><button class="text-button" data-view="albums">${tr("View all")} ${icon("arrow")}</button></div><div class="album-grid">${albums.map(albumCard).join("")}</div></section><section class="section overview-table"><div class="section-heading"><div><h2>${tr("Tracks in your collection")}</h2><p>${number(sum.read_count)} ${tr("good reasons to press play.")}</p></div><button class="text-button" data-view="library">${tr("Explore library")} ${icon("arrow")}</button></div>${result.tracks.length ? trackTable(result.tracks) : empty(tr("Your library is being prepared"), tr("The first scan may take a few minutes. Follow its progress at the top of the page."))}</section>`;
+  return `${breadcrumb(tr("Overview"))}${homeHero(albums)}${homeStats(sum, data.album_count)}${homeAlbumShelf(albums)}${homeTracks(result.tracks, sum.read_count)}`;
 }
 
 function libraryParams() {
@@ -306,6 +320,25 @@ function watchLibraryEnd() {
   state.libraryObserver.observe(end);
 }
 
+function libraryToolbar(filter) {
+  return `<div class="table-toolbar"><div class="tabs">${[
+    ["all", tr("All tracks")],
+    ["missing-genre", tr("Genre missing")],
+    ["flac", "FLAC"],
+    ["versions", tr("Versions and extras")],
+  ]
+    .map(
+      ([key, label]) => `<button class="tab ${filter === key ? "active" : ""}" data-filter="${key}">${label}</button>`,
+    )
+    .join(
+      "",
+    )}</div>${sortControl()}<span class="table-note">${icon("shield")} ${tr("Your original files")}</span></div>`;
+}
+
+function libraryFooter(shown, total) {
+  return `<div class="table-footer"><span id="library-shown">${libraryCount(shown, total)}</span>${shown && shown < total ? `<span id="library-end" role="status">${tr("Loading…")}</span>` : ""}</div>`;
+}
+
 async function renderLibrary() {
   const request = state.request;
   // Reload every page already on screen so a refresh keeps the scroll position.
@@ -320,19 +353,7 @@ async function renderLibrary() {
   const description = searching
     ? `${number(result.total)} ${tr("tracks for “")}${escapeHTML(state.searchLabel || state.search)}${tr("” · results ranked by relevance")}`
     : `${number(result.total)} ${tr("tracks ·")} ${number(state.summary.artist_count)} ${tr("artist credits")}`;
-  return `${heading(tr("YOUR MUSIC, YOUR COLLECTION"), searching ? tr("Search results") : tr("All your tracks"), description, `<button class="button ghost" data-view="lyrics">${icon("lyrics")} ${tr("Lyrics for all tracks")}</button><button class="button ghost" data-action="shuffle-all" ${result.total ? "" : "disabled"}>${icon("shuffle")} ${tr("Shuffle all")}</button><button class="button ghost" data-action="export-playlist" ${state.summary.job?.status === "running" ? "disabled" : ""}>${icon("download")} ${tr("Export M3U8")}</button><button class="button ghost" data-action="analyze">${icon("refresh")} ${tr("Refresh library")}</button>`)}<div class="table-toolbar"><div class="tabs">${[
-    ["all", tr("All tracks")],
-    ["missing-genre", tr("Genre missing")],
-    ["flac", "FLAC"],
-    ["versions", tr("Versions and extras")],
-  ]
-    .map(
-      ([key, label]) =>
-        `<button class="tab ${state.filter === key ? "active" : ""}" data-filter="${key}">${label}</button>`,
-    )
-    .join(
-      "",
-    )}</div>${sortControl()}<span class="table-note">${icon("shield")} ${tr("Your original files")}</span></div>${recordingChips(state.versionFilter, "data-library-version")}${result.tracks.length ? trackTable(result.tracks) : empty(tr("No tracks here"), tr("Try another search or change the filters."), "search")}<div class="table-footer"><span id="library-shown">${libraryCount(result.tracks.length, result.total)}</span>${result.tracks.length && result.tracks.length < result.total ? `<span id="library-end" role="status">${tr("Loading…")}</span>` : ""}</div>`;
+  return `${heading(tr("YOUR MUSIC, YOUR COLLECTION"), searching ? tr("Search results") : tr("All your tracks"), description, `<button class="button ghost" data-view="lyrics">${icon("lyrics")} ${tr("Lyrics for all tracks")}</button><button class="button ghost" data-action="shuffle-all" ${result.total ? "" : "disabled"}>${icon("shuffle")} ${tr("Shuffle all")}</button><button class="button ghost" data-action="export-playlist" ${state.summary.job?.status === "running" ? "disabled" : ""}>${icon("download")} ${tr("Export M3U8")}</button><button class="button ghost" data-action="analyze">${icon("refresh")} ${tr("Refresh library")}</button>`)}${libraryToolbar(state.filter)}${recordingChips(state.versionFilter, "data-library-version")}${result.tracks.length ? trackTable(result.tracks) : empty(tr("No tracks here"), tr("Try another search or change the filters."), "search")}${libraryFooter(result.tracks.length, result.total)}`;
 }
 
 function filteredProposals() {
