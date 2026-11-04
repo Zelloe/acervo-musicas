@@ -23,6 +23,8 @@ jobs:
         run: ruff check .
       - name: Check formatting
         run: ruff format --check .
+      - name: Check interface formatting
+        run: npx --yes prettier@3.3.3 --check "src/acervo/web/static/*.js" src/acervo/web/static/style.css
 
   tests:
     runs-on: ubuntu-latest

@@ -34,6 +34,7 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v
 .venv/bin/pip install "ruff==0.17.3"
 .venv/bin/ruff check .
 .venv/bin/ruff format .
+npx prettier@3.3.3 --write "src/acervo/web/static/*.js" src/acervo/web/static/style.css
 ```
 
 A interface é HTML, CSS e JavaScript puros, sem npm e sem etapa de compilação.

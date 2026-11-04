@@ -3,61 +3,66 @@
 const portugueseMessages = {
   "Keyboard shortcuts": "Atalhos de teclado",
   "They work anywhere except while typing.": "Funcionam em qualquer tela, menos enquanto você digita.",
-  "Space": "Espaço",
+  Space: "Espaço",
   "Play or pause": "Tocar ou pausar",
   "Back or forward 5 seconds": "Voltar ou avançar 5 segundos",
-  "Volume": "Volume",
-  "Mute": "Sem som",
-  "Muted": "Som desligado",
+  Volume: "Volume",
+  Mute: "Sem som",
+  Muted: "Som desligado",
   "Sound on": "Som ligado",
   "Change music folder": "Trocar pasta de músicas",
   "Choose your music folder": "Escolha sua pasta de músicas",
-  "Acervo reads this folder. Nothing is moved or renamed, and this browser remembers your choice.": "O Acervo lê esta pasta. Nada é movido nem renomeado, e este navegador lembra da sua escolha.",
+  "Acervo reads this folder. Nothing is moved or renamed, and this browser remembers your choice.":
+    "O Acervo lê esta pasta. Nada é movido nem renomeado, e este navegador lembra da sua escolha.",
   "Opening another folder stops the current track.": "Abrir outra pasta interrompe a faixa atual.",
   "Folder path": "Caminho da pasta",
-  "Go": "Ir",
+  Go: "Ir",
   "Parent folder": "Pasta acima",
   "No subfolders here": "Nenhuma subpasta aqui",
   "Open this folder": "Abrir esta pasta",
   "Opening…": "Abrindo…",
-  "The folder you used last time is not available. Opening the default one.": "A pasta usada da última vez não está disponível. Abrindo a pasta padrão.",
+  "The folder you used last time is not available. Opening the default one.":
+    "A pasta usada da última vez não está disponível. Abrindo a pasta padrão.",
   "Global catalog": "Catálogo global",
   "Start with an artist, album or track": "Comece por um artista, álbum ou música",
   "No artists found": "Nenhum artista encontrado",
-  "Discography": "Discografia",
+  Discography: "Discografia",
   "Download queue": "Fila de downloads",
-  "Downloads run one at a time. You can keep browsing. Keep Acervo open until the queue finishes.": "Os downloads são feitos um por vez. Você pode continuar navegando. Mantenha o Acervo aberto até a fila terminar.",
+  "Downloads run one at a time. You can keep browsing. Keep Acervo open until the queue finishes.":
+    "Os downloads são feitos um por vez. Você pode continuar navegando. Mantenha o Acervo aberto até a fila terminar.",
   "Your download queue is empty.": "Sua fila de downloads está vazia.",
   "Add to queue (": "Adicionar à fila (",
   "Added to the download queue.": "Adicionado à fila de downloads.",
-  "Waiting": "Aguardando",
-  "Remove": "Remover",
-  "Unverified": "Não confirmado",
+  Waiting: "Aguardando",
+  Remove: "Remover",
+  Unverified: "Não confirmado",
   "Sort by": "Ordenar por",
   "Default order": "Ordem padrão",
-  "Duration": "Duração",
+  Duration: "Duração",
   "Date modified": "Data de modificação",
   "Ascending order": "Ordem crescente",
   "Descending order": "Ordem decrescente",
-  "Shuffle": "Aleatório",
+  Shuffle: "Aleatório",
   "Shuffle all": "Tocar em aleatório",
   "Shuffle: on": "Aleatório: ligado",
   "Shuffle: off": "Aleatório: desligado",
-  "Repeat": "Repetir",
+  Repeat: "Repetir",
   "Repeat: off": "Repetir: desligado",
   "Repeat: all": "Repetir: todas",
   "Repeat: one": "Repetir: uma",
   "Now playing": "Tocando agora",
   "NOW PLAYING": "TOCANDO AGORA",
   "Close now playing": "Fechar tocando agora",
-  "Queue": "Fila",
+  Queue: "Fila",
   "Up next": "A seguir",
   "Nothing else in the queue": "Nada mais na fila",
   "and {count} more": "e mais {count}",
   "Full screen": "Tela inteira",
   "Exit full screen": "Sair da tela inteira",
-  ". Additions can also be undone: the file will be stored outside the library. Review the changes below.": ". As adições também podem ser desfeitas: o arquivo será guardado fora da biblioteca. Confira as mudanças abaixo.",
-  ". You can then restore this operation from History.": ". Depois, você poderá restaurar esta execução pelo histórico.",
+  ". Additions can also be undone: the file will be stored outside the library. Review the changes below.":
+    ". As adições também podem ser desfeitas: o arquivo será guardado fora da biblioteca. Confira as mudanças abaixo.",
+  ". You can then restore this operation from History.":
+    ". Depois, você poderá restaurar esta execução pelo histórico.",
   "· search:": "· busca:",
   "· DISC": "· DISCO",
   "· download preview": "· prévia do download",
@@ -67,27 +72,32 @@ const portugueseMessages = {
   "2 · LISTEN AND REVIEW": "2 · OUVIR E REVISAR",
   "You can still browse and play your library.": "A consulta e a reprodução da biblioteca continuam disponíveis.",
   "The visual identity of your music": "A identidade visual da sua música",
-  "Connection lost. Check that the app is still running.": "A interface perdeu a conexão. Verifique se o programa continua aberto.",
+  "Connection lost. Check that the app is still running.":
+    "A interface perdeu a conexão. Verifique se o programa continua aberto.",
   "The playlist will be saved in": "A playlist ficará na pasta",
-  "The first scan may take a few minutes. Follow its progress at the top of the page.": "A primeira análise pode levar alguns minutos. Você acompanha o progresso no topo da página.",
+  "The first scan may take a few minutes. Follow its progress at the top of the page.":
+    "A primeira análise pode levar alguns minutos. Você acompanha o progresso no topo da página.",
   "Your next track awaits.": "A próxima faixa é sua.",
   "YOUR RECORD SHELF, DUST FREE": "A SUA ESTANTE, SEM POEIRA",
-  "The previous version will be backed up. To keep both in your collection, go back and choose another name.": "A versão anterior será guardada em backup. Para manter as duas na coleção, volte e escolha outro nome.",
+  "The previous version will be backed up. To keep both in your collection, go back and choose another name.":
+    "A versão anterior será guardada em backup. Para manter as duas na coleção, volte e escolha outro nome.",
   "YYYY or YYYY-MM-DD": "AAAA ou AAAA-MM-DD",
   "Acervo — Your music library": "Acervo — Sua biblioteca musical",
   "Acervo, home": "Acervo, início",
-  "Review your changes and restore files from an earlier operation.": "Acompanhe suas alterações e restaure os arquivos de uma execução.",
-  "Acoustic": "Acústico",
+  "Review your changes and restore files from an earlier operation.":
+    "Acompanhe suas alterações e restaure os arquivos de uma execução.",
+  Acoustic: "Acústico",
   "Add to library": "Adicionar à biblioteca",
   "Add as another version": "Adicionar como outra versão",
   "Add new file": "Adicionar novo arquivo",
-  "Wait for the current operation to finish before starting another search.": "Aguarde a operação atual terminar para iniciar outra busca.",
+  "Wait for the current operation to finish before starting another search.":
+    "Aguarde a operação atual terminar para iniciar outra busca.",
   "A few tracks need a closer look.": "Ainda falta conhecer melhor.",
-  "Album": "Álbum",
-  "ALBUM": "ÁLBUM",
+  Album: "Álbum",
+  ALBUM: "ÁLBUM",
   "Album not specified": "Álbum não informado",
   "Album:": "Álbum:",
-  "Albums": "Álbuns",
+  Albums: "Álbuns",
   "albums · editions shown as they appear in your files": "álbuns · edições exibidas como estão nos seus arquivos",
   "Full albums, new tracks and genres in your files.": "Álbuns inteiros, faixas novas e gêneros nos seus arquivos.",
   "Albums in your library": "Álbuns na biblioteca",
@@ -99,46 +109,48 @@ const portugueseMessages = {
   "Scanning library…": "Analisando biblioteca…",
   "Scan library again": "Analisar biblioteca novamente",
   "Scan started. Follow its progress at the top.": "Análise iniciada. Acompanhe o progresso no topo.",
-  "Year": "Ano",
+  Year: "Ano",
   "Year / date": "Ano / data",
   "Year missing": "Ano pendente",
-  "Previous": "Anterior",
+  Previous: "Anterior",
   "When approved": "Ao aprovar",
-  "Live": "Ao vivo",
+  Live: "Ao vivo",
   "Apply only the suggested tags": "Aplicar somente as tags sugeridas",
   "Approve each change": "Aprovação por alteração",
-  "Approve": "Aprovar",
+  Approve: "Aprovar",
   "Approve these additions and changes?": "Aprovar a entrada na coleção?",
   "Archive additions and restore": "Arquivar adições e restaurar",
-  "File": "Arquivo",
+  File: "Arquivo",
   "Local file to change": "Arquivo local a alterar",
-  "files became unavailable while saving. Check your collection.": "arquivos ficaram indisponíveis durante a gravação. Confira a coleção.",
+  "files became unavailable while saving. Check your collection.":
+    "arquivos ficaram indisponíveis durante a gravação. Confira a coleção.",
   "files. Review your selection before continuing.": "arquivos. Confira a seleção antes de continuar.",
-  "Artist": "Artista",
+  Artist: "Artista",
   "Album artist": "Artista do álbum",
-  "Artists": "Artistas",
+  Artists: "Artistas",
   "Changes are blocked until this file is fixed.": "As alterações ficam bloqueadas até corrigir esse arquivo.",
-  "Local suggestions are stored in genre_rules.csv. Genres already present in your files are preserved.": "As propostas locais ficam em genre_rules.csv. Gêneros que já existem nos arquivos são preservados.",
+  "Local suggestions are stored in genre_rules.csv. Genres already present in your files are preserved.":
+    "As propostas locais ficam em genre_rules.csv. Gêneros que já existem nos arquivos são preservados.",
   "CURRENT → SUGGESTED": "ATUAL → SUGERIDO",
   "metadata update": "atualização de metadados",
   "Refresh library": "Atualizar biblioteca",
   "Update metadata only": "Atualizar somente metadados",
-  "Audio": "Áudio",
+  Audio: "Áudio",
   "Audio is not available yet.": "Áudio ainda não disponível.",
   "ORIGINAL AUDIO": "ÁUDIO ORIGINAL",
   "Audio ready": "Áudio pronto",
-  "Automatic": "Automática",
+  Automatic: "Automática",
   "full backup": "backup completo",
   "Full backup of existing files:": "Backup completo dos arquivos existentes:",
   "downloaded ·": "baixadas ·",
-  "Downloading": "Baixando",
-  "Download": "Baixar",
+  Downloading: "Baixando",
+  Download: "Baixar",
   "Download missing tracks only": "Baixar apenas o que estiver faltando",
   "Download music": "Baixar músicas",
   "Download for review": "Baixar para revisão",
   "Download selection": "Baixar seleção",
   "Download selected (": "Baixar selecionadas (",
-  "Library": "Biblioteca",
+  Library: "Biblioteca",
   "Current library": "Biblioteca atual",
   "Local library": "Biblioteca local",
   "PERSONAL LIBRARY": "BIBLIOTECA PESSOAL",
@@ -146,7 +158,7 @@ const portugueseMessages = {
   "Finding lyrics…": "Buscando letra…",
   "Searching your library…": "Buscando na sua biblioteca…",
   "Finding suggestions in the global catalog…": "Buscando sugestões no catálogo global…",
-  "Search": "Buscar",
+  Search: "Buscar",
   "Search tracks in the global catalog": "Buscar músicas no catálogo global",
   "Search tracks or artists in the global catalog": "Buscar músicas ou artistas no catálogo global",
   "Search tracks, artists or albums": "Buscar músicas, artistas ou álbuns",
@@ -155,36 +167,43 @@ const portugueseMessages = {
   "EVERY CHANGE HAS A WAY BACK": "CADA MUDANÇA TEM UM CAMINHO DE VOLTA",
   "Path to an existing folder": "Caminho de uma pasta existente",
   "paths checked.": "caminhos conferidos.",
-  "FIELD": "CAMPO",
-  "Field unlocked. Scan the library again for new suggestions.": "Campo desbloqueado. Atualize a análise para gerar novas sugestões.",
+  FIELD: "CAMPO",
+  "Field unlocked. Scan the library again for new suggestions.":
+    "Campo desbloqueado. Atualize a análise para gerar novas sugestões.",
   "Field protected. Acervo will preserve this value.": "Campo protegido. O Acervo preservará esse valor.",
   "Fields unlocked for this album's tracks.": "Campos desbloqueados nas faixas deste álbum.",
   "Protected fields": "Campos protegidos",
   "Fields protected for all tracks in this album.": "Campos protegidos em todas as faixas deste álbum.",
   "Protected fields unavailable.": "Campos protegidos indisponíveis.",
-  "Protected fields preserve your choices, even when empty. This applies to the album's current tracks and remains in local preferences until unlocked. New tracks need their own protection.": "Campos protegidos mantêm suas escolhas, mesmo quando estão vazios. A ação vale para as faixas atuais deste álbum e fica nas preferências locais até você desbloquear. Novas faixas precisam de proteção própria.",
-  "Canceled": "Cancelado",
-  "Cancellation requested. Your original files are still preserved.": "Cancelamento solicitado. Os arquivos originais continuam preservados.",
-  "Cancel": "Cancelar",
+  "Protected fields preserve your choices, even when empty. This applies to the album's current tracks and remains in local preferences until unlocked. New tracks need their own protection.":
+    "Campos protegidos mantêm suas escolhas, mesmo quando estão vazios. A ação vale para as faixas atuais deste álbum e fica nas preferências locais até você desbloquear. Novas faixas precisam de proteção própria.",
+  Canceled: "Cancelado",
+  "Cancellation requested. Your original files are still preserved.":
+    "Cancelamento solicitado. Os arquivos originais continuam preservados.",
+  Cancel: "Cancelar",
   "Cancel download": "Cancelar download",
   "Cover of": "Capa de",
   "Album cover": "Capa do álbum",
-  "Covers": "Capas",
+  Covers: "Capas",
   "Tracks with covers": "Capas presentes",
   "Loading your collection…": "Carregando sua coleção…",
   "Loading…": "Carregando…",
   "Catalog ready": "Catálogo pronto",
-  "Compilation": "Coletânea",
+  Compilation: "Coletânea",
   "with a local match ·": "com correspondência local ·",
-  "failed": "com erro",
-  "Start with the catalog. You decide what joins your collection.": "Comece pelo catálogo. Você decide o que entra na coleção.",
-  "Completed": "Concluída",
-  "Done": "Concluir",
+  failed: "com erro",
+  "Start with the catalog. You decide what joins your collection.":
+    "Comece pelo catálogo. Você decide o que entra na coleção.",
+  Completed: "Concluída",
+  Done: "Concluir",
   "Review playlist": "Conferir a playlist",
-  "Check the preferences file shown above. Changes remain blocked until it can be read again.": "Confira o arquivo de preferências indicado. Alterações ficam bloqueadas até que ele possa ser lido novamente.",
-  "Check the credits, genre and version. Matches use tags and duration; audio fingerprint matching is not available yet.": "Confira os créditos, o gênero e a versão. As correspondências usam tags e duração; ainda não há confirmação por impressão digital.",
+  "Check the preferences file shown above. Changes remain blocked until it can be read again.":
+    "Confira o arquivo de preferências indicado. Alterações ficam bloqueadas até que ele possa ser lido novamente.",
+  "Check the credits, genre and version. Matches use tags and duration; audio fingerprint matching is not available yet.":
+    "Confira os créditos, o gênero e a versão. As correspondências usam tags e duração; ainda não há confirmação por impressão digital.",
   "Explore suggestions": "Conhecer as sugestões",
-  "Looks up artist and album names. Suggestions always require your approval. No audio files are uploaded.": "Consulta nomes de artista e álbum. As sugestões sempre passam pela sua aprovação. Nenhum arquivo de áudio é enviado.",
+  "Looks up artist and album names. Suggestions always require your approval. No audio files are uploaded.":
+    "Consulta nomes de artista e álbum. As sugestões sempre passam pela sua aprovação. Nenhum arquivo de áudio é enviado.",
   "Looking up": "Consultando",
   "Looking up the catalog and comparing it with your library…": "Consultando o catálogo e comparando com a biblioteca…",
   "Look up and compare": "Consultar e comparar",
@@ -198,45 +217,52 @@ const portugueseMessages = {
   "Creating backups and preparing approved files…": "Criando backups e preparando os arquivos aprovados…",
   "Back up and apply": "Criar backup e aplicar",
   "Back up and approve": "Criar backup e aprovar",
-  "in your collection, using relative paths. To use another drive, copy your collection together with this folder.": "da coleção, com caminhos relativos. Para usar em outro disco, copie a coleção junto com essa pasta.",
+  "in your collection, using relative paths. To use another drive, copy your collection together with this folder.":
+    "da coleção, com caminhos relativos. Para usar em outro disco, copie a coleção junto com essa pasta.",
   "album suggestions, ready for review.": "de álbum, esperando sua revisão.",
   "Demo / Remix": "Demo / Remix",
-  "Unlock": "Desbloquear",
-  "Find what's missing, review the suggestions and bring everything together.": "Descubra o que falta, revise e deixe tudo em harmonia.",
+  Unlock: "Desbloquear",
+  "Find what's missing, review the suggestions and bring everything together.":
+    "Descubra o que falta, revise e deixe tudo em harmonia.",
   "DISCOVER, COMPLETE, ORGANIZE": "DESCUBRA, COMPLETE, UNIFIQUE",
   "Undo this import?": "Desfazer esta importação?",
   "Undo import": "Desfazer importação",
-  "Destination": "Destino",
+  Destination: "Destino",
   "Lookup or download details.": "Detalhes da consulta ou download.",
-  "Disc": "Disco",
+  Disc: "Disco",
   "Records that tell stories.": "Discos que contam histórias.",
-  "available": "disponível",
+  available: "disponível",
   "From file": "Do arquivo",
   "Make it yours.": "Do seu jeito.",
-  "Download started outside your library. You can listen before approving.": "Download iniciado fora da biblioteca. Você poderá ouvir antes de aprovar.",
+  "Download started outside your library. You can listen before approving.":
+    "Download iniciado fora da biblioteca. Você poderá ouvir antes de aprovar.",
   "Download started in the selected folder.": "Download iniciado na pasta escolhida.",
   "Advanced downloads with review and import": "Downloads avançados com revisão e importação",
   "Downloads and metadata": "Downloads e metadados",
   "Downloads stay outside your collection until approved.": "Downloads permanecem fora da coleção até a aprovação.",
   "downloads ready": "downloads prontos",
-  "And": "E mais",
+  And: "E mais",
   "Previous edition preserved in a separate tag": "Edição anterior preservada em tag própria",
-  "Later edits to imported files prevent restoration. Entries that were never imported are preserved and may produce notices.": "Edições posteriores em arquivos já importados impedem a restauração. Entradas que não chegaram a ser importadas serão preservadas e podem gerar avisos.",
+  "Later edits to imported files prevent restoration. Entries that were never imported are preserved and may produce notices.":
+    "Edições posteriores em arquivos já importados impedem a restauração. Entradas que não chegaram a ser importadas serão preservadas e podem gerar avisos.",
   "In progress": "Em andamento",
-  "Find the album, choose the edition and download only the tracks you want.": "Encontre o álbum, escolha a edição e baixe só as faixas que quiser.",
+  "Find the album, choose the edition and download only the tracks you want.":
+    "Encontre o álbum, escolha a edição e baixe só as faixas que quiser.",
   "Choose an action for the tracks you want to approve.": "Escolha a ação das faixas que deseja aprovar.",
   "Choose an edition": "Escolha a edição",
   "Choose a version…": "Escolha a versão…",
   "CHOOSE WHAT TO LISTEN TO": "ESCOLHA O QUE QUER OUVIR",
-  "Choose to replace the existing playlist, or go back and change its name.": "Escolha substituir a playlist existente ou volte e altere o nome.",
+  "Choose to replace the existing playlist, or go back and change its name.":
+    "Escolha substituir a playlist existente ou volte e altere o nome.",
   "Choose All or another recording type.": "Escolha Todos ou outro tipo de gravação.",
   "Choose an album": "Escolha um álbum",
   "Choose a track": "Escolha uma música",
   "Choose a track from your collection": "Escolha uma música da coleção",
   "Preserved choices": "Escolhas preservadas",
   "Protection status unavailable": "Estado da proteção indisponível",
-  "These tracks were preserved. You can enable MusicBrainz and scan again.": "Estas faixas foram preservadas. Você pode ativar a consulta ao MusicBrainz e analisar novamente.",
-  "Studio": "Estúdio",
+  "These tracks were preserved. You can enable MusicBrainz and scan again.":
+    "Estas faixas foram preservadas. Você pode ativar a consulta ao MusicBrainz e analisar novamente.",
+  Studio: "Estúdio",
   "E.g. Faith No More": "Ex.: Faith No More",
   "E.g. Pink Floyd Time": "Ex.: Pink Floyd Time",
   "Operation started. Backups come first.": "Execução iniciada. O backup vem primeiro.",
@@ -246,10 +272,11 @@ const portugueseMessages = {
   "Export M3U8 for": "Exportar M3U8 de",
   "Export M3U8 playlist": "Exportar playlist M3U8",
   "Export preview": "Exportar prévia",
-  "Track": "Faixa",
-  "TRACK": "FAIXA",
+  Track: "Faixa",
+  TRACK: "FAIXA",
   "Previous track": "Faixa anterior",
-  "Track is outside the current inventory. Refresh the library to check its path.": "Faixa fora do inventário atual. Atualize a biblioteca para conferir o caminho.",
+  "Track is outside the current inventory. Refresh the library to check its path.":
+    "Faixa fora do inventário atual. Atualize a biblioteca para conferir o caminho.",
   "Instrumental track — no lyrics.": "Faixa instrumental — sem letra.",
   "tracks ·": "faixas ·",
   "tracks with preserved choices.": "faixas com escolhas preservadas.",
@@ -259,34 +286,35 @@ const portugueseMessages = {
   "tracks ordered by artist, album, disc and track number.": "faixas em ordem de artista, álbum, disco e faixa.",
   "tracks in your library": "faixas na biblioteca",
   "tracks for “": "faixas para “",
-  "Failed": "Falhou",
-  "Close": "Fechar",
+  Failed: "Falhou",
+  Close: "Fechar",
   "Close lyrics": "Fechar letra",
   "MADE FOR YOUR COLLECTION": "FEITO PARA A SUA COLEÇÃO",
   "Made for those who love listening to the whole album.": "Feito para quem gosta de ouvir o álbum inteiro.",
-  "Tool": "Ferramenta",
+  Tool: "Ferramenta",
   "Source:": "Fonte:",
-  "Format": "Formato",
-  "FORMAT": "FORMATO",
-  "Genre": "Gênero",
-  "GENRE": "GÊNERO",
+  Format: "Formato",
+  FORMAT: "FORMATO",
+  Genre: "Gênero",
+  GENRE: "GÊNERO",
   "Genre missing": "Gênero pendente",
   "Genre:": "Gênero:",
-  "Genres": "Gêneros",
+  Genres: "Gêneros",
   "Missing genres": "Gêneros pendentes",
   "Stories worth listening to": "Histórias que merecem ser ouvidas",
-  "History": "Histórico",
+  History: "Histórico",
   "Collection history": "Histórico da coleção",
   "images preserved": "imagens preservadas",
   "download import": "importação de downloads",
-  "Imported": "Importado",
-  "Enter your contact information to identify the MusicBrainz client.": "Informe seu contato para identificar o cliente MusicBrainz.",
+  Imported: "Importado",
+  "Enter your contact information to identify the MusicBrainz client.":
+    "Informe seu contato para identificar o cliente MusicBrainz.",
   "Enter a valid contact email or URL.": "Informe um e-mail ou URL real de contato.",
-  "Interrupted": "Interrompida",
+  Interrupted: "Interrompida",
   "Already in folder": "Já existe na pasta",
   "already present ·": "já existiam ·",
-  "Lyrics": "Letra",
-  "LYRICS": "LETRA",
+  Lyrics: "Letra",
+  LYRICS: "LETRA",
   "No lyrics found for this track.": "Letra não encontrada para esta faixa.",
   "Unsynced lyrics": "Letra sem sincronização",
   "Synced lyrics": "Letra sincronizada",
@@ -306,12 +334,13 @@ const portugueseMessages = {
   "selected in other filters": "marcadas em outros filtros",
   "Select tracks": "Marque as faixas",
   "Less clutter.": "Menos bagunça.",
-  "Metadata read from your file. Protect fields to preserve your choices.": "Metadados lidos do seu arquivo. Proteja campos para preservar suas escolhas.",
+  "Metadata read from your file. Protect fields to preserve your choices.":
+    "Metadados lidos do seu arquivo. Proteja campos para preservar suas escolhas.",
   "My selection": "Minha seleção",
   "Show lyrics": "Mostrar letra",
   "MP3 · output bitrate": "MP3 · taxa de saída",
   "Track or artist": "Música ou artista",
-  "Tracks": "Músicas",
+  Tracks: "Músicas",
   "tracks without a reliable genre suggestion.": "músicas sem uma sugestão de gênero segura.",
   "MusicBrainz · review": "MusicBrainz · revisão",
   "On your shelf": "Na sua estante",
@@ -324,11 +353,13 @@ const portugueseMessages = {
   "Could not complete the operation.": "Não foi possível concluir a operação.",
   "Could not read field protections": "Não foi possível ler as proteções",
   "Could not play this file in the browser.": "Não foi possível reproduzir este arquivo no navegador.",
-  "No suggestions for this filter. You can also check tracks without suggestions.": "Não há sugestões para este filtro. Confira também a lista de músicas sem sugestão.",
+  "No suggestions for this filter. You can also check tracks without suggestions.":
+    "Não há sugestões para este filtro. Confira também a lista de músicas sem sugestão.",
   "not installed": "não instalado",
   "Main navigation": "Navegação principal",
   "No albums found": "Nenhum álbum encontrado",
-  "No fields protected. Open a track's details or use an album's lock button to preserve your choices.": "Nenhum campo protegido. Abra os detalhes de uma faixa ou use o cadeado de um álbum para preservar suas escolhas.",
+  "No fields protected. Open a track's details or use an album's lock button to preserve your choices.":
+    "Nenhum campo protegido. Abra os detalhes de uma faixa ou use o cadeado de um álbum para preservar suas escolhas.",
   "No results": "Nenhum resultado",
   "No tracks here": "Nenhuma faixa por aqui",
   "No pending tracks in this filter": "Nenhuma música pendente neste filtro",
@@ -340,33 +371,42 @@ const portugueseMessages = {
   "Similar names": "Nomes semelhantes",
   "New track": "Nova faixa",
   "New file:": "Novo arquivo:",
-  "Acervo has been updated. Restart the server and reload this page to finish updating.": "O Acervo foi atualizado. Reinicie o servidor e recarregue esta página para concluir a atualização.",
-  "The backup and undo option are in History. Prepare a new preview for further changes.": "O backup e a opção de desfazer estão no Histórico. Para outras alterações, prepare uma nova prévia.",
-  "The previous album name will be preserved in a separate tag.": "O nome anterior do álbum será preservado em uma tag própria.",
+  "Acervo has been updated. Restart the server and reload this page to finish updating.":
+    "O Acervo foi atualizado. Reinicie o servidor e recarregue esta página para concluir a atualização.",
+  "The backup and undo option are in History. Prepare a new preview for further changes.":
+    "O backup e a opção de desfazer estão no Histórico. Para outras alterações, prepare uma nova prévia.",
+  "The previous album name will be preserved in a separate tag.":
+    "O nome anterior do álbum será preservado em uma tag própria.",
   "What would you like to do?": "O que deseja fazer?",
-  "spotDL uses Spotify as a catalog and finds audio on YouTube. The output bitrate does not improve source quality. New files will be MP3; an existing FLAC can receive tags but will not be replaced with MP3.": "O spotDL usa o Spotify como catálogo e busca o áudio no YouTube. A taxa de saída não melhora a qualidade da fonte. Novos arquivos serão MP3; um FLAC existente pode receber tags, mas não será substituído por MP3.",
+  "spotDL uses Spotify as a catalog and finds audio on YouTube. The output bitrate does not improve source quality. New files will be MP3; an existing FLAC can receive tags but will not be replaced with MP3.":
+    "O spotDL usa o Spotify como catálogo e busca o áudio no YouTube. A taxa de saída não melhora a qualidade da fonte. Novos arquivos serão MP3; um FLAC existente pode receber tags, mas não será substituído por MP3.",
   "Where to search": "Onde pesquisar",
-  "operations selected. Only this confirmation changes your library.": "operações selecionadas. Só esta confirmação modifica sua biblioteca.",
-  "SOURCE": "ORIGEM",
-  "originals backed up · additions can be archived when undoing": "originais com backup · adições podem ser arquivadas ao desfazer",
-  "Added files will be archived outside your collection. Replacements and tag changes will be restored from backups.": "Os arquivos adicionados serão arquivados fora da coleção. Substituições e alterações de tags voltarão aos backups.",
-  "Files from this operation will be restored exactly from the backup.": "Os arquivos desta execução voltarão exatamente ao estado do backup.",
-  "Files go directly to the selected folder. Existing files are preserved. The MP3 bitrate does not improve source quality.": "Os arquivos vão direto para a pasta escolhida. Arquivos existentes são preservados. A taxa do MP3 não melhora a qualidade da fonte.",
+  "operations selected. Only this confirmation changes your library.":
+    "operações selecionadas. Só esta confirmação modifica sua biblioteca.",
+  SOURCE: "ORIGEM",
+  "originals backed up · additions can be archived when undoing":
+    "originais com backup · adições podem ser arquivadas ao desfazer",
+  "Added files will be archived outside your collection. Replacements and tag changes will be restored from backups.":
+    "Os arquivos adicionados serão arquivados fora da coleção. Substituições e alterações de tags voltarão aos backups.",
+  "Files from this operation will be restored exactly from the backup.":
+    "Os arquivos desta execução voltarão exatamente ao estado do backup.",
+  "Files go directly to the selected folder. Existing files are preserved. The MP3 bitrate does not improve source quality.":
+    "Os arquivos vão direto para a pasta escolhida. Arquivos existentes são preservados. A taxa do MP3 não melhora a qualidade da fonte.",
   "Track details": "Os detalhes da faixa",
-  "Listen": "Ouvir",
+  Listen: "Ouvir",
   "Listen to download": "Ouvir download",
   "To restore the playlist": "Para restaurar a playlist",
   "To move to another drive": "Para transportar",
   "Existing folder for new tracks": "Pasta existente para novas faixas",
   "Save to folder": "Pasta para salvar",
-  "Pause": "Pausar",
+  Pause: "Pausar",
   "Playlist saved": "Playlist salva",
   "By artist": "Por artista",
   "By link": "Por link",
   "By track": "Por música",
   "Playback position": "Posição da música",
   "Needs attention": "Precisa de atenção",
-  "Preferences": "Preferências",
+  Preferences: "Preferências",
   "Preferences for the next library scan.": "Preferências para a próxima análise da coleção.",
   "Preferences saved for the next scan.": "Preferências salvas para a próxima análise.",
   "Preparing backup": "Preparando backup",
@@ -374,22 +414,23 @@ const portugueseMessages = {
   "Catalog preview": "Prévia do catálogo",
   "Ready for review": "Pronto para revisão",
   "Also suggest replacing existing genres": "Propor também a troca de gêneros já preenchidos",
-  "Protect": "Proteger",
+  Protect: "Proteger",
   "Protect field": "Proteger campo",
   "Protect fields": "Proteger campos",
   "Protect fields for": "Proteger campos de",
   "Protect album fields": "Proteger campos do álbum",
   "Protected · unlock": "Protegido · desbloquear",
-  "Next": "Próxima",
+  Next: "Próxima",
   "Next track": "Próxima faixa",
-  "Backups and records will appear here when you apply your first changes. Until then, your files stay as they are.": "Quando você aplicar as primeiras alterações, os backups e os registros aparecerão aqui. Até lá, seus arquivos seguem como estão.",
+  "Backups and records will appear here when you apply your first changes. Until then, your files stay as they are.":
+    "Quando você aplicar as primeiras alterações, os backups e os registros aparecerão aqui. Até lá, seus arquivos seguem como estão.",
   "Lookup log": "Registro da consulta",
   "Tool log": "Registro da ferramenta",
   "Editable genre rules": "Regras de gênero editáveis",
   "Music player": "Reprodutor de música",
-  "Play": "Reproduzir",
-  "Restored": "Restaurada",
-  "Restore": "Restaurar",
+  Play: "Reproduzir",
+  Restored: "Restaurada",
+  Restore: "Restaurar",
   "Restore files": "Restaurar arquivos",
   "Download results": "Resultado dos downloads",
   "Search results": "Resultados da busca",
@@ -401,20 +442,23 @@ const portugueseMessages = {
   "Save directly to": "Salvar diretamente em",
   "Save playlist": "Salvar playlist",
   "Save preferences": "Salvar preferências",
-  "If any file was edited after this operation, restoration will be refused to preserve those changes.": "Se algum arquivo recebeu outras edições depois desta execução, a restauração será recusada para preservar essas mudanças.",
+  "If any file was edited after this operation, restoration will be refused to preserve those changes.":
+    "Se algum arquivo recebeu outras edições depois desta execução, a restauração será recusada para preservar essas mudanças.",
   "Follow playback": "Seguir reprodução",
   "selected in this filter": "selecionadas neste filtro",
-  "Select": "Selecionar",
+  Select: "Selecionar",
   "Select changes on this page": "Selecionar alterações desta página",
   "Select new visible tracks": "Selecionar novas visíveis",
   "Select for download": "Selecionar para download",
   "Select visible tracks": "Selecionar visíveis",
   "Select at least one track to download.": "Selecione ao menos uma faixa para baixar.",
-  "Select the changes that make sense. Each operation includes a full backup.": "Selecione as alterações que fazem sentido. Cada aplicação inclui um backup completo.",
+  "Select the changes that make sense. Each operation includes a full backup.":
+    "Selecione as alterações que fazem sentido. Cada aplicação inclui um backup completo.",
   "Select the fields to protect or unlock.": "Selecione os campos que deseja proteger ou desbloquear.",
-  "Select at least one visible track in this filter to download.": "Selecione pelo menos uma faixa visível neste filtro para baixar.",
+  "Select at least one visible track in this filter to download.":
+    "Selecione pelo menos uma faixa visível neste filtro para baixar.",
   "Year unknown": "Sem ano",
-  "Unclassified": "Sem classificação",
+  Unclassified: "Sem classificação",
   "No suggestion ·": "Sem sugestão ·",
   "No suggestions. Press Enter to search tracks.": "Sem sugestões. Pressione Enter para buscar músicas.",
   "A full backup will be created:": "Será criado um backup completo de",
@@ -445,15 +489,18 @@ const portugueseMessages = {
   "filtered suggestions": "sugestões filtradas",
   "Try again": "Tentar novamente",
   "Try another search or paste a Spotify link.": "Tente outra busca ou cole um link do Spotify.",
-  "Try another search or check the available suggestions.": "Tente outro termo de busca ou confira as sugestões disponíveis.",
+  "Try another search or check the available suggestions.":
+    "Tente outro termo de busca ou confira as sugestões disponíveis.",
   "Try another search or change the filters.": "Tente outro termo de busca ou mude os filtros.",
   "Recording type": "Tipo de gravação",
-  "Type estimated from track and album names and, for albums, checked on MusicBrainz when possible; check the edition when no type is specified.": "Tipo estimado pelos nomes da faixa e do álbum e, nos álbuns, conferido no MusicBrainz quando possível; confira a edição quando não houver indicação.",
-  "Title": "Título",
-  "TITLE": "TÍTULO",
-  "All": "Todos",
+  "Type estimated from track and album names and, for albums, checked on MusicBrainz when possible; check the edition when no type is specified.":
+    "Tipo estimado pelos nomes da faixa e do álbum e, nos álbuns, conferido no MusicBrainz quando possível; confira a edição quando não houver indicação.",
+  Title: "Título",
+  TITLE: "TÍTULO",
+  All: "Todos",
   "All tracks": "Todas as faixas",
-  "All tracks matching the current search and filters, including other pages": "Todas as faixas da busca e do filtro atuais, incluindo as outras páginas",
+  "All tracks matching the current search and filters, including other pages":
+    "Todas as faixas da busca e do filtro atuais, incluindo as outras páginas",
   "All your tracks": "Todas as suas músicas",
   "All albums": "Todos os álbuns",
   "All reviewed here": "Tudo revisado por aqui",
@@ -472,33 +519,34 @@ const portugueseMessages = {
   "View protected fields and unlock": "Ver campos protegidos e desbloquear",
   "View tracks": "Ver faixas",
   "View metadata for": "Ver metadados de",
-  "Preview": "Ver prévia",
+  Preview: "Ver prévia",
   "View log": "Ver registro",
   "View all": "Ver todos",
   "local version": "versão local",
   "Versions and extras": "Versões e extras",
-  "Overview": "Visão geral",
+  Overview: "Visão geral",
   "YOU CHOOSE WHAT CHANGES": "VOCÊ ESCOLHE O QUE MUDA",
   "You can try searching with Enter.": "Você pode tentar a busca com Enter.",
-  "Back": "Voltar",
+  Back: "Voltar",
   "Back to review": "Voltar à revisão",
   "Restore the previous state?": "Voltar ao estado anterior?",
   "yt-dlp · direct YouTube link": "yt-dlp · link direto do YouTube",
-  "track": "faixa",
-  "tracks": "faixas",
-  "of": "de",
-  "in": "em",
-  "by": "por",
-  "more": "mais",
-  "Remaster": "Remaster",
+  track: "faixa",
+  tracks: "faixas",
+  of: "de",
+  in: "em",
+  by: "por",
+  more: "mais",
+  Remaster: "Remaster",
   "Special edition": "Edição especial",
-  "Instrumental": "Instrumental",
-  "Language": "Idioma",
-  "file": "arquivo",
-  "files": "arquivos",
+  Instrumental: "Instrumental",
+  Language: "Idioma",
+  file: "arquivo",
+  files: "arquivos",
   "Restore lyrics": "Restaurar letra",
-  "results": "resultados",
-  "Saving requires confirmation and creates a full backup. Synced lyrics remain available during playback.": "A gravação exige confirmação e cria um backup completo. A letra sincronizada continua disponível para reprodução.",
+  results: "resultados",
+  "Saving requires confirmation and creates a full backup. Synced lyrics remain available during playback.":
+    "A gravação exige confirmação e cria um backup completo. A letra sincronizada continua disponível para reprodução.",
   "Review or paste the plain lyrics before saving.": "Confira ou cole a letra simples antes de salvar.",
   "Creating a backup and saving lyrics…": "Criando backup e salvando a letra…",
   "Back up and save lyrics": "Criar backup e salvar letra",
@@ -506,26 +554,30 @@ const portugueseMessages = {
   "Current lyrics in the file": "Letra atual do arquivo",
   "Reviewed lyrics": "Letra conferida",
   "track lyrics": "letra da faixa",
-  "Lyrics saved to the file. You can undo this in History.": "Letra salva no arquivo. Você pode desfazer pelo Histórico.",
+  "Lyrics saved to the file. You can undo this in History.":
+    "Letra salva no arquivo. Você pode desfazer pelo Histórico.",
   "Lyrics without timestamps": "Letra sem marcações de tempo",
   "Save lyrics to the file?": "Salvar letra no arquivo?",
-  "A full backup will be created. Only plain lyrics will change; you can undo this in History.": "Será criado um backup completo. Só a letra simples será alterada; você pode desfazer pelo Histórico.",
+  "A full backup will be created. Only plain lyrics will change; you can undo this in History.":
+    "Será criado um backup completo. Só a letra simples será alterada; você pode desfazer pelo Histórico.",
   "Back to lyrics": "Voltar à letra",
   "Review before saving": "Revisar antes de salvar",
   "Sync by hand": "Sincronizar à mão",
   "Lyrics for all tracks": "Letras para todas as faixas",
   "Review or paste lyrics before saving.": "Confira ou cole a letra antes de salvar.",
   "Lyrics (plain text or LRC)": "Letra (texto simples ou LRC)",
-  "Lyrics and any timecodes are saved inside the file, with a full backup and undo.": "A letra e seus tempos ficam dentro do arquivo, com backup completo e opção de desfazer.",
+  "Lyrics and any timecodes are saved inside the file, with a full backup and undo.":
+    "A letra e seus tempos ficam dentro do arquivo, com backup completo e opção de desfazer.",
   "Synced (LRC)": "Sincronizada (LRC)",
   "Plain text": "Texto simples",
-  "A full backup will be created. Lyrics and any timecodes will be saved in the file; you can undo this in History.": "Será criado um backup completo. A letra e seus tempos serão gravados no arquivo; você pode desfazer pelo Histórico.",
-  "Synced": "Sincronizada",
+  "A full backup will be created. Lyrics and any timecodes will be saved in the file; you can undo this in History.":
+    "Será criado um backup completo. A letra e seus tempos serão gravados no arquivo; você pode desfazer pelo Histórico.",
+  Synced: "Sincronizada",
   "Not found": "Não encontrada",
   "Already synced": "Já sincronizada",
-  "Error": "Erro",
+  Error: "Erro",
   "Not checked": "Não consultada",
-  "Saved": "Salva",
+  Saved: "Salva",
   "Ready to save": "Prontas para salvar",
   "No lyrics in file": "Sem letra no arquivo",
   "Plain lyrics in file": "Letra simples no arquivo",
@@ -537,38 +589,49 @@ const portugueseMessages = {
   "Stop lookup": "Parar busca",
   "Look up again": "Buscar novamente",
   "Find lyrics for all tracks": "Buscar letras para todas as faixas",
-  "selected": "na seleção",
+  selected: "na seleção",
   "Select ready lyrics": "Selecionar letras prontas",
   "Review and save": "Revisar e salvar",
-  "Find lyrics in the background, review the list, then save the selected lyrics with one backup and undo.": "Busque letras em segundo plano, confira a lista e salve as selecionadas com um backup e um desfazer.",
+  "Find lyrics in the background, review the list, then save the selected lyrics with one backup and undo.":
+    "Busque letras em segundo plano, confira a lista e salve as selecionadas com um backup e um desfazer.",
   "Back to library": "Voltar à biblioteca",
-  "The lookup reads your files and sends only track details to LRCLIB. Nothing is written to your music until you confirm.": "A busca lê seus arquivos e envia apenas os dados das faixas ao LRCLIB. Suas músicas só serão alteradas depois de você confirmar.",
-  "Lookup in progress. You can keep listening while it runs.": "Busca em andamento. Você pode continuar ouvindo enquanto ela é feita.",
-  "Lookup stopped. Review the available results or run it again.": "Busca interrompida. Confira os resultados disponíveis ou busque novamente.",
+  "The lookup reads your files and sends only track details to LRCLIB. Nothing is written to your music until you confirm.":
+    "A busca lê seus arquivos e envia apenas os dados das faixas ao LRCLIB. Suas músicas só serão alteradas depois de você confirmar.",
+  "Lookup in progress. You can keep listening while it runs.":
+    "Busca em andamento. Você pode continuar ouvindo enquanto ela é feita.",
+  "Lookup stopped. Review the available results or run it again.":
+    "Busca interrompida. Confira os resultados disponíveis ou busque novamente.",
   "Lyrics status": "Estado das letras",
   "Filter these results": "Filtrar estes resultados",
   "Title, artist, album or file": "Título, artista, álbum ou arquivo",
   "Ready to find lyrics": "Pronto para buscar letras",
-  "Synced and plain lyrics will be selected for review. Tracks already synchronized in the file are kept.": "Letras sincronizadas e simples já virão selecionadas para revisão. Faixas com sincronização no arquivo serão preservadas.",
+  "Synced and plain lyrics will be selected for review. Tracks already synchronized in the file are kept.":
+    "Letras sincronizadas e simples já virão selecionadas para revisão. Faixas com sincronização no arquivo serão preservadas.",
   "Found lyrics": "Letra encontrada",
   "Back to the list": "Voltar à lista",
   "Save the selected lyrics?": "Salvar as letras selecionadas?",
   "tracks with a full backup and one undo.": "faixas com um backup completo e um desfazer.",
-  "Only the selected lyrics will be written. Timecodes stay inside each file, and History can restore the whole batch.": "Só as letras selecionadas serão gravadas. Os tempos ficam dentro de cada arquivo, e o Histórico permite restaurar o lote inteiro.",
+  "Only the selected lyrics will be written. Timecodes stay inside each file, and History can restore the whole batch.":
+    "Só as letras selecionadas serão gravadas. Os tempos ficam dentro de cada arquivo, e o Histórico permite restaurar o lote inteiro.",
   "Full backup": "Backup completo",
   "tracks already match and will be skipped.": "faixas já correspondem à letra e serão ignoradas.",
   "more selected tracks.": "outras faixas selecionadas.",
   "Back up and save selected lyrics": "Criar backup e salvar letras selecionadas",
-  "Lyrics lookup finished. Review the selected results.": "Busca de letras concluída. Confira os resultados selecionados.",
-  "Selected lyrics saved. You can undo this in History.": "Letras selecionadas salvas. Você pode desfazer pelo Histórico.",
-  "Cancellation requested. The current lookup will finish first.": "Cancelamento solicitado. A consulta atual será concluída primeiro.",
+  "Lyrics lookup finished. Review the selected results.":
+    "Busca de letras concluída. Confira os resultados selecionados.",
+  "Selected lyrics saved. You can undo this in History.":
+    "Letras selecionadas salvas. Você pode desfazer pelo Histórico.",
+  "Cancellation requested. The current lookup will finish first.":
+    "Cancelamento solicitado. A consulta atual será concluída primeiro.",
   "Paste lyrics in the editor before synchronizing.": "Cole a letra no editor antes de sincronizar.",
   "Play this track": "Reproduzir esta faixa",
   "verses marked": "versos marcados",
   "Keep the times in order and within the track length.": "Mantenha os tempos em ordem e dentro da duração da faixa.",
-  "All verses are marked. Review the timecodes before saving.": "Todos os versos estão marcados. Confira os tempos antes de salvar.",
+  "All verses are marked. Review the timecodes before saving.":
+    "Todos os versos estão marcados. Confira os tempos antes de salvar.",
   "Play this track to mark its verses.": "Reproduza esta faixa para marcar os versos.",
-  "Press M or Mark verse when the highlighted verse begins.": "Pressione M ou Marcar verso quando o verso destacado começar.",
+  "Press M or Mark verse when the highlighted verse begins.":
+    "Pressione M ou Marcar verso quando o verso destacado começar.",
   "Back to editor": "Voltar ao editor",
   "Synchronize lyrics by hand": "Sincronizar letra à mão",
   "Mark verse (M)": "Marcar verso (M)",
@@ -578,59 +641,88 @@ const portugueseMessages = {
   "Time in seconds for verse": "Tempo em segundos do verso",
   "Reset timings": "Reiniciar tempos",
   "lyrics batch": "lote de letras",
-  "Selection is kept across pages and filters; only checked lyrics will be saved.": "A seleção é mantida entre páginas e filtros; só as letras marcadas serão salvas."
+  "Selection is kept across pages and filters; only checked lyrics will be saved.":
+    "A seleção é mantida entre páginas e filtros; só as letras marcadas serão salvas.",
 };
-const i18nState={language:"en",texts:[],attributes:[]};
-try{const saved=localStorage.getItem("acervo-language");i18nState.language=["en","pt-BR"].includes(saved)?saved:(navigator.language.toLowerCase().startsWith("pt")?"pt-BR":"en");}catch{i18nState.language=navigator.language.toLowerCase().startsWith("pt")?"pt-BR":"en";}
-
-function tr(message) {
-  const source=String(message??"");
-  return i18nState.language==="pt-BR"&&Object.hasOwn(portugueseMessages,source)?portugueseMessages[source]:source;
+const i18nState = { language: "en", texts: [], attributes: [] };
+try {
+  const saved = localStorage.getItem("acervo-language");
+  i18nState.language = ["en", "pt-BR"].includes(saved)
+    ? saved
+    : navigator.language.toLowerCase().startsWith("pt")
+      ? "pt-BR"
+      : "en";
+} catch {
+  i18nState.language = navigator.language.toLowerCase().startsWith("pt") ? "pt-BR" : "en";
 }
 
-function uiLanguage() {return i18nState.language;}
+function tr(message) {
+  const source = String(message ?? "");
+  return i18nState.language === "pt-BR" && Object.hasOwn(portugueseMessages, source)
+    ? portugueseMessages[source]
+    : source;
+}
 
-function uiLocale() {return i18nState.language==="en"?"en-US":"pt-BR";}
+function uiLanguage() {
+  return i18nState.language;
+}
+
+function uiLocale() {
+  return i18nState.language === "en" ? "en-US" : "pt-BR";
+}
 
 function rememberStaticText() {
-  const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
-  while(walker.nextNode()){
-    const node=walker.currentNode;
-    if(node.parentElement?.closest("script,style,textarea"))continue;
-    const message=node.nodeValue.trim();
-    if(!Object.hasOwn(portugueseMessages,message))continue;
-    const prefix=node.nodeValue.match(/^\s*/)[0],suffix=node.nodeValue.match(/\s*$/)[0];
-    i18nState.texts.push({node,message,prefix,suffix,last:node.nodeValue});
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (node.parentElement?.closest("script,style,textarea")) continue;
+    const message = node.nodeValue.trim();
+    if (!Object.hasOwn(portugueseMessages, message)) continue;
+    const prefix = node.nodeValue.match(/^\s*/)[0],
+      suffix = node.nodeValue.match(/\s*$/)[0];
+    i18nState.texts.push({ node, message, prefix, suffix, last: node.nodeValue });
   }
-  document.querySelectorAll('[title],[aria-label],[placeholder],[alt]').forEach(node=>{
-    for(const name of ["title","aria-label","placeholder","alt"]){
-      const message=node.getAttribute(name);
-      if(message&&Object.hasOwn(portugueseMessages,message))i18nState.attributes.push({node,name,message,last:message});
+  document.querySelectorAll("[title],[aria-label],[placeholder],[alt]").forEach((node) => {
+    for (const name of ["title", "aria-label", "placeholder", "alt"]) {
+      const message = node.getAttribute(name);
+      if (message && Object.hasOwn(portugueseMessages, message))
+        i18nState.attributes.push({ node, name, message, last: message });
     }
   });
 }
 
 function translateStaticText() {
-  document.documentElement.lang=i18nState.language;
-  document.title=tr("Acervo — Your music library");
-  for(const item of i18nState.texts){
-    if(!item.node.isConnected||item.node.parentElement?.closest("[data-i18n-user]")||item.node.nodeValue!==item.last)continue;
-    item.last=item.prefix+tr(item.message)+item.suffix;item.node.nodeValue=item.last;
+  document.documentElement.lang = i18nState.language;
+  document.title = tr("Acervo — Your music library");
+  for (const item of i18nState.texts) {
+    if (
+      !item.node.isConnected ||
+      item.node.parentElement?.closest("[data-i18n-user]") ||
+      item.node.nodeValue !== item.last
+    )
+      continue;
+    item.last = item.prefix + tr(item.message) + item.suffix;
+    item.node.nodeValue = item.last;
   }
-  for(const item of i18nState.attributes){
-    if(!item.node.isConnected||item.node.getAttribute(item.name)!==item.last)continue;
-    item.last=tr(item.message);item.node.setAttribute(item.name,item.last);
+  for (const item of i18nState.attributes) {
+    if (!item.node.isConnected || item.node.getAttribute(item.name) !== item.last) continue;
+    item.last = tr(item.message);
+    item.node.setAttribute(item.name, item.last);
   }
-  const control=document.querySelector('#language-select');if(control)control.value=i18nState.language;
+  const control = document.querySelector("#language-select");
+  if (control) control.value = i18nState.language;
 }
 
 function setLanguage(language) {
-  if(!["en","pt-BR"].includes(language))return;
-  i18nState.language=language;
-  try{localStorage.setItem("acervo-language",language);}catch{}
+  if (!["en", "pt-BR"].includes(language)) return;
+  i18nState.language = language;
+  try {
+    localStorage.setItem("acervo-language", language);
+  } catch {}
   translateStaticText();
   document.dispatchEvent(new CustomEvent("languagechange"));
 }
 
-rememberStaticText();translateStaticText();
-document.querySelector('#language-select')?.addEventListener("change",event=>setLanguage(event.target.value));
+rememberStaticText();
+translateStaticText();
+document.querySelector("#language-select")?.addEventListener("change", (event) => setLanguage(event.target.value));

@@ -1,151 +1,237 @@
 "use strict";
 
-const searchState = {scope:"library", timer:null, controller:null, serial:0, items:[], active:-1};
-const searchInput = $('#search');
-const searchPanel = $('#search-suggestions');
+const searchState = { scope: "library", timer: null, controller: null, serial: 0, items: [], active: -1 };
+const searchInput = $("#search");
+const searchPanel = $("#search-suggestions");
 
 function closeSearch() {
   clearTimeout(searchState.timer);
   searchState.controller?.abort();
   searchState.serial++;
-  searchState.items=[];
-  searchState.active=-1;
-  searchPanel.hidden=true;
-  searchInput.setAttribute("aria-expanded","false");
+  searchState.items = [];
+  searchState.active = -1;
+  searchPanel.hidden = true;
+  searchInput.setAttribute("aria-expanded", "false");
   searchInput.removeAttribute("aria-activedescendant");
 }
 
 function searchMessage(message) {
-  searchPanel.innerHTML=`<div class="search-message" role="status">${escapeHTML(message)}</div>`;
-  searchPanel.hidden=false;
-  searchInput.setAttribute("aria-expanded","true");
+  searchPanel.innerHTML = `<div class="search-message" role="status">${escapeHTML(message)}</div>`;
+  searchPanel.hidden = false;
+  searchInput.setAttribute("aria-expanded", "true");
 }
 
 function showSearchSuggestions(data) {
-  const global=searchState.scope==="global";
-  const groups=global ? [
-    [tr("Artists"),(data.artists||[]).map(a=>({type:"global-artist",photo:a.photo,label:a.name,detail:tr("Browse albums to download"),name:"music"}))],
-    [tr("Search suggestions"),(data.terms||[]).map(text=>({type:"global-term",label:text,detail:tr("Search tracks in the global catalog"),name:"search"}))]
-  ] : [
-    [tr("Artists"),(data.artists||[]).map(a=>({type:"artist",label:a.name,detail:`${number(a.tracks)} ${tr("tracks in your library")}`,name:"music"}))],
-    [tr("Albums"),(data.albums||[]).map(a=>({type:"album",label:a.title,detail:a.artist,id:a.track_id,name:"disc"}))],
-    [tr("Tracks"),(data.tracks||[]).map(t=>({type:"song",label:t.title,detail:t.artist,id:t.id,name:"music"}))]
-  ];
-  searchState.items=[];
-  searchState.active=-1;
-  const html=groups.filter(([,items])=>items.length).map(([title,items])=>`<div class="search-group-title" role="presentation">${title}</div>${items.map(item=>{
-    const index=searchState.items.push(item)-1;
-    return `<button type="button" role="option" aria-selected="false" tabindex="-1" id="search-option-${index}" data-search-option="${index}">${item.type==="global-artist"?catalogPhoto(item.photo,true):icon(item.name)}<span><strong>${escapeHTML(item.label)}</strong><small>${escapeHTML(item.detail)}</small></span>${icon("arrow")}</button>`;
-  }).join("")}`).join("");
-  if(!html){searchMessage(global?tr("No suggestions. Press Enter to search tracks."):tr("No suggestions. Press Enter to see results."));return;}
-  searchPanel.innerHTML=html;
-  searchPanel.hidden=false;
-  searchInput.setAttribute("aria-expanded","true");
+  const global = searchState.scope === "global";
+  const groups = global
+    ? [
+        [
+          tr("Artists"),
+          (data.artists || []).map((a) => ({
+            type: "global-artist",
+            photo: a.photo,
+            label: a.name,
+            detail: tr("Browse albums to download"),
+            name: "music",
+          })),
+        ],
+        [
+          tr("Search suggestions"),
+          (data.terms || []).map((text) => ({
+            type: "global-term",
+            label: text,
+            detail: tr("Search tracks in the global catalog"),
+            name: "search",
+          })),
+        ],
+      ]
+    : [
+        [
+          tr("Artists"),
+          (data.artists || []).map((a) => ({
+            type: "artist",
+            label: a.name,
+            detail: `${number(a.tracks)} ${tr("tracks in your library")}`,
+            name: "music",
+          })),
+        ],
+        [
+          tr("Albums"),
+          (data.albums || []).map((a) => ({
+            type: "album",
+            label: a.title,
+            detail: a.artist,
+            id: a.track_id,
+            name: "disc",
+          })),
+        ],
+        [
+          tr("Tracks"),
+          (data.tracks || []).map((t) => ({ type: "song", label: t.title, detail: t.artist, id: t.id, name: "music" })),
+        ],
+      ];
+  searchState.items = [];
+  searchState.active = -1;
+  const html = groups
+    .filter(([, items]) => items.length)
+    .map(
+      ([title, items]) =>
+        `<div class="search-group-title" role="presentation">${title}</div>${items
+          .map((item) => {
+            const index = searchState.items.push(item) - 1;
+            return `<button type="button" role="option" aria-selected="false" tabindex="-1" id="search-option-${index}" data-search-option="${index}">${item.type === "global-artist" ? catalogPhoto(item.photo, true) : icon(item.name)}<span><strong>${escapeHTML(item.label)}</strong><small>${escapeHTML(item.detail)}</small></span>${icon("arrow")}</button>`;
+          })
+          .join("")}`,
+    )
+    .join("");
+  if (!html) {
+    searchMessage(
+      global ? tr("No suggestions. Press Enter to search tracks.") : tr("No suggestions. Press Enter to see results."),
+    );
+    return;
+  }
+  searchPanel.innerHTML = html;
+  searchPanel.hidden = false;
+  searchInput.setAttribute("aria-expanded", "true");
   searchInput.removeAttribute("aria-activedescendant");
 }
 
 function scheduleSuggestions() {
   closeSearch();
-  const query=searchInput.value.trim();
-  if(!query || (searchState.scope==="global"&&query.length<2))return;
-  const serial=searchState.serial;
-  const scope=searchState.scope;
-  searchState.timer=setTimeout(async()=>{
-    searchMessage(scope==="global"?tr("Finding suggestions in the global catalog…"):tr("Searching your library…"));
-    const controller=new AbortController();
-    searchState.controller=controller;
-    try {
-      const params=new URLSearchParams({q:query,scope:scope});
-      const response=await fetch(`/api/suggestions?${params}`,{signal:controller.signal,headers:languageHeaders()});
-      const data=await response.json();
-      if(serial!==searchState.serial || scope!==searchState.scope || query!==searchInput.value.trim())return;
-      if(!response.ok)throw new Error(data.error||tr("Could not load suggestions."));
-      showSearchSuggestions(data);
-    }catch(error){
-      if(error.name==="AbortError" || serial!==searchState.serial)return;
-      searchMessage(error.message+" "+tr("You can try searching with Enter."));
-    }
-  },scope==="global"?350:150);
+  const query = searchInput.value.trim();
+  if (!query || (searchState.scope === "global" && query.length < 2)) return;
+  const serial = searchState.serial;
+  const scope = searchState.scope;
+  searchState.timer = setTimeout(
+    async () => {
+      searchMessage(
+        scope === "global" ? tr("Finding suggestions in the global catalog…") : tr("Searching your library…"),
+      );
+      const controller = new AbortController();
+      searchState.controller = controller;
+      try {
+        const params = new URLSearchParams({ q: query, scope: scope });
+        const response = await fetch(`/api/suggestions?${params}`, {
+          signal: controller.signal,
+          headers: languageHeaders(),
+        });
+        const data = await response.json();
+        if (serial !== searchState.serial || scope !== searchState.scope || query !== searchInput.value.trim()) return;
+        if (!response.ok) throw new Error(data.error || tr("Could not load suggestions."));
+        showSearchSuggestions(data);
+      } catch (error) {
+        if (error.name === "AbortError" || serial !== searchState.serial) return;
+        searchMessage(error.message + " " + tr("You can try searching with Enter."));
+      }
+    },
+    scope === "global" ? 350 : 150,
+  );
 }
 
 function setSearchScope(scope) {
   closeSearch();
-  searchState.scope=scope;
-  document.querySelectorAll('[data-search-scope]').forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.searchScope===scope)));
-  const label=scope==="global"?tr("Search tracks or artists in the global catalog"):tr("Search tracks, artists or albums");
-  searchInput.placeholder=label;
-  searchInput.setAttribute("aria-label",label);
+  searchState.scope = scope;
+  document
+    .querySelectorAll("[data-search-scope]")
+    .forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.searchScope === scope)));
+  const label =
+    scope === "global" ? tr("Search tracks or artists in the global catalog") : tr("Search tracks, artists or albums");
+  searchInput.placeholder = label;
+  searchInput.setAttribute("aria-label", label);
   searchInput.focus();
   scheduleSuggestions();
 }
 
-async function searchLibrary(query, artist="", albumId="", label=query) {
+async function searchLibrary(query, artist = "", albumId = "", label = query) {
   closeSearch();
-  state.search=query;
-  state.searchArtist=artist;
-  state.searchAlbum=albumId;
-  state.searchLabel=label;
-  state.filter="all";
-  state.versionFilter="all";
-  searchInput.value=label;
+  state.search = query;
+  state.searchArtist = artist;
+  state.searchAlbum = albumId;
+  state.searchLabel = label;
+  state.filter = "all";
+  state.versionFilter = "all";
+  searchInput.value = label;
   await navigate("library");
 }
 
 async function selectSearchSuggestion(index) {
-  const item=searchState.items[index];
-  if(!item)return;
+  const item = searchState.items[index];
+  if (!item) return;
   closeSearch();
-  if(item.type==="artist")await openPage("artist",{name:item.label,scope:"library"});
-  else if(item.type==="album")await openPage("album",{id:item.id,scope:"library"});
-  else if(item.type==="song")await showDetails(item.id);
-  else if(item.type==="global-artist")await openPage("artist",{name:item.label,scope:"global",photo:item.photo||""});
-  else await openPage("search",{query:item.label,scope:"global"});
+  if (item.type === "artist") await openPage("artist", { name: item.label, scope: "library" });
+  else if (item.type === "album") await openPage("album", { id: item.id, scope: "library" });
+  else if (item.type === "song") await showDetails(item.id);
+  else if (item.type === "global-artist")
+    await openPage("artist", { name: item.label, scope: "global", photo: item.photo || "" });
+  else await openPage("search", { query: item.label, scope: "global" });
 }
 
 function highlightSearch(index) {
-  searchState.active=index;
-  searchPanel.querySelectorAll('[data-search-option]').forEach((button,i)=>{
-    button.setAttribute("aria-selected",String(i===index));
-    if(i===index){searchInput.setAttribute("aria-activedescendant",button.id);button.scrollIntoView({block:"nearest"});}
+  searchState.active = index;
+  searchPanel.querySelectorAll("[data-search-option]").forEach((button, i) => {
+    button.setAttribute("aria-selected", String(i === index));
+    if (i === index) {
+      searchInput.setAttribute("aria-activedescendant", button.id);
+      button.scrollIntoView({ block: "nearest" });
+    }
   });
 }
 
-$('#search-form').addEventListener("submit",async event=>{
+$("#search-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const query=searchInput.value.trim();
+  const query = searchInput.value.trim();
   try {
-    if(searchState.active>=0 && !searchPanel.hidden){await selectSearchSuggestion(searchState.active);return;}
+    if (searchState.active >= 0 && !searchPanel.hidden) {
+      await selectSearchSuggestion(searchState.active);
+      return;
+    }
     closeSearch();
-    await openPage("search",{query,scope:searchState.scope});
-  }catch(error){toast(error.message);}
+    await openPage("search", { query, scope: searchState.scope });
+  } catch (error) {
+    toast(error.message);
+  }
 });
-searchInput.addEventListener("input",()=>{
+searchInput.addEventListener("input", () => {
   scheduleSuggestions();
-  if(searchState.scope==="library" && ["review","albums"].includes(state.view)){
-    state.search=searchInput.value;
-    state.searchArtist="";state.searchAlbum="";state.searchLabel="";state.page=0;
+  if (searchState.scope === "library" && ["review", "albums"].includes(state.view)) {
+    state.search = searchInput.value;
+    state.searchArtist = "";
+    state.searchAlbum = "";
+    state.searchLabel = "";
+    state.page = 0;
     render();
   }
 });
-searchInput.addEventListener("focus",scheduleSuggestions);
-searchInput.addEventListener("keydown",event=>{
-  if(event.key==="Escape"){event.preventDefault();closeSearch();return;}
-  if(["ArrowDown","ArrowUp"].includes(event.key)&&!searchPanel.hidden&&searchState.items.length){
+searchInput.addEventListener("focus", scheduleSuggestions);
+searchInput.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
     event.preventDefault();
-    const delta=event.key==="ArrowDown"?1:-1;
-    const index=searchState.active<0?(delta>0?0:searchState.items.length-1):(searchState.active+delta+searchState.items.length)%searchState.items.length;
+    closeSearch();
+    return;
+  }
+  if (["ArrowDown", "ArrowUp"].includes(event.key) && !searchPanel.hidden && searchState.items.length) {
+    event.preventDefault();
+    const delta = event.key === "ArrowDown" ? 1 : -1;
+    const index =
+      searchState.active < 0
+        ? delta > 0
+          ? 0
+          : searchState.items.length - 1
+        : (searchState.active + delta + searchState.items.length) % searchState.items.length;
     highlightSearch(index);
   }
 });
-searchPanel.addEventListener("pointerdown",event=>event.preventDefault());
-searchPanel.addEventListener("click",event=>{
-  const button=event.target.closest('[data-search-option]');
-  if(button)selectSearchSuggestion(Number(button.dataset.searchOption)).catch(error=>toast(error.message));
+searchPanel.addEventListener("pointerdown", (event) => event.preventDefault());
+searchPanel.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-search-option]");
+  if (button) selectSearchSuggestion(Number(button.dataset.searchOption)).catch((error) => toast(error.message));
 });
-document.addEventListener("click",event=>{
-  const button=event.target.closest('[data-search-scope]');
-  if(button)setSearchScope(button.dataset.searchScope);
-  else if(!event.target.closest('#search-area'))closeSearch();
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-search-scope]");
+  if (button) setSearchScope(button.dataset.searchScope);
+  else if (!event.target.closest("#search-area")) closeSearch();
 });
-document.addEventListener("focusin",event=>{if(!event.target.closest('#search-area'))closeSearch();});
-window.addEventListener("hashchange",closeSearch);
+document.addEventListener("focusin", (event) => {
+  if (!event.target.closest("#search-area")) closeSearch();
+});
+window.addEventListener("hashchange", closeSearch);
