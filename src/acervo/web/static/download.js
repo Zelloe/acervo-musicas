@@ -129,23 +129,36 @@ function captureSimpleDownloadJob(job) {
   return true;
 }
 
+function catalogChoice(catalog, row, page) {
+  return `<button class="simple-choice version-filtered" ${simpleVersionAttributes(row)} ${page ? `data-page-catalog="${escapeHTML(catalog.id)}" data-page-item="${escapeHTML(row.id)}"` : `data-simple-open="${escapeHTML(row.id)}"`}>${catalogPhoto(row.cover)}<span><strong data-i18n-user="true">${escapeHTML(row.title)}</strong><small>${escapeHTML(row.year || "")}${row.track_count ? ` · ${number(row.track_count)} ${tr("tracks")}` : ""}</small>${recordingBadges(row.version)}</span>${icon("arrow")}</button>`;
+}
+
 function catalogChoices(catalog, page = false) {
-  return `<div class="simple-choice-list">${catalog.items.map((row) => `<button class="simple-choice version-filtered" ${simpleVersionAttributes(row)} ${page ? `data-page-catalog="${escapeHTML(catalog.id)}" data-page-item="${escapeHTML(row.id)}"` : `data-simple-open="${escapeHTML(row.id)}"`}>${catalogPhoto(row.cover)}<span><strong data-i18n-user="true">${escapeHTML(row.title)}</strong><small>${escapeHTML(row.year || "")}${row.track_count ? ` · ${number(row.track_count)} ${tr("tracks")}` : ""}</small>${recordingBadges(row.version)}</span>${icon("arrow")}</button>`).join("")}</div>`;
+  return `<div class="simple-choice-list">${catalog.items.map((row) => catalogChoice(catalog, row, page)).join("")}</div>`;
+}
+
+function catalogTrack(row) {
+  return `<label class="simple-track version-filtered" ${simpleVersionAttributes(row)} data-existing="${!!row.already_owned}"><input class="check simple-track-check" type="checkbox" value="${escapeHTML(row.id)}" ${simpleDownloadState.selected.has(row.id) ? "checked" : ""}>${catalogPhoto(row.cover)}<span class="simple-track-copy"><strong data-i18n-user="true">${escapeHTML(row.title)}</strong><small>${artistLinks([row.artist], "global")} · ${globalAlbumLink(row.album, row.artist)}${row.year ? ` · ${escapeHTML(row.year)}` : ""}</small>${recordingBadges(row.version)}</span><span class="simple-track-time">${duration(row.duration)}</span>${row.already_owned ? `<span class="chip neutral">${tr("Name found in folder")}</span>` : ""}</label>`;
+}
+
+function catalogTracks(catalog) {
+  return `
+    <div class="simple-selection-tools"><span id="simple-selection-count"></span><div class="download-actions"><button class="text-button" data-action="simple-select-new">${tr("Select new visible tracks")}</button><button class="text-button" data-action="simple-select-all">${tr("Select visible tracks")}</button><button class="text-button" data-action="simple-clear">${tr("Clear selection")}</button></div></div>
+    <p class="download-hint">${tr("Artist and title matches in the selected folder:")} <span class="simple-path">${escapeHTML(catalog.folder)}</span></p>
+    <div class="simple-track-list">${catalog.items.map(catalogTrack).join("")}</div>
+    <div class="download-actions simple-save-row"><span class="simple-path">${tr("Save directly to")} <strong id="simple-save-folder">${escapeHTML(simpleDownloadState.folder)}</strong></span><button class="button primary" data-action="simple-download">${icon("download")}<span>${tr("Add to queue (")}<span id="simple-download-count">0</span>)</span></button></div>`;
 }
 
 function catalogContent(catalog) {
   const headingText = { albums: tr("Choose an album"), editions: tr("Choose an edition"), tracks: tr("Select tracks") }[
     catalog.type
   ];
-  const body =
-    catalog.type !== "tracks"
-      ? catalogChoices(catalog, state.view === "album")
-      : `
-    <div class="simple-selection-tools"><span id="simple-selection-count"></span><div class="download-actions"><button class="text-button" data-action="simple-select-new">${tr("Select new visible tracks")}</button><button class="text-button" data-action="simple-select-all">${tr("Select visible tracks")}</button><button class="text-button" data-action="simple-clear">${tr("Clear selection")}</button></div></div>
-    <p class="download-hint">${tr("Artist and title matches in the selected folder:")} <span class="simple-path">${escapeHTML(catalog.folder)}</span></p>
-    <div class="simple-track-list">${catalog.items.map((row) => `<label class="simple-track version-filtered" ${simpleVersionAttributes(row)} data-existing="${!!row.already_owned}"><input class="check simple-track-check" type="checkbox" value="${escapeHTML(row.id)}" ${simpleDownloadState.selected.has(row.id) ? "checked" : ""}>${catalogPhoto(row.cover)}<span class="simple-track-copy"><strong data-i18n-user="true">${escapeHTML(row.title)}</strong><small>${artistLinks([row.artist], "global")} · ${globalAlbumLink(row.album, row.artist)}${row.year ? ` · ${escapeHTML(row.year)}` : ""}</small>${recordingBadges(row.version)}</span><span class="simple-track-time">${duration(row.duration)}</span>${row.already_owned ? `<span class="chip neutral">${tr("Name found in folder")}</span>` : ""}</label>`).join("")}</div>
-    <div class="download-actions simple-save-row"><span class="simple-path">${tr("Save directly to")} <strong id="simple-save-folder">${escapeHTML(simpleDownloadState.folder)}</strong></span><button class="button primary" data-action="simple-download">${icon("download")}<span>${tr("Add to queue (")}<span id="simple-download-count">0</span>)</span></button></div>`;
+  const body = catalog.type !== "tracks" ? catalogChoices(catalog, state.view === "album") : catalogTracks(catalog);
   return `<section class="download-panel" id="simple-catalog"><div class="section-heading"><div><h2>${headingText}</h2><p data-i18n-user="true">${escapeHTML(catalog.title)}</p></div>${state.view === "downloads" && simpleDownloadState.parents.length ? `<button class="button small ghost" data-action="simple-back">${tr("Back")}</button>` : ""}</div>${recordingChips(simpleDownloadState.versionFilter, "data-simple-version")}<p id="simple-visible-count" class="download-hint"></p><div id="simple-empty-filter" hidden>${empty(tr("No versions in this filter"), tr("Choose All or another recording type."), "search")}</div>${catalog.items.length ? body : empty(tr("No results"), tr("Try another search or paste a Spotify link."), "search")}<p class="download-hint">${tr("Type estimated from track and album names and, for albums, checked on MusicBrainz when possible; check the edition when no type is specified.")}</p></section>`;
+}
+
+function downloadQueueItem(row, labels) {
+  return `<li class="download-queue-item"><div><strong data-i18n-user="true">${escapeHTML(row.title || row.artist)}</strong><span data-i18n-user="true">${escapeHTML(row.artist || "")}</span><small>${number(row.total)} ${tr("tracks")} · ${escapeHTML(labels[row.status] || row.status)}${row.status === "completed" ? ` · ${number(row.downloaded)} ${tr("downloaded ·")} ${number(row.errors)} ${tr("failed")}` : ""}</small>${row.message ? `<p>${escapeHTML(row.message)}</p>` : ""}${row.warnings?.length ? `<p class="download-warning">${row.warnings.map(escapeHTML).join(" ")}</p>` : ""}</div>${row.status === "waiting" ? `<button class="text-button" data-remove-download="${escapeHTML(row.id)}">${tr("Remove")}</button>` : ""}</li>`;
 }
 
 function downloadQueueHTML(rows) {
@@ -155,7 +168,7 @@ function downloadQueueHTML(rows) {
     completed: tr("Completed"),
     error: tr("Failed"),
   };
-  return `<div class="section-heading"><div><h2>${tr("Download queue")}</h2><p>${tr("Downloads run one at a time. You can keep browsing. Keep Acervo open until the queue finishes.")}</p></div></div>${rows.length ? `<ol class="download-queue-list">${rows.map((row) => `<li class="download-queue-item"><div><strong data-i18n-user="true">${escapeHTML(row.title || row.artist)}</strong><span data-i18n-user="true">${escapeHTML(row.artist || "")}</span><small>${number(row.total)} ${tr("tracks")} · ${escapeHTML(labels[row.status] || row.status)}${row.status === "completed" ? ` · ${number(row.downloaded)} ${tr("downloaded ·")} ${number(row.errors)} ${tr("failed")}` : ""}</small>${row.message ? `<p>${escapeHTML(row.message)}</p>` : ""}${row.warnings?.length ? `<p class="download-warning">${row.warnings.map(escapeHTML).join(" ")}</p>` : ""}</div>${row.status === "waiting" ? `<button class="text-button" data-remove-download="${escapeHTML(row.id)}">${tr("Remove")}</button>` : ""}</li>`).join("")}</ol>` : `<p class="download-hint">${tr("Your download queue is empty.")}</p>`}`;
+  return `<div class="section-heading"><div><h2>${tr("Download queue")}</h2><p>${tr("Downloads run one at a time. You can keep browsing. Keep Acervo open until the queue finishes.")}</p></div></div>${rows.length ? `<ol class="download-queue-list">${rows.map((row) => downloadQueueItem(row, labels)).join("")}</ol>` : `<p class="download-hint">${tr("Your download queue is empty.")}</p>`}`;
 }
 
 function updateDownloadQueue() {
@@ -192,11 +205,15 @@ function setCatalogControls() {
   });
 }
 
+function simpleDownloadResult(row) {
+  return `<li><strong>${escapeHTML(row.artist)} — ${escapeHTML(row.title)}</strong><span class="${["error", "not_downloaded"].includes(row.status) ? "download-warning" : "source"}">${escapeHTML(row.status === "downloaded" ? tr("Saved in") + " " + row.file : row.status === "not_downloaded" ? tr("Not downloaded.") + " " + (row.message || tr("Batch interrupted.")) : row.message || tr("Already in folder"))}</span>${row.filled_genre ? `<span class="source">${tr("Genre:")} ${escapeHTML(row.filled_genre)}</span>` : ""}</li>`;
+}
+
 function simpleDownloadResults(rows) {
   if (!rows?.length) return "";
   const counts = { downloaded: 0, already_existed: 0, error: 0, not_downloaded: 0 };
   for (const row of rows) counts[row.status] = (counts[row.status] || 0) + 1;
-  return `<section class="download-panel"><div class="section-heading"><div><h2>${tr("Download results")}</h2><p>${number(counts.downloaded)} ${tr("downloaded ·")} ${number(counts.already_existed)} ${tr("already present ·")} ${number(counts.error)} ${tr("failed")}${counts.not_downloaded ? ` · ${number(counts.not_downloaded)} ${tr("not downloaded")}` : ""}</p></div></div><ul class="simple-result-list">${rows.map((row) => `<li><strong>${escapeHTML(row.artist)} — ${escapeHTML(row.title)}</strong><span class="${["error", "not_downloaded"].includes(row.status) ? "download-warning" : "source"}">${escapeHTML(row.status === "downloaded" ? tr("Saved in") + " " + row.file : row.status === "not_downloaded" ? tr("Not downloaded.") + " " + (row.message || tr("Batch interrupted.")) : row.message || tr("Already in folder"))}</span>${row.filled_genre ? `<span class="source">${tr("Genre:")} ${escapeHTML(row.filled_genre)}</span>` : ""}</li>`).join("")}</ul></section>`;
+  return `<section class="download-panel"><div class="section-heading"><div><h2>${tr("Download results")}</h2><p>${number(counts.downloaded)} ${tr("downloaded ·")} ${number(counts.already_existed)} ${tr("already present ·")} ${number(counts.error)} ${tr("failed")}${counts.not_downloaded ? ` · ${number(counts.not_downloaded)} ${tr("not downloaded")}` : ""}</p></div></div><ul class="simple-result-list">${rows.map(simpleDownloadResult).join("")}</ul></section>`;
 }
 
 async function renderSimpleDownloads() {
