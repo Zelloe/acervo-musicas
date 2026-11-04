@@ -171,6 +171,10 @@ Para abrir outra pasta, clique no lápis ao lado do caminho na barra lateral ou 
 **Preferências**. O navegador lembra da sua escolha para a próxima vez, exceto se você
 iniciar o Acervo com `--folder`.
 
+Teclado: `Espaço` toca ou pausa, `←`/`→` movem 5 segundos, `N`/`P` trocam de faixa, `+`/`-`
+ajustam o volume, `M` tira o som, `S` liga o aleatório, `R` a repetição, `F` abre o tocando
+agora e `L` a letra. Aperte `?` para ver a lista completa.
+
 Sem abrir o navegador automaticamente, ou com outra porta:
 
 ```bash

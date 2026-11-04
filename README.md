@@ -169,6 +169,10 @@ To open another folder, click the pencil next to the folder path in the sidebar,
 use **Preferences**. The browser remembers your choice for the next time, unless you
 start Acervo with `--folder`.
 
+Keyboard: `Space` plays or pauses, `←`/`→` move 5 seconds, `N`/`P` change track, `+`/`-`
+set the volume, `M` mutes, `S` shuffles, `R` repeats, `F` opens now playing and `L` the
+lyrics. Press `?` for the full list.
+
 Without opening the browser automatically, or on another port:
 
 ```bash

@@ -1,6 +1,15 @@
 "use strict";
 
 const portugueseMessages = {
+  "Keyboard shortcuts": "Atalhos de teclado",
+  "They work anywhere except while typing.": "Funcionam em qualquer tela, menos enquanto você digita.",
+  "Space": "Espaço",
+  "Play or pause": "Tocar ou pausar",
+  "Back or forward 5 seconds": "Voltar ou avançar 5 segundos",
+  "Volume": "Volume",
+  "Mute": "Sem som",
+  "Muted": "Som desligado",
+  "Sound on": "Som ligado",
   "Change music folder": "Trocar pasta de músicas",
   "Choose your music folder": "Escolha sua pasta de músicas",
   "Acervo reads this folder. Nothing is moved or renamed, and this browser remembers your choice.": "O Acervo lê esta pasta. Nada é movido nem renomeado, e este navegador lembra da sua escolha.",

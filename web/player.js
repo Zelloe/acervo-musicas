@@ -313,4 +313,74 @@ document.addEventListener("keydown",event=>{
     toggleSortMenu(false,event.key === "Escape");
   }
 },true);
+
+const SHORTCUTS = [["Space","Play or pause"],["← →","Back or forward 5 seconds"],["N","Next track"],["P","Previous track"],["+ −","Volume"],["M","Mute"],["S","Shuffle"],["R","Repeat"],["F","Now playing"],["L","Lyrics"],["/","Search"],["?","Keyboard shortcuts"]];
+
+function showShortcuts() {
+  modal(`${modalHead(tr("Keyboard shortcuts"),tr("They work anywhere except while typing."))}<div class="modal-body"><dl class="shortcut-list">${SHORTCUTS.map(([keys,label])=>`<div><dt>${keys.split(" ").map(key=>`<kbd>${key==="Space"?tr("Space"):key}</kbd>`).join(" ")}</dt><dd>${tr(label)}</dd></div>`).join("")}</dl></div>`);
+}
+
+function changeVolume(delta) {
+  const slider = $('#volume');
+  slider.value = Math.min(100,Math.max(0,Number(slider.value)+delta));
+  slider.dispatchEvent(new Event("input",{bubbles:true}));
+  audio.muted = false;
+  toast(`${tr("Volume")}: ${slider.value}%`);
+}
+
+function seekBy(seconds) {
+  if (Number.isFinite(audio.duration)) audio.currentTime = Math.min(audio.duration,Math.max(0,audio.currentTime+seconds));
+}
+
+const PLAYER_KEYS = {
+  " ":()=>$('#play-toggle').click(),
+  k:()=>$('#play-toggle').click(),
+  ArrowLeft:()=>seekBy(-5),
+  ArrowRight:()=>seekBy(5),
+  n:()=>$('#next').click(),
+  p:()=>$('#previous').click(),
+  "+":()=>changeVolume(5),
+  "=":()=>changeVolume(5),
+  "-":()=>changeVolume(-5),
+  m:()=>{ audio.muted = !audio.muted; toast(tr(audio.muted?"Muted":"Sound on")); },
+  s:()=>{ $('.player-mode[data-action="toggle-shuffle"]').click(); toast(tr(playback.shuffle?"Shuffle: on":"Shuffle: off")); },
+  r:()=>{ $('.player-mode[data-action="cycle-repeat"]').click(); toast(tr(`Repeat: ${playback.repeat}`)); },
+  f:()=>$('#now-toggle').click(),
+  l:()=>$('#lyrics-toggle').click(),
+  "?":showShortcuts,
+};
+const SYNC_KEYS = new Set([" ","k","ArrowLeft","ArrowRight"]);
+const REPEATING_KEYS = new Set(["ArrowLeft","ArrowRight","+","=","-"]);
+const shortcutFocus = {keyboard:false, spaceUsed:false};
+
+// :focus-visible also turns on at the key press, so remember how the focus got there.
+document.addEventListener("pointerdown",()=>{ shortcutFocus.keyboard = false; },true);
+document.addEventListener("keydown",event=>{ if (event.key === "Tab") shortcutFocus.keyboard = true; },true);
+document.addEventListener("keyup",event=>{
+  if (event.key === " " && shortcutFocus.spaceUsed) {
+    shortcutFocus.spaceUsed = false;
+    event.preventDefault();
+  }
+});
+
+document.addEventListener("keydown",event=>{
+  if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing || event.defaultPrevented || $('#modal').open) return;
+  const target = event.target;
+  if (target.matches?.('textarea,select,[contenteditable],input:not([type=range])') || target.closest?.('[role="listbox"]')) return;
+  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  const action = PLAYER_KEYS[key];
+  if (!action || (event.repeat && !REPEATING_KEYS.has(key))) return;
+  // Sliders use the arrows themselves, and manual sync keeps its own keys.
+  if (target.matches?.('input[type=range]') && key.startsWith("Arrow")) return;
+  if (lyricsState.manual && !SYNC_KEYS.has(key)) return;
+  // A control reached with Tab answers to Space itself; one just clicked must not repeat its action.
+  if (key === " " && shortcutFocus.keyboard && target.matches?.('button,a')) return;
+  if (key === " " && !state.current) return;
+  if (key === " ") shortcutFocus.spaceUsed = true;
+  event.preventDefault();
+  action();
+});
+document.addEventListener("click",event=>{
+  if (event.target.closest('[data-action="keyboard-shortcuts"]')) showShortcuts();
+});
 updatePlayerControls();
