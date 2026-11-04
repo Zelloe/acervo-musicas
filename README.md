@@ -44,6 +44,19 @@ deletes your music.
 - **Lyrics:** shows lyrics (synced when available) and lets you save them into
   the file, with backup and undo.
 
+## How it compares to beets and Picard
+
+[beets](https://beets.io) and [MusicBrainz Picard](https://picard.musicbrainz.org) are mature and widely used. Try them first if you want:
+
+- **Audio fingerprinting:** Picard identifies tracks by their sound. Acervo only reads names and tags.
+- **Automation and plugins:** beets runs from the command line and has a large plugin ecosystem.
+- **Organizing files:** both can rename and move files. Acervo never does.
+- **More formats:** Acervo only handles MP3 and FLAC.
+
+Acervo is for a narrower case: fixing tags from a browser while your folders stay exactly as they are. Each change is reviewed before it is written, every write keeps a backup you can restore byte for byte, and it also has a synced lyrics editor and a player.
+
+Acervo is young and only tested on Linux. It was written largely with AI tools, directed and tested by its maintainer, so keep your own backup of anything you can't replace.
+
 ## Installation
 
 Requirements:

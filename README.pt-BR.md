@@ -44,6 +44,19 @@ exclui músicas.
 - **Letras:** mostra a letra (sincronizada quando existir) e permite gravá-la
   no arquivo, com backup e desfazer.
 
+## Comparação com beets e Picard
+
+O [beets](https://beets.io) e o [MusicBrainz Picard](https://picard.musicbrainz.org) são maduros e muito usados. Experimente-os primeiro se você quer:
+
+- **Impressão digital de áudio:** o Picard identifica as faixas pelo som. O Acervo só lê nomes e tags.
+- **Automação e plugins:** o beets roda na linha de comando e tem muitos plugins.
+- **Organizar arquivos:** os dois podem renomear e mover arquivos. O Acervo nunca faz isso.
+- **Mais formatos:** o Acervo só trabalha com MP3 e FLAC.
+
+O Acervo atende um caso mais específico: arrumar tags pelo navegador, com as pastas exatamente como estão. Cada mudança é revisada antes de ser gravada, toda gravação guarda um backup que restaura o arquivo byte a byte, e há também um editor de letras sincronizadas e um player.
+
+O Acervo é novo e só foi testado no Linux. Foi escrito em boa parte com ferramentas de IA, sob direção e testes do mantenedor, então mantenha seu próprio backup do que você não pode perder.
+
 ## Instalação
 
 Requisitos:
