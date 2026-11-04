@@ -166,6 +166,8 @@ function renderQueue() {
 
 function renderNowView() {
   const track = state.current;
+  const title = [join(track?.title), join(track?.artist)].filter(Boolean).join(" — ");
+  document.title = title ? `${title} | Acervo` : tr("Acervo — Your music library");
   if ($("#now-view").hidden || !track) return;
   const real = playback.index >= 0 && !track.id.startsWith("stage-");
   $("#now-title").dataset.i18nUser = "true";
