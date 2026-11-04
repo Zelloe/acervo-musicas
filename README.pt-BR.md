@@ -23,9 +23,9 @@ exclui músicas.
 - **Inventário:** lê MP3 (ID3v2.3/v2.4) e FLAC (Vorbis Comments) recursivamente,
   com tags, capas, características técnicas e hashes.
 - **Sugestões de gênero:** a partir de regras locais editáveis por artista e por
-  álbum (`genre_rules.csv`) e, opcionalmente, do MusicBrainz. Gêneros já
+  álbum (`src/acervo/data/genre_rules.csv`) e, opcionalmente, do MusicBrainz. Gêneros já
   preenchidos são preservados por padrão.
-- **Unificação de álbuns:** regras conservadoras (`album_rules.csv`) que
+- **Unificação de álbuns:** regras conservadoras (`src/acervo/data/album_rules.csv`) que
   exigem artista, edição, disco, faixa e título compatíveis. O nome anterior
   fica guardado numa tag própria. Versões ao vivo, demos e bônus não são fundidas
   só por semelhança de nome.
@@ -103,7 +103,7 @@ Responda com `enter` para baixar só as que faltam, `todas`, ou números como
 Cada faixa vira `Artista - Título.mp3` direto na pasta escolhida, com título,
 artista, álbum, ano, número da faixa e capa vindos do spotDL. Como o spotDL sem
 API oficial não informa gênero, o gênero é preenchido pelas regras de
-`genre_rules.csv` quando houver uma regra única para o artista ou álbum.
+`src/acervo/data/genre_rules.csv` quando houver uma regra única para o artista ou álbum.
 
 O spotDL trabalha numa pasta temporária fora da coleção. O arquivo só aparece no
 destino depois de o download terminar com sucesso e o áudio ser validado com
@@ -178,7 +178,7 @@ agora e `L` a letra. Aperte `?` para ver a lista completa.
 Sem abrir o navegador automaticamente, ou com outra porta:
 
 ```bash
-.venv/bin/python acervo.py serve \
+./acervo.sh serve \
   --folder "/caminho/para/suas/musicas" \
   --port 8765 \
   --data "/caminho/para/dados-do-acervo"
@@ -196,7 +196,7 @@ minutos em coleções grandes.
 1. Gerar uma prévia (não grava nada):
 
    ```bash
-   .venv/bin/python acervo.py analyze \
+   ./acervo.sh analyze \
      --folder "/caminho/para/suas/musicas" \
      --normalize-albums \
      --output relatorios/minha_previa
@@ -209,7 +209,7 @@ minutos em coleções grandes.
 3. Aplicar:
 
    ```bash
-   .venv/bin/python acervo.py apply \
+   ./acervo.sh apply \
      --plan relatorios/minha_previa/plano.json \
      --approvals relatorios/minha_previa/alteracoes.csv
    ```
@@ -217,7 +217,7 @@ minutos em coleções grandes.
 4. Desfazer, se necessário, com o manifesto informado na aplicação:
 
    ```bash
-   .venv/bin/python acervo.py restore \
+   ./acervo.sh restore \
      --manifest backups/ID_DA_EXECUCAO/manifesto.json
    ```
 
@@ -237,7 +237,7 @@ Um campo protegido nunca é sugerido nem gravado pelo Acervo, mesmo que esteja
 vazio e mesmo que uma regra, o MusicBrainz ou um download proponham outro valor:
 
 ```bash
-.venv/bin/python acervo.py protect \
+./acervo.sh protect \
   --folder "/caminho/para/suas/musicas" \
   --file "/caminho/para/suas/musicas/Artista/faixa.mp3" \
   --fields genre,album
@@ -280,7 +280,7 @@ confirmação. Para voltar à versão anterior, copie esse arquivo de volta para
 Pela linha de comando, a exportação só lê a coleção:
 
 ```bash
-.venv/bin/python acervo.py playlist \
+./acervo.sh playlist \
   --folder "/caminho/para/suas/musicas" \
   --genre "Progressive Rock" \
   --name "Progressivo" \
@@ -298,7 +298,7 @@ substituída sem `--overwrite`. Para conferir se todos os caminhos ainda
 resolvem:
 
 ```bash
-.venv/bin/python acervo.py playlist --validate --output Progressivo.m3u8
+./acervo.sh playlist --validate --output Progressivo.m3u8
 ```
 
 ## Como as gravações são protegidas
@@ -355,7 +355,7 @@ Baixe apenas conteúdo que você tem o direito de baixar no seu país.
 ## Testes
 
 ```bash
-.venv/bin/python -m unittest discover -s tests -v
+PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v
 ```
 
 Os testes geram pequenos arquivos temporários com `ffmpeg` e nunca tocam numa

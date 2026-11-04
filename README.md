@@ -23,9 +23,9 @@ deletes your music.
 - **Inventory:** reads MP3 (ID3v2.3/v2.4) and FLAC (Vorbis comments)
   recursively, with tags, cover art, technical details and hashes.
 - **Genre suggestions:** from editable local rules per artist and per album
-  (`genre_rules.csv`) and, optionally, MusicBrainz. Existing genres are
+  (`src/acervo/data/genre_rules.csv`) and, optionally, MusicBrainz. Existing genres are
   kept by default.
-- **Album unification:** conservative rules (`album_rules.csv`) that require
+- **Album unification:** conservative rules (`src/acervo/data/album_rules.csv`) that require
   matching artist, edition, disc, track number and title. The previous name is
   kept in its own tag. Live versions, demos and bonus tracks are never merged
   just because their names look alike.
@@ -103,7 +103,7 @@ or numbers such as `1-3,5`.
 Each track becomes `Artist - Title.mp3` directly in the chosen folder, with
 title, artist, album, year, track number and cover art from spotDL. Since
 spotDL without the official API does not provide genres, the genre is filled in
-from `genre_rules.csv` when there is a single matching rule for the artist
+from `src/acervo/data/genre_rules.csv` when there is a single matching rule for the artist
 or album. Lyrics are embedded when they are found (synced LRC when available).
 
 spotDL works in a temporary folder outside your collection. The file only
@@ -176,7 +176,7 @@ lyrics. Press `?` for the full list.
 Without opening the browser automatically, or on another port:
 
 ```bash
-.venv/bin/python acervo.py serve \
+./acervo.sh serve \
   --folder "/path/to/your/music" \
   --port 8765 \
   --data "/path/to/acervo-data"
@@ -194,7 +194,7 @@ can take a few minutes on large collections.
 1. Create a preview (writes nothing):
 
    ```bash
-   .venv/bin/python acervo.py analyze \
+   ./acervo.sh analyze \
      --folder "/path/to/your/music" \
      --normalize-albums \
      --output relatorios/my_preview
@@ -207,7 +207,7 @@ can take a few minutes on large collections.
 3. Apply:
 
    ```bash
-   .venv/bin/python acervo.py apply \
+   ./acervo.sh apply \
      --plan relatorios/my_preview/plano.json \
      --approvals relatorios/my_preview/alteracoes.csv
    ```
@@ -215,7 +215,7 @@ can take a few minutes on large collections.
 4. Undo if needed, with the manifest printed when applying:
 
    ```bash
-   .venv/bin/python acervo.py restore \
+   ./acervo.sh restore \
      --manifest backups/RUN_ID/manifesto.json
    ```
 
@@ -235,7 +235,7 @@ A protected field is never suggested or written by Acervo, even when it is
 empty and even if a rule, MusicBrainz or a download proposes another value:
 
 ```bash
-.venv/bin/python acervo.py protect \
+./acervo.sh protect \
   --folder "/path/to/your/music" \
   --file "/path/to/your/music/Artist/track.mp3" \
   --fields genre,album
@@ -274,7 +274,7 @@ confirmation.
 From the command line, exporting only reads the collection:
 
 ```bash
-.venv/bin/python acervo.py playlist \
+./acervo.sh playlist \
   --folder "/path/to/your/music" \
   --genre "Progressive Rock" \
   --name "Progressive" \
@@ -290,7 +290,7 @@ replaced without `--overwrite`. To check that every path still
 resolves:
 
 ```bash
-.venv/bin/python acervo.py playlist --validate --output Progressive.m3u8
+./acervo.sh playlist --validate --output Progressive.m3u8
 ```
 
 ## How writes are protected
@@ -341,7 +341,7 @@ Acervo refuses to replace FLAC with MP3.
 ## Tests
 
 ```bash
-.venv/bin/python -m unittest discover -s tests -v
+PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v
 ```
 
 Tests generate small temporary files with `ffmpeg`, mock every network service

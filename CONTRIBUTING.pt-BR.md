@@ -30,7 +30,7 @@ Requisitos: Python 3.10 ou superior e `ffmpeg` (usado pelos testes para gerar
 ```bash
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m unittest discover -s tests -v
+PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v
 .venv/bin/pip install "ruff==0.17.3"
 .venv/bin/ruff check .
 .venv/bin/ruff format .
@@ -40,7 +40,7 @@ A interface é HTML, CSS e JavaScript puros, sem npm e sem etapa de compilação
 Para conferir a sintaxe dos scripts:
 
 ```bash
-for f in web/*.js; do node --check "$f"; done
+for f in src/acervo/web/static/*.js; do node --check "$f"; done
 ```
 
 ## Idiomas
@@ -54,11 +54,11 @@ Acervo é distribuído em inglês e em português do Brasil:
   pontos de entrada escolhem o idioma (o servidor por requisição, a linha de
   comando pelo `LANG`).
 - **Interface web:** textos para o usuário passam por `tr()` e precisam de uma
-  entrada em `web/i18n.js`. Títulos, artistas, álbuns, caminhos e letras são
+  entrada em `web/static/i18n.js`. Títulos, artistas, álbuns, caminhos e letras são
   dados e nunca são traduzidos.
 - **Dados gravados:** as chaves dos arquivos que o Acervo grava (manifestos,
   planos, proteções, lotes) mantêm os nomes atuais, muitos em português, para
-  que backups antigos continuem restauráveis. O `api_contract.py` traduz essas
+  que backups antigos continuem restauráveis. O `web/api_contract.py` traduz essas
   chaves para a API HTTP em inglês.
 
 ## Testes
@@ -74,30 +74,32 @@ Acervo é distribuído em inglês e em português do Brasil:
 
 | Arquivo | Responsabilidade |
 | --- | --- |
-| `acervo.py` | Linha de comando: `analyze`, `apply`, `restore`, `serve`, `playlist`, `protect`, `unprotect`, `protections` (os nomes em português também funcionam) |
-| `library_scan.py` | Leitura e inventário, sem gravar |
-| `library_plan.py` | Regras, propostas e plano de aprovação |
-| `library_core.py` | Gravação validada, backups e restauração |
-| `library_import.py` | Importação transacional e desfazer |
-| `staged_downloads.py` | Fluxo avançado de downloads (área de revisão) |
-| `downloader.py`, `download_menu.py`, `spotdl_search.py` | Download direto com spotDL (núcleo, terminal e adaptador) |
-| `download_picker.py` | Página Baixar do servidor |
+| `src/acervo/cli.py` | Linha de comando: `analyze`, `apply`, `restore`, `serve`, `playlist`, `protect`, `unprotect`, `protections` (os nomes em português também funcionam) |
+| `library/scan.py` | Leitura e inventário, sem gravar |
+| `library/plan.py` | Regras, propostas e plano de aprovação |
+| `library/core.py` | Gravação validada, backups e restauração |
+| `library/importer.py` | Importação transacional e desfazer |
+| `downloads/staged.py` | Fluxo avançado de downloads (área de revisão) |
+| `downloads/downloader.py`, `downloads/menu.py`, `downloads/spotdl_search.py` | Download direto com spotDL (núcleo, terminal e adaptador) |
+| `downloads/picker.py` | Página Baixar do servidor |
 | `search.py` | Ranking da biblioteca e sugestões globais |
-| `versions.py` | Classificação estúdio/ao vivo/acústico/demo/remix |
+| `library/versions.py` | Classificação estúdio/ao vivo/acústico/demo/remix |
 | `lyrics.py` | Letras do arquivo e do LRCLIB; gravação com backup |
-| `protections.py` | Campos protegidos |
-| `playlists.py` | Playlists M3U8 |
+| `library/protections.py` | Campos protegidos |
+| `library/playlists.py` | Playlists M3U8 |
 | `messages.py` | Catálogo de mensagens e escolha de idioma |
-| `api_contract.py` | Traduz as chaves dos dados gravados para a API HTTP em inglês |
-| `musicbrainz_client.py` | Cliente MusicBrainz opcional, com cache e limite |
-| `server.py` e `web/` | Servidor local e interface |
+| `web/api_contract.py` | Traduz as chaves dos dados gravados para a API HTTP em inglês |
+| `library/musicbrainz.py` | Cliente MusicBrainz opcional, com cache e limite |
+| `app.py` | A biblioteca aberta: operações, fila de downloads, letras |
+| `library/query.py` | Ordenação e filtros das telas |
+| `web/server.py` e `web/static/` | Servidor local e interface |
 
 O planejamento das próximas funcionalidades está em [ROADMAP.pt-BR.md](ROADMAP.pt-BR.md).
 Só marque um item como concluído depois de cumprir o critério descrito lá.
 
 ## Regras de gênero e álbum
 
-`genre_rules.csv` e `album_rules.csv` são regras de curadoria local.
+`data/genre_rules.csv` e `data/album_rules.csv` são regras de curadoria local.
 Ao propor novas regras:
 
 - Prefira gêneros específicos e úteis (por exemplo, `Thrash Metal` em vez de

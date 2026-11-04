@@ -31,7 +31,7 @@ temporary audio).
 ```bash
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m unittest discover -s tests -v
+PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v
 .venv/bin/pip install "ruff==0.17.3"
 .venv/bin/ruff check .
 .venv/bin/ruff format .
@@ -41,7 +41,7 @@ The interface is plain HTML, CSS and JavaScript, with no npm and no build step.
 To check the scripts' syntax:
 
 ```bash
-for f in web/*.js; do node --check "$f"; done
+for f in src/acervo/web/static/*.js; do node --check "$f"; done
 ```
 
 ## Languages
@@ -55,11 +55,11 @@ ships in English and Brazilian Portuguese:
   only entry points choose the language (the server per request, the command
   line from `LANG`).
 - **Web interface:** user-facing strings go through `tr()` and need an entry in
-  `web/i18n.js`. Titles, artists, albums, paths and lyrics are data and are
+  `web/static/i18n.js`. Titles, artists, albums, paths and lyrics are data and are
   never translated.
 - **Stored data:** keys in files Acervo writes (manifests, plans, protections,
   batches) keep their existing names, many in Portuguese, so older backups stay
-  restorable. `api_contract.py` maps them to the English HTTP API.
+  restorable. `web/api_contract.py` maps them to the English HTTP API.
 
 ## Tests
 
@@ -74,30 +74,32 @@ ships in English and Brazilian Portuguese:
 
 | File | Responsibility |
 | --- | --- |
-| `acervo.py` | Command line: `analyze`, `apply`, `restore`, `serve`, `playlist`, `protect`, `unprotect`, `protections` |
-| `library_scan.py` | Reading and inventory, never writes |
-| `library_plan.py` | Rules, proposals and the approval plan |
-| `library_core.py` | Validated writes, backups and restore |
-| `library_import.py` | Transactional import and undo |
-| `staged_downloads.py` | Advanced download flow (review area) |
-| `downloader.py`, `download_menu.py`, `spotdl_search.py` | Direct spotDL downloads (core, terminal menu and adapter) |
-| `download_picker.py` | Server side of the Baixar page |
+| `src/acervo/cli.py` | Command line: `analyze`, `apply`, `restore`, `serve`, `playlist`, `protect`, `unprotect`, `protections` |
+| `library/scan.py` | Reading and inventory, never writes |
+| `library/plan.py` | Rules, proposals and the approval plan |
+| `library/core.py` | Validated writes, backups and restore |
+| `library/importer.py` | Transactional import and undo |
+| `downloads/staged.py` | Advanced download flow (review area) |
+| `downloads/downloader.py`, `downloads/menu.py`, `downloads/spotdl_search.py` | Direct spotDL downloads (core, terminal menu and adapter) |
+| `downloads/picker.py` | Server side of the Baixar page |
 | `search.py` | Library ranking and global suggestions |
-| `versions.py` | Studio/live/acoustic/demo/remix classification |
+| `library/versions.py` | Studio/live/acoustic/demo/remix classification |
 | `lyrics.py` | Lyrics from the file and LRCLIB; saving with backup |
-| `protections.py` | Protected fields |
-| `playlists.py` | M3U8 playlists |
+| `library/protections.py` | Protected fields |
+| `library/playlists.py` | M3U8 playlists |
 | `messages.py` | Message catalogue and language selection |
-| `api_contract.py` | Maps stored data keys to the English HTTP API |
-| `musicbrainz_client.py` | Optional MusicBrainz client, with cache and limits |
-| `server.py` and `web/` | Local server and interface |
+| `web/api_contract.py` | Maps stored data keys to the English HTTP API |
+| `library/musicbrainz.py` | Optional MusicBrainz client, with cache and limits |
+| `app.py` | The open library: operations, download queue, lyrics |
+| `library/query.py` | Sorting and filtering for the views |
+| `web/server.py` and `web/static/` | Local server and interface |
 
 Planned features are listed in [ROADMAP.md](ROADMAP.md). Only mark
 an item as done once it meets the criteria described there.
 
 ## Genre and album rules
 
-`genre_rules.csv` and `album_rules.csv` are locally curated rules.
+`data/genre_rules.csv` and `data/album_rules.csv` are locally curated rules.
 When proposing new rules:
 
 - Prefer specific, useful genres (for example `Thrash Metal` rather than
