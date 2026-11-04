@@ -96,6 +96,31 @@ function updateBulkSelection() {
   if (cancel) cancel.disabled = bulkLyricsState.cancelling || !running || state.summary.job.type !== "lyrics_lookup";
 }
 
+function bulkLyricsRow(row) {
+  const ready = bulkReady(row),
+    label = row.saved ? "Saved" : bulkLyricsLabels[row.status] || "Error";
+  const current =
+    { none: "No lyrics in file", plain: "Plain lyrics in file", synced: "Synced lyrics in file" }[row.current] ||
+    "No lyrics in file";
+  return `<article class="bulk-lyrics-row" role="listitem"><input class="check bulk-lyrics-check" type="checkbox" data-bulk-id="${escapeHTML(row.id)}" data-ready="${ready}" aria-label="${tr("Select lyrics for")} ${escapeHTML(join(row.title))}" ${bulkLyricsState.selected.has(row.id) ? "checked" : ""} ${ready ? "" : "disabled"}><div class="bulk-lyrics-track"><strong>${escapeHTML(join(row.title))}</strong><span>${escapeHTML(join(row.artist))}</span><small>${escapeHTML(tr(current))}</small>${row.error ? `<p class="download-warning">${escapeHTML(row.error)}</p>` : ""}</div><div class="bulk-lyrics-actions"><span class="chip ${row.status === "error" ? "amber" : "neutral"}">${escapeHTML(tr(label))}</span>${row.text ? `<button class="text-button" data-bulk-preview="${escapeHTML(row.id)}">${tr("Preview")}</button>` : row.status === "already_synced" ? `<button class="text-button" data-lyrics="${escapeHTML(row.id)}">${tr("View lyrics")}</button>` : ""}</div></article>`;
+}
+
+function bulkResultsFooter(total, first, size, page) {
+  return `<div class="table-footer"><span>${total ? `${number(first + 1)}–${number(Math.min(first + size, total))} ${tr("of")} ${number(total)}` : tr("0 tracks")}</span><div class="pagination"><button class="button small ghost" data-bulk-page="${page - 1}" ${page === 0 ? "disabled" : ""}>${tr("Previous")}</button><button class="button small ghost" data-bulk-page="${page + 1}" ${first + size >= total ? "disabled" : ""}>${tr("Next")}</button></div></div>`;
+}
+
+function bulkCompletedResults(controls, filters, counts) {
+  return `${controls}<p class="download-hint">${tr("Selection is kept across pages and filters; only checked lyrics will be saved.")}</p><div class="bulk-lyrics-filters" role="group" aria-label="${tr("Lyrics status")}">${filters
+    .filter(([key]) => key === "all" || key === "ready" || counts[key])
+    .map(
+      ([key, label]) =>
+        `<button class="chip-button ${bulkLyricsState.filter === key ? "active" : ""}" data-bulk-filter="${key}" aria-pressed="${bulkLyricsState.filter === key}">${escapeHTML(tr(label))} <span>${number(counts[key])}</span></button>`,
+    )
+    .join(
+      "",
+    )}</div><label class="bulk-lyrics-search">${tr("Filter these results")}<input class="field" id="bulk-lyrics-search" type="search" value="${escapeHTML(bulkLyricsState.query)}" placeholder="${tr("Title, artist, album or file")}"></label><div id="bulk-lyrics-results">${bulkResultsHTML()}</div>`;
+}
+
 function bulkResultsHTML() {
   const rows = bulkRows(),
     size = 40;
@@ -104,19 +129,9 @@ function bulkResultsHTML() {
     visible = rows.slice(first, first + size);
   return `${
     visible.length
-      ? `<div class="bulk-lyrics-list" role="list">${visible
-          .map((row) => {
-            const ready = bulkReady(row),
-              label = row.saved ? "Saved" : bulkLyricsLabels[row.status] || "Error";
-            const current =
-              { none: "No lyrics in file", plain: "Plain lyrics in file", synced: "Synced lyrics in file" }[
-                row.current
-              ] || "No lyrics in file";
-            return `<article class="bulk-lyrics-row" role="listitem"><input class="check bulk-lyrics-check" type="checkbox" data-bulk-id="${escapeHTML(row.id)}" data-ready="${ready}" aria-label="${tr("Select lyrics for")} ${escapeHTML(join(row.title))}" ${bulkLyricsState.selected.has(row.id) ? "checked" : ""} ${ready ? "" : "disabled"}><div class="bulk-lyrics-track"><strong>${escapeHTML(join(row.title))}</strong><span>${escapeHTML(join(row.artist))}</span><small>${escapeHTML(tr(current))}</small>${row.error ? `<p class="download-warning">${escapeHTML(row.error)}</p>` : ""}</div><div class="bulk-lyrics-actions"><span class="chip ${row.status === "error" ? "amber" : "neutral"}">${escapeHTML(tr(label))}</span>${row.text ? `<button class="text-button" data-bulk-preview="${escapeHTML(row.id)}">${tr("Preview")}</button>` : row.status === "already_synced" ? `<button class="text-button" data-lyrics="${escapeHTML(row.id)}">${tr("View lyrics")}</button>` : ""}</div></article>`;
-          })
-          .join("")}</div>`
+      ? `<div class="bulk-lyrics-list" role="list">${visible.map(bulkLyricsRow).join("")}</div>`
       : empty(tr("No lyrics in this filter"), tr("Choose another status or change the search."), "lyrics")
-  }<div class="table-footer"><span>${rows.length ? `${number(first + 1)}–${number(Math.min(first + size, rows.length))} ${tr("of")} ${number(rows.length)}` : tr("0 tracks")}</span><div class="pagination"><button class="button small ghost" data-bulk-page="${bulkLyricsState.page - 1}" ${bulkLyricsState.page === 0 ? "disabled" : ""}>${tr("Previous")}</button><button class="button small ghost" data-bulk-page="${bulkLyricsState.page + 1}" ${first + size >= rows.length ? "disabled" : ""}>${tr("Next")}</button></div></div>`;
+  }${bulkResultsFooter(rows.length, first, size, bulkLyricsState.page)}`;
 }
 
 function refreshBulkResults() {
@@ -157,15 +172,7 @@ async function renderBulkLyrics() {
   const controls = `<div class="bulk-lyrics-toolbar"><div class="bulk-lyrics-selection"><strong><span data-bulk-selected>0</span> ${tr("selected")}</strong><button class="text-button" data-action="bulk-select-ready">${tr("Select ready lyrics")}</button><button class="text-button" data-action="bulk-clear">${tr("Clear selection")}</button></div><button class="button primary" data-action="bulk-review">${icon("check")} ${tr("Review and save")} (<span data-bulk-selected>0</span>)</button></div>`;
   return `${heading(tr("LYRICS"), tr("Lyrics for all tracks"), tr("Find lyrics in the background, review the list, then save the selected lyrics with one backup and undo."), `<button class="button ghost" data-view="library">${tr("Back to library")}</button>${action}`)}<section class="download-panel"><p class="download-hint">${tr("The lookup reads your files and sends only track details to LRCLIB. Nothing is written to your music until you confirm.")}</p>${running ? `<p class="bulk-lyrics-progress" role="status">${tr("Lookup in progress. You can keep listening while it runs.")}</p>` : ""}${data?.cancelled ? `<p class="download-hint">${tr("Lookup stopped. Review the available results or run it again.")}</p>` : ""}${data?.error ? `<div class="error-box">${escapeHTML(data.error)}</div>` : ""}${
     data?.complete
-      ? `${controls}<p class="download-hint">${tr("Selection is kept across pages and filters; only checked lyrics will be saved.")}</p><div class="bulk-lyrics-filters" role="group" aria-label="${tr("Lyrics status")}">${filters
-          .filter(([key]) => key === "all" || key === "ready" || counts[key])
-          .map(
-            ([key, label]) =>
-              `<button class="chip-button ${bulkLyricsState.filter === key ? "active" : ""}" data-bulk-filter="${key}" aria-pressed="${bulkLyricsState.filter === key}">${escapeHTML(tr(label))} <span>${number(counts[key])}</span></button>`,
-          )
-          .join(
-            "",
-          )}</div><label class="bulk-lyrics-search">${tr("Filter these results")}<input class="field" id="bulk-lyrics-search" type="search" value="${escapeHTML(bulkLyricsState.query)}" placeholder="${tr("Title, artist, album or file")}"></label><div id="bulk-lyrics-results">${bulkResultsHTML()}</div>`
+      ? bulkCompletedResults(controls, filters, counts)
       : empty(
           running ? tr("Finding lyrics…") : tr("Ready to find lyrics"),
           tr("Synced and plain lyrics will be selected for review. Tracks already synchronized in the file are kept."),
