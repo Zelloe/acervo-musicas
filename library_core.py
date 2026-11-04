@@ -314,10 +314,10 @@ def library_lock(root: Path):
 
 
 def load_plan(path: Path) -> dict:
-    expected = path.with_suffix(".sha256").read_text().strip()
+    expected = path.with_suffix(".sha256").read_text(encoding="utf-8").strip()
     if sha256(path) != expected:
         raise ValueError(_("The plan was modified; run a new analysis"))
-    plan = json.loads(path.read_text())
+    plan = json.loads(path.read_text(encoding="utf-8"))
     if plan.get("schema") != 1:
         raise ValueError(_("Incompatible plan version"))
     return plan
@@ -433,7 +433,7 @@ def restore(manifest_path: Path, storage: Path | None = None) -> dict:
     manifest_path = manifest_path.resolve(strict=True)
     # Manifests live in <data>/backups/<run>/manifesto.json.
     storage = storage or manifest_path.parent.parent.parent
-    manifest = json.loads(manifest_path.read_text())
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("tipo") == "downloads":
         from library_import import restore_import
         return restore_import(manifest_path, storage)

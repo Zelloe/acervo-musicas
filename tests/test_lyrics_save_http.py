@@ -100,7 +100,7 @@ class SaveLyricsHTTPTest(unittest.TestCase):
         history = self.request("/api/history")['runs']
         self.assertEqual(len(history), 1)
         self.assertEqual(history[0]['type'], "downloads")
-        manifest = json.loads(Path(result['manifest']).read_text())
+        manifest = json.loads(Path(result['manifest']).read_text(encoding="utf-8"))
         backup = Path(result['manifest']).parent / manifest["arquivos"][0]["backup"]
         self.assertEqual(sha256(backup), self.original)
         self.request("/api/lyrics/save", {"previa": preview['preview']}, status=400)
@@ -154,7 +154,7 @@ class SaveLyricsHTTPTest(unittest.TestCase):
         import protections
         policy = protections.policy_path(self.storage, self.root)
         policy.parent.mkdir(parents=True, exist_ok=True)
-        policy.write_text("invalid json")
+        policy.write_text("invalid json", encoding="utf-8")
         self.request("/api/lyrics/save", {"previa": preview['preview']}, status=400)
         self.assertEqual(sha256(self.music), self.original)
 

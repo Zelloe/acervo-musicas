@@ -94,7 +94,7 @@ class VersionHTTPTest(unittest.TestCase):
         self.assertEqual(preview['tracks'], len(selected))
         self.assertFalse((self.root / "Playlists").exists())
         result = self.request("/api/playlists/export", data={"nome": "Ao vivo", "versao": "ao_vivo"})
-        paths = {line for line in Path(result["playlist"]).read_text().splitlines() if line and not line.startswith("#")}
+        paths = {line for line in Path(result["playlist"]).read_text(encoding="utf-8").splitlines() if line and not line.startswith("#")}
         self.assertEqual(paths, {"../" + t["id"] + ".mp3" for t in selected})
 
     def test_invalid_version_is_rejected_and_image_hosts_are_restricted(self):

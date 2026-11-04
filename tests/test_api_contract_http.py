@@ -80,7 +80,7 @@ class APIContractHTTPTest(unittest.TestCase):
         self.assertCountEqual(details["protected_fields"], ["genre", "year"])
         policy = protections.load(self.app.storage, self.root)
         self.assertEqual(protections.protected(policy, self.root, str(self.path)), {"genero", "ano"})
-        saved = json.loads(protections.policy_path(self.app.storage, self.root).read_text())
+        saved = json.loads(protections.policy_path(self.app.storage, self.root).read_text(encoding="utf-8"))
         self.assertIn("biblioteca", saved)
         self.assertNotIn("library", saved)
         self.assertEqual(sha256(self.path), self.original)

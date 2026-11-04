@@ -99,7 +99,7 @@ class GlobalSearchTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         script = Path(self.temp.name) / "worker.py"
-        script.write_text(FAKE_WORKER)
+        script.write_text(FAKE_WORKER, encoding="utf-8")
         self.search = GlobalSearch(lambda: [sys.executable, str(script)], timeout=1.0)
 
     def tearDown(self):

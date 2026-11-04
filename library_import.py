@@ -245,7 +245,7 @@ def restore_import(manifest_path: Path, storage: Path | None = None) -> dict:
     manifest_path = manifest_path.resolve(strict=True)
     storage = storage or manifest_path.parent.parent.parent
     transaction = manifest_path.parent
-    manifest = json.loads(manifest_path.read_text())
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("schema") != 1 or manifest.get("tipo") != "downloads":
         raise ValueError(_("Invalid import manifest"))
     root = Path(manifest["biblioteca"]).resolve(strict=True)

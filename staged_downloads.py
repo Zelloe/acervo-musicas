@@ -143,7 +143,7 @@ class CommandRunner:
             if stopped:
                 raise RuntimeError(stopped)
             if process.returncode:
-                raise RuntimeError(_("The tool did not finish the operation. {log}", log=clean_log(log.read_text(errors="replace"))[-1200:]))
+                raise RuntimeError(_("The tool did not finish the operation. {log}", log=clean_log(log.read_text(errors="replace", encoding="utf-8"))[-1200:]))
 
 
 def safe_filename(artist: str, title: str) -> str:
@@ -190,7 +190,7 @@ class Downloads:
         return path
 
     def load(self, ident: str) -> dict:
-        batch = json.loads((self.path(ident) / "lote.json").read_text())
+        batch = json.loads((self.path(ident) / "lote.json").read_text(encoding="utf-8"))
         if batch.get("biblioteca") != str(self.root):
             raise ValueError(_("The batch belongs to another library"))
         return batch
@@ -216,7 +216,7 @@ class Downloads:
             # The regular save looks up every track and its lyrics again; the adapter
             # uses spotDL's own catalog, without that repetition.
             try:
-                first = Path(executable).resolve().open().readline().strip()
+                first = Path(executable).resolve().open(encoding="utf-8").readline().strip()
                 interpreter = shlex.split(first[2:]) if first.startswith("#!") else []
             except (UnicodeError, OSError):
                 interpreter = []
@@ -230,9 +230,9 @@ class Downloads:
         log = path / "catalogo.log"
         self.runner.run(command, path, log, timeout=180)
         if provider == "spotdl":
-            return json.loads((path / "catalogo.spotdl").read_text())
+            return json.loads((path / "catalogo.spotdl").read_text(encoding="utf-8"))
         # yt-dlp prints JSON to stdout; warnings on stderr may come before it.
-        lines = log.read_text(errors="replace").splitlines()
+        lines = log.read_text(errors="replace", encoding="utf-8").splitlines()
         data = next((json.loads(line) for line in reversed(lines) if line.startswith("{")), None)
         if not data:
             raise ValueError(_("yt-dlp did not return a valid catalog"))
@@ -403,7 +403,7 @@ class Downloads:
                     for field in ("isrc", "publisher", "date"):
                         raw[field] = raw.get(field) or ""
                     single = path / (row_id + ".spotdl")
-                    single.write_text(json.dumps([raw], ensure_ascii=False))
+                    single.write_text(json.dumps([raw], ensure_ascii=False), encoding="utf-8")
                     # Absolute templates are sanitized by spotDL (including
                     # folders starting with a dot). A fixed relative path
                     # keeps the download strictly inside the review batch.

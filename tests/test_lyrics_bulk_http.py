@@ -158,7 +158,7 @@ class BulkLyricsHTTPTest(unittest.TestCase):
         self.assertEqual(len(history), 1)
         self.assertEqual((history[0]["files"], history[0]["category"]), (2, "lyrics"))
         manifest = next((self.storage / "backups").glob("*/manifesto.json"))
-        self.assertEqual(len(json.loads(manifest.read_text())["arquivos"]), 2)
+        self.assertEqual(len(json.loads(manifest.read_text(encoding="utf-8"))["arquivos"]), 2)
         found = self.request("/api/lyrics/bulk")["lookup"]
         self.assertEqual(sum(bool(row.get("saved")) for row in found["rows"]), 2)
         self.request("/api/lyrics/bulk/save", {"preview": preview["preview"]}, status=400)
@@ -230,7 +230,7 @@ class BulkLyricsHTTPTest(unittest.TestCase):
     def test_corrupt_policy_allows_lookup_but_refuses_saving(self):
         path = protections.policy_path(self.storage, self.root)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("broken json")
+        path.write_text("broken json", encoding="utf-8")
         found = self.find()
         self.request("/api/lyrics/bulk/preview", {"lookup": found["id"], "ids": [self.tracks["First"]["id"]]}, status=400)
         self.assertFalse((self.storage / "backups").exists())
@@ -239,7 +239,7 @@ class BulkLyricsHTTPTest(unittest.TestCase):
         path = Path(self.tracks["First"]["arquivo"])
         sidecar = path.with_suffix(".lrc")
         text = "[00:00.00]Local first verse\n[00:00.08]Local last verse"
-        sidecar.write_text(text)
+        sidecar.write_text(text, encoding="utf-8")
         original_sidecar = sha256(sidecar)
         found = self.find()
         row = next(row for row in found["rows"] if row["id"] == self.tracks["First"]["id"])

@@ -54,11 +54,11 @@ class StaticHTTPTest(unittest.TestCase):
 
     def test_asset_created_after_server_start_is_available_with_correct_mime(self):
         self.get("/new_feature.js", status=404)
-        (self.web / "new_feature.js").write_text('"use strict";')
+        (self.web / "new_feature.js").write_text('"use strict";', encoding="utf-8")
         body, headers = self.get("/new_feature.js?v=2")
         self.assertEqual(body, b'"use strict";')
         self.assertIn("text/javascript", headers["Content-Type"])
-        (self.web / "new-style.css").write_text("body{}")
+        (self.web / "new-style.css").write_text("body{}", encoding="utf-8")
         body, headers = self.get("/new-style.css")
         self.assertEqual(body, b"body{}")
         self.assertIn("text/css", headers["Content-Type"])
@@ -66,30 +66,30 @@ class StaticHTTPTest(unittest.TestCase):
 
     def test_traversal_subdirectories_unexpected_extensions_and_symlinks_are_blocked(self):
         secret = self.assets / "secret.js"
-        secret.write_text("private contents")
+        secret.write_text("private contents", encoding="utf-8")
         (self.web / "linked.js").symlink_to(secret)
         (self.web / "directory.js").mkdir()
         sub = self.web / "sub"
         sub.mkdir()
-        (sub / "nested.js").write_text("nested")
+        (sub / "nested.js").write_text("nested", encoding="utf-8")
         for path in ("/../secret.js", "/%2e%2e/secret.js", "/sub/nested.js", "/linked.js", "/directory.js", "/.hidden.js", "/UPPER.js", "/server.py", "/missing.css"):
             with self.subTest(path=path):
                 body, _ = self.get(path, status=404)
                 self.assertNotIn(b"private contents", body)
         moved = self.assets / "real-web"
         self.web.rename(moved)
-        (moved / "normal.js").write_text("normal")
+        (moved / "normal.js").write_text("normal", encoding="utf-8")
         self.web.symlink_to(moved, target_is_directory=True)
         self.get("/normal.js", status=404)
 
     def test_state_detects_server_code_change_from_the_loaded_version(self):
         source = self.assets / "server-source.py"
-        source.write_text("loaded version")
+        source.write_text("loaded version", encoding="utf-8")
         with patch("server.SERVER_SOURCE", source), patch("server.SERVER_CODE_HASH", sha256(source)):
             self.assertFalse(json.loads(self.get("/api/state")[0])['restart_required'])
-            source.write_text("updated version")
+            source.write_text("updated version", encoding="utf-8")
             self.assertTrue(json.loads(self.get("/api/state")[0])['restart_required'])
-            source.write_text("loaded version")
+            source.write_text("loaded version", encoding="utf-8")
             self.assertFalse(json.loads(self.get("/api/state")[0])['restart_required'])
             source.unlink()
             self.assertTrue(json.loads(self.get("/api/state")[0])['restart_required'])

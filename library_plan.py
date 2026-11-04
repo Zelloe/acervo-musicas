@@ -144,7 +144,7 @@ def create_plan(root: Path, output: Path, normalize_albums: bool = False, genre_
     plan = {"schema": 1, "criado_em": datetime.now(timezone.utc).isoformat(), "biblioteca": str(root), "resumo": summary, "arquivos": planned}
     output.mkdir(parents=True, exist_ok=False)
     atomic_json(output / "plano.json", plan)
-    (output / "plano.sha256").write_text(sha256(output / "plano.json") + "\n")
+    (output / "plano.sha256").write_text(sha256(output / "plano.json") + "\n", encoding="utf-8")
     atomic_json(output / "inventario.json", {"resumo": summary, "musicas": tracks})
     atomic_json(output / "resumo.json", summary)
     write_csv(output / "alteracoes.csv", flat, ["id", "arquivo", "titulo", "artista", "campo", "atual", "proposto", "fonte", "criterio", "preservacao", "aprovar"])

@@ -27,24 +27,24 @@ if [ "$1" = "-m" ] && [ "$2" = "venv" ]; then
   exit 1
 fi
 exit 1
-''')
+''', encoding="utf-8")
         fake.chmod(0o755)
         self.script = Path(__file__).resolve().parents[1] / "setup_env.sh"
 
     def prepare(self):
         return subprocess.run([shutil.which("bash"), "-c", 'source "$1"; acervo_preparar', "bash", str(self.script)],
                               cwd=self.project, env={"PATH": str(self.fakebin) + os.pathsep + os.defpath, "HOME": str(self.base)},
-                              capture_output=True, text=True, timeout=5)
+                              capture_output=True, text=True, timeout=5, encoding="utf-8", errors="replace")
 
     def test_failed_venv_creation_preserves_existing_environment(self):
         previous = self.project / ".venv"
         previous.mkdir()
         sentinel = previous / "preservar.txt"
-        sentinel.write_text("Dados anteriores")
+        sentinel.write_text("Dados anteriores", encoding="utf-8")
         result = self.prepare()
         self.assertNotEqual(result.returncode, 0)
         self.assertTrue(sentinel.is_file(), "A falha apagou o ambiente anterior")
-        self.assertEqual(sentinel.read_text(), "Dados anteriores")
+        self.assertEqual(sentinel.read_text(encoding="utf-8"), "Dados anteriores")
         self.assertIn("python3-venv", result.stderr)
 
     def test_failed_new_environment_is_cleaned_up(self):
@@ -62,10 +62,10 @@ case "$*" in
   *mutagen*) exit 0 ;;
 esac
 exit 0
-''')
+''', encoding="utf-8")
         executable.chmod(0o755)
         sentinel = executable.parent.parent / "preservar.txt"
-        sentinel.write_text("Ambiente com Python antigo")
+        sentinel.write_text("Ambiente com Python antigo", encoding="utf-8")
         result = self.prepare()
         self.assertNotEqual(result.returncode, 0, "O fast-path aceitou Python antigo só por conter mutagen")
         self.assertTrue(sentinel.is_file())
@@ -78,9 +78,9 @@ case "$*" in
   *sys.version_info*) exit 1 ;;
 esac
 exit 0
-''')
+''', encoding="utf-8")
         executable.chmod(0o755)
-        (self.fakebin / "python3").write_text("#!/bin/sh\nexit 0\n")
+        (self.fakebin / "python3").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         result = self.prepare()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("3.10", result.stderr)

@@ -180,7 +180,7 @@ class GlobalSearch:
     def _start(self):
         if self.process and self.process.poll() is None:
             return
-        self.process = subprocess.Popen(self.command_factory(), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
+        self.process = subprocess.Popen(self.command_factory(), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1, encoding="utf-8", errors="replace")
         # A thread reads the lines; several answers may arrive together in one chunk.
         self.lines = queue.Queue()
         threading.Thread(target=self._read, args=(self.process, self.lines), daemon=True).start()

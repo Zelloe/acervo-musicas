@@ -55,7 +55,7 @@ class MusicBrainz:
         cached = self.cache / (key + ".json")
         if cached.exists():
             try:
-                data = json.loads(cached.read_text())
+                data = json.loads(cached.read_text(encoding="utf-8"))
                 if time.time() - data["timestamp"] < 30 * 86400:
                     return data["response"]
             except (ValueError, KeyError, OSError):
@@ -63,18 +63,18 @@ class MusicBrainz:
         if self.disabled or self.requests >= self.max_requests:
             raise ValueError(_("Online lookups suspended or limit reached; review pending"))
         # The lock and the persisted clock share the limit across processes using this cache.
-        with (self.cache / ".rate.lock").open("a+") as lock:
+        with (self.cache / ".rate.lock").open("a+", encoding="utf-8") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
             for attempt in range(3):
                 clock = self.cache / ".last_request"
                 try:
-                    last = float(clock.read_text())
+                    last = float(clock.read_text(encoding="utf-8"))
                 except (ValueError, OSError):
                     last = 0
                 time.sleep(max(0, 1.1 - (time.time() - last)))
                 if self.requests >= self.max_requests:
                     raise ValueError(_("Online lookup limit reached"))
-                clock.write_text(str(time.time()))
+                clock.write_text(str(time.time()), encoding="utf-8")
                 self.requests += 1
                 try:
                     request = Request(url, headers={"User-Agent": self.user_agent, "Accept": "application/json"})

@@ -70,7 +70,7 @@ class LyricsHTTPTest(unittest.TestCase):
         self.assertEqual(sha256(self.path), original)
         ID3().save(self.path)
         sidecar = self.path.with_suffix(".lrc")
-        sidecar.write_text("[00:01.00]Primeiro verso fictício\n[00:02.00]Segundo verso fictício\n")
+        sidecar.write_text("[00:01.00]Primeiro verso fictício\n[00:02.00]Segundo verso fictício\n", encoding="utf-8")
         original = {p: sha256(p) for p in (self.path, sidecar)}
         with patch.object(self.app.lyrics_client, "lookup", side_effect=AssertionError("O sidecar já possui letra")):
             result = self.get()

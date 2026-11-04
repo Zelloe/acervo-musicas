@@ -258,7 +258,7 @@ class App:
 
     def load(self, path: Path):
         plan = load_plan(path)
-        tracks = json.loads((path.parent / "inventario.json").read_text())["musicas"]
+        tracks = json.loads((path.parent / "inventario.json").read_text(encoding="utf-8"))["musicas"]
         root = Path(plan["biblioteca"])
         refreshed, changed, notices = [], set(), []
         # Saved inventories may predate edits made with a different library root.
@@ -906,7 +906,7 @@ class App:
         rows = []
         for path in (self.storage / "backups").glob("*/manifesto.json"):
             try:
-                manifest = json.loads(path.read_text())
+                manifest = json.loads(path.read_text(encoding="utf-8"))
                 if manifest["biblioteca"] == str(self.root):
                     rows.append({"id": path.parent.name, "tipo": manifest.get("tipo", "metadados"), "categoria": "letra" if str(manifest.get("lote", "")).startswith("letra-") else "", "estado": manifest["estado"], "data": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(), "arquivos": len(manifest["arquivos"]), "erro": manifest.get("erro")})
             except (OSError, ValueError, KeyError):
@@ -991,7 +991,7 @@ class Handler(BaseHTTPRequestHandler):
         url = urlsplit(self.path)
         query = from_api(parse_qs(url.query))
         if url.path in ("/", "/index.html"):
-            html = (BASE / "web/index.html").read_text().replace("__TOKEN__", self.app.token)
+            html = (BASE / "web/index.html").read_text(encoding="utf-8").replace("__TOKEN__", self.app.token)
             self.send(200, html.encode(), "text/html; charset=utf-8")
         elif re.fullmatch(r"/[a-z0-9_-]+\.(js|css)", url.path):
             web = BASE / "web"
@@ -1026,7 +1026,7 @@ class Handler(BaseHTTPRequestHandler):
             if row_id and row_id not in {r["id"] for r in batch["faixas"]}:
                 raise ValueError(_('Track not found'))
             path = self.app.downloads.path(batch["id"]) / (row_id + ".log" if row_id else "catalogo.log")
-            self.json({"registro": clean_log(path.read_text(errors="replace")) if path.is_file() else _('No log available.')})
+            self.json({"registro": clean_log(path.read_text(errors="replace", encoding="utf-8")) if path.is_file() else _('No log available.')})
         elif url.path == "/api/suggestions" or (url.path == "/api/search" and query.get("escopo", ["biblioteca"])[0] == "global"):
             self.json(self.app.suggestions(query.get("q", [""])[0], query.get("escopo", ["biblioteca"])[0]))
         elif url.path in ("/api/library", "/api/search", "/api/queue"):

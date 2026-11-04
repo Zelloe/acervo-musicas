@@ -162,7 +162,7 @@ class ProtectionHTTPTest(unittest.TestCase):
         old = self.server.app.proposals()[0]
         path = protections.policy_path(self.storage, self.lib)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("corrompido")
+        path.write_text("corrompido", encoding="utf-8")
         self.assertTrue(self.request("/api/protections")['protection_error'])
         state = self.request("/api/state")
         self.assertTrue(state['protection_error'])
@@ -174,7 +174,7 @@ class ProtectionHTTPTest(unittest.TestCase):
         self.request("/api/protections", {"ids": [self.a["id"]], "campos": ["genero"], "proteger": True}, status=400)
         self.request("/api/apply", {"ids": [old["id"]]}, status=400)
         self.assertIsNone(self.server.app.job)
-        self.assertEqual(path.read_text(), "corrompido")
+        self.assertEqual(path.read_text(encoding="utf-8"), "corrompido")
         self.assertEqual({p: sha256(Path(p)) for p in self.before}, self.before)
 
     def test_state_is_readable_and_jobs_are_blocked_while_policy_is_saved(self):

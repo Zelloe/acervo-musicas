@@ -150,6 +150,8 @@ HANDLERS = {"albuns": albums, "edicoes": editions, "musicas": songs, "faixas": t
 def serve():
     # Library warnings must not mix with the JSON responses.
     out, sys.stdout = sys.stdout, sys.stderr
+    out.reconfigure(encoding="utf-8")
+    sys.stdin.reconfigure(encoding="utf-8")
     for line in sys.stdin:
         request = None
         try:

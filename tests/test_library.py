@@ -150,7 +150,7 @@ class LibraryTest(unittest.TestCase):
         plan = self.plan()
         result = apply_plan(plan, self.approvals(plan), self.root / "backups")
         manifest = Path(result["manifesto"])
-        data = json.loads(manifest.read_text())
+        data = json.loads(manifest.read_text(encoding="utf-8"))
         backup = manifest.parent / data["arquivos"][0]["backup"]
         backup.write_bytes(b"corrupt")
         current = sha256(path)
@@ -214,7 +214,7 @@ class LibraryTest(unittest.TestCase):
         approvals.write_text(text, encoding="utf-8-sig")
         with self.assertRaisesRegex(ValueError, "Edit only"):
             apply_plan(plan, approvals, self.root / "backups")
-        plan.write_text(plan.read_text() + " ")
+        plan.write_text(plan.read_text(encoding="utf-8") + " ", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "plan was modified"):
             apply_plan(plan, approvals, self.root / "backups")
 
@@ -232,7 +232,7 @@ class LibraryTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "interrupção simulada"):
                 apply_plan(plan, self.approvals(plan), self.root / "backups")
         manifest = next((self.root / "backups").glob("*/manifesto.json"))
-        self.assertEqual(json.loads(manifest.read_text())["estado"], "interrompido")
+        self.assertEqual(json.loads(manifest.read_text(encoding="utf-8"))["estado"], "interrompido")
         restore(manifest)
         self.assertEqual({str(p): sha256(p) for p in files}, before)
 

@@ -93,12 +93,12 @@ class ProtectionTest(unittest.TestCase):
     def test_corrupted_or_foreign_policy_blocks_writes(self):
         self.protect("genero")
         path = protections.policy_path(self.data, self.lib)
-        path.write_text("{quebrado")
+        path.write_text("{quebrado", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "Unreadable"):
             protections.load(self.data, self.lib)
         with self.assertRaisesRegex(ValueError, "Unreadable"):
             create_plan(self.lib, self.base / "plano", storage=self.data)
-        path.write_text(json.dumps({"schema": 1, "biblioteca": "/outra/colecao", "faixas": {}}))
+        path.write_text(json.dumps({"schema": 1, "biblioteca": "/outra/colecao", "faixas": {}}), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "another library"):
             protections.load(self.data, self.lib)
 
@@ -108,7 +108,7 @@ class ProtectionTest(unittest.TestCase):
         for bad in ({"schema": 1, "biblioteca": str(self.lib.resolve()), "faixas": {"acdc.mp3": {"campos": [{"x": 1}]}}},
                     {"schema": 1, "biblioteca": str(self.lib.resolve()), "faixas": {"acdc.mp3": ["genero"]}},
                     {"schema": 1, "biblioteca": str(self.lib.resolve()), "faixas": {"../fora.mp3": {"campos": ["genero"]}}}):
-            path.write_text(json.dumps(bad))
+            path.write_text(json.dumps(bad), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Incompatible"):
                 protections.load(self.data, self.lib)
         path.unlink()
@@ -143,7 +143,7 @@ class ProtectionTest(unittest.TestCase):
         self.assertEqual([r["campo"] for r in rows], ["genero"])
         self.protect("genero")
         result = create_plan(self.lib, self.base / "plano2", storage=self.data)
-        self.assertEqual(json.loads(Path(result["plano"]).read_text())["arquivos"], [])
+        self.assertEqual(json.loads(Path(result["plano"]).read_text(encoding="utf-8"))["arquivos"], [])
         self.assertEqual(result["resumo"]["alteracoes_propostas"], 0)
         self.assertIn("Protected field: genero", (self.base / "plano2" / "revisao.csv").read_text(encoding="utf-8-sig"))
 

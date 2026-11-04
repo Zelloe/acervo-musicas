@@ -106,7 +106,7 @@ def _adapter(command: str, *args: str, timeout: int = 120) -> list[dict]:
 def _adapter_once(command: str, *args: str, timeout: int = 120) -> list[dict]:
     with tempfile.TemporaryDirectory(prefix="acervo-busca-") as folder:
         output = Path(folder) / "resultado.json"
-        process = subprocess.run([*spotdl_python(), "-I", str(ADAPTER), command, str(output), *args], capture_output=True, text=True, timeout=timeout)
+        process = subprocess.run([*spotdl_python(), "-I", str(ADAPTER), command, str(output), *args], capture_output=True, text=True, timeout=timeout, encoding="utf-8", errors="replace")
         if process.returncode or not output.is_file():
             detail = (process.stderr or process.stdout).strip().splitlines()
             raise RuntimeError(_("The spotDL search failed: {detail}", detail=detail[-1] if detail else _("no details")))
@@ -308,7 +308,7 @@ def _download_one(item: dict, folder: Path, executable: str, genre_rules: list[d
         command = [executable, "download", url, "--output", TEMPLATE, "--format", "mp3", "--bitrate", bitrate,
                    "--overwrite", "skip", "--threads", "1", "--simple-tui", "--print-errors"]
         try:
-            process = subprocess.run(command, cwd=work, capture_output=True, text=True, timeout=600)
+            process = subprocess.run(command, cwd=work, capture_output=True, text=True, timeout=600, encoding="utf-8", errors="replace")
         except subprocess.TimeoutExpired:
             return {**item, "estado": "erro", "mensagem": _("Timed out")}
         produced = [p for p in work.iterdir() if p.suffix.casefold() == ".mp3" and p.is_file() and not p.is_symlink()]

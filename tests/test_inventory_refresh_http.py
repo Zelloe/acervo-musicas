@@ -58,7 +58,7 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
                 audio["title"], audio["artist"], audio["album"] = path.stem, "Fixture band", "Fixture album"
                 audio.save()
         self.rules = base / "rules.csv"
-        self.rules.write_text("artista,album,genero,origem\nFixture band,,Suggested genre,fixture\n")
+        self.rules.write_text("artista,album,genero,origem\nFixture band,,Suggested genre,fixture\n", encoding="utf-8")
         result = create_plan(self.root, self.storage / "relatorios/parent", genre_path=self.rules, storage=self.storage)
         self.plan_path = Path(result["plano"])
         self.inventory_path = self.plan_path.parent / "inventario.json"

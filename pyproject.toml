@@ -1,0 +1,20 @@
+[project]
+name = "acervo"
+version = "0.1.0"
+description = "Local music library manager: reviewed tag changes with backups, synced lyrics and a player"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = ["mutagen>=1.47,<2"]
+
+[dependency-groups]
+dev = ["ruff==0.17.3"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "UP"]
+# Message catalogs and long API dictionaries read better on one line.
+ignore = ["E501"]

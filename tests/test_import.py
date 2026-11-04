@@ -155,7 +155,7 @@ class ImportTest(unittest.TestCase):
             with self.assertRaises(RuntimeError) as caught:
                 import_reviewed(self.lib, self.backups, [self.add_op(target, source)], "lote")
         manifest_path = self.manifest(caught.exception)
-        entry = json.loads(manifest_path.read_text())["arquivos"][0]
+        entry = json.loads(manifest_path.read_text(encoding="utf-8"))["arquivos"][0]
         leftover = Path(entry["temporario"])
         self.assertTrue(leftover.name.startswith(".acervo-import-"))
         shutil.copy(source, leftover)  # simulates a process killed before the finally
