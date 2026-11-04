@@ -10,7 +10,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
-from acervo.library.core import sha256
+from acervo.app import code_fingerprint
 from acervo.web.server import App, Handler
 
 
@@ -91,20 +91,19 @@ class StaticHTTPTest(unittest.TestCase):
         self.web.symlink_to(moved, target_is_directory=True)
         self.get("/normal.js", status=404)
 
-    def test_state_detects_server_code_change_from_the_loaded_version(self):
-        source = self.assets / "server-source.py"
+    def test_state_detects_a_code_change_anywhere_in_the_package(self):
+        package = self.assets / "package"
+        (package / "sub").mkdir(parents=True)
+        source = package / "sub" / "module.py"
         source.write_text("loaded version", encoding="utf-8")
-        with (
-            patch("acervo.web.server.SERVER_SOURCE", source),
-            patch("acervo.web.server.SERVER_CODE_HASH", sha256(source)),
-        ):
-            self.assertFalse(json.loads(self.get("/api/state")[0])["restart_required"])
-            source.write_text("updated version", encoding="utf-8")
-            self.assertTrue(json.loads(self.get("/api/state")[0])["restart_required"])
-            source.write_text("loaded version", encoding="utf-8")
-            self.assertFalse(json.loads(self.get("/api/state")[0])["restart_required"])
-            source.unlink()
-            self.assertTrue(json.loads(self.get("/api/state")[0])["restart_required"])
+        with patch("acervo.app.PACKAGE", package):
+            loaded = code_fingerprint()
+            with patch("acervo.app.LOADED_CODE", loaded):
+                self.assertFalse(json.loads(self.get("/api/state")[0])["restart_required"])
+                source.write_text("a version of another size", encoding="utf-8")
+                self.assertTrue(json.loads(self.get("/api/state")[0])["restart_required"])
+                source.unlink()
+                self.assertTrue(json.loads(self.get("/api/state")[0])["restart_required"])
 
 
 if __name__ == "__main__":

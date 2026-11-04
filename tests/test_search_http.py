@@ -141,7 +141,7 @@ class SearchHTTPTest(unittest.TestCase):
         self.request("/api/suggestions", {"q": "arvore"})
         self.assertIs(self.app.search_index, index)
         new = self.track("4", "Faixa nova", "Nova banda", "Álbum novo")
-        with patch("acervo.web.server.read_track", return_value=new):
+        with patch("acervo.app.read_track", return_value=new):
             self.app.refresh_downloaded([{"estado": "baixado", "arquivo": new["arquivo"]}])
         suggestions = self.request("/api/suggestions", {"q": "Faixa nova"})
         self.assertEqual(len(suggestions["tracks"]), 1)

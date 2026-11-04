@@ -15,11 +15,11 @@ from urllib.request import Request, urlopen
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, USLT
 
+from acervo import app as app_module
 from acervo.library import protections
 from acervo.library.core import integrity, sha256
 from acervo.library.plan import create_plan
 from acervo.lyrics import current_lyrics
-from acervo.web import server as server_module
 from acervo.web.server import App, Handler
 
 
@@ -306,7 +306,7 @@ class BulkLyricsHTTPTest(unittest.TestCase):
         found = self.find()
         entered, release = threading.Event(), threading.Event()
         path = Path(self.tracks["First"]["arquivo"])
-        original = server_module.sha256
+        original = app_module.sha256
         results = []
 
         def slow(file, *args):
@@ -315,7 +315,7 @@ class BulkLyricsHTTPTest(unittest.TestCase):
                 release.wait(5)
             return original(file, *args)
 
-        with patch("acervo.web.server.sha256", side_effect=slow):
+        with patch("acervo.app.sha256", side_effect=slow):
             worker = threading.Thread(
                 target=lambda: results.append(
                     self.request(
@@ -338,14 +338,14 @@ class BulkLyricsHTTPTest(unittest.TestCase):
     def test_save_is_a_writing_job_and_cannot_be_cancelled_as_a_lookup(self):
         preview = self.review()
         entered, release = threading.Event(), threading.Event()
-        original = server_module.save_lyrics_batch
+        original = app_module.save_lyrics_batch
 
         def slow(*args):
             entered.set()
             release.wait(5)
             return original(*args)
 
-        with patch("acervo.web.server.save_lyrics_batch", side_effect=slow):
+        with patch("acervo.app.save_lyrics_batch", side_effect=slow):
             self.request("/api/lyrics/bulk/save", {"preview": preview["preview"]}, status=202)
             try:
                 self.assertTrue(entered.wait(2))

@@ -125,7 +125,7 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
         self.update_genres()
         create_plan(self.album, self.storage / "relatorios/child", genre_path=self.rules, storage=self.storage)
         before = {path: sha256(path) for path in (self.mp3, self.flac, self.unchanged)}
-        with patch("acervo.web.server.read_track", wraps=read_track) as reader:
+        with patch("acervo.app.read_track", wraps=read_track) as reader:
             app = self.open_app()
         self.assertCountEqual([call.args[0] for call in reader.call_args_list], [self.mp3, self.flac])
         self.assertEqual(app.root, self.root)
@@ -146,7 +146,7 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
     def test_unchanged_inventory_keeps_valid_proposals_without_decoding_audio(self):
         before = {path: sha256(path) for path in (self.mp3, self.flac, self.unchanged)}
         with patch(
-            "acervo.web.server.read_track", side_effect=AssertionError("Unchanged audio should not be decoded")
+            "acervo.app.read_track", side_effect=AssertionError("Unchanged audio should not be decoded")
         ) as reader:
             app = self.open_app()
         reader.assert_not_called()
@@ -173,9 +173,7 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
         before = sha256(external)
         self.mp3.unlink()
         self.mp3.symlink_to(external)
-        with patch(
-            "acervo.web.server.read_track", side_effect=AssertionError("A symlink must not be decoded")
-        ) as reader:
+        with patch("acervo.app.read_track", side_effect=AssertionError("A symlink must not be decoded")) as reader:
             app = self.open_app()
         reader.assert_not_called()
         self.assertEqual(len(app.tracks), 2)
@@ -194,7 +192,7 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
                 os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000))
             return row
 
-        with patch("acervo.web.server.read_track", side_effect=concurrent_read):
+        with patch("acervo.app.read_track", side_effect=concurrent_read):
             app = self.open_app()
         self.assertEqual(len(app.tracks), 2)
         self.assertIn("The file changed while being read", app.error)
@@ -225,7 +223,7 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
             json.dumps({"biblioteca": str(self.root), "arquivos": [str(self.unchanged), str(new), str(link)]}),
             encoding="utf-8",
         )
-        with patch("acervo.web.server.read_track", wraps=read_track) as reader:
+        with patch("acervo.app.read_track", wraps=read_track) as reader:
             app = self.open_app()
         read = {Path(call.args[0]) for call in reader.call_args_list}
         self.assertNotIn(self.unchanged, read)
