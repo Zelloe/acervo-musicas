@@ -15,7 +15,7 @@ from urllib.request import Request, urlopen
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, USLT
 
-from acervo import app as app_module
+from acervo.app import lyrics as app_module
 from acervo.library import protections
 from acervo.library.core import integrity, sha256
 from acervo.library.plan import create_plan
@@ -315,7 +315,7 @@ class BulkLyricsHTTPTest(unittest.TestCase):
                 release.wait(5)
             return original(file, *args)
 
-        with patch("acervo.app.sha256", side_effect=slow):
+        with patch("acervo.app.lyrics.sha256", side_effect=slow):
             worker = threading.Thread(
                 target=lambda: results.append(
                     self.request(
@@ -345,7 +345,7 @@ class BulkLyricsHTTPTest(unittest.TestCase):
             release.wait(5)
             return original(*args)
 
-        with patch("acervo.app.save_lyrics_batch", side_effect=slow):
+        with patch("acervo.app.lyrics.save_lyrics_batch", side_effect=slow):
             self.request("/api/lyrics/bulk/save", {"preview": preview["preview"]}, status=202)
             try:
                 self.assertTrue(entered.wait(2))

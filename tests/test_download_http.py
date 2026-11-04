@@ -201,8 +201,8 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
                 "acervo.downloads.picker.downloader.local_index",
                 side_effect=AssertionError("A coleção já está no inventário"),
             ),
-            patch("acervo.app.create_plan", side_effect=AssertionError("Não reanalisar a coleção no download")),
-            patch("acervo.app.read_track", wraps=read_track) as reader,
+            patch("acervo.app.core.create_plan", side_effect=AssertionError("Não reanalisar a coleção no download")),
+            patch("acervo.app.downloads.read_track", wraps=read_track) as reader,
         ):
             catalog = self.search()
             self.request(
@@ -463,7 +463,7 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         self.finished_queue()
 
     def test_queue_continues_without_any_open_page(self):
-        with patch("acervo.app.FINISHED_JOB_SECONDS", 0.05):
+        with patch("acervo.app.core.FINISHED_JOB_SECONDS", 0.05):
             self.queue_behind_a_job()
             for _ in range(200):
                 if self.mock_download.called:
@@ -472,7 +472,7 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         self.mock_download.assert_called_once()
 
     def test_old_timer_does_not_release_a_newer_finished_job(self):
-        with patch("acervo.app.FINISHED_JOB_SECONDS", 0.05):
+        with patch("acervo.app.core.FINISHED_JOB_SECONDS", 0.05):
             app = self.queue_behind_a_job()
             with app.lock:
                 app.job = {**app.job, "id": "newer"}

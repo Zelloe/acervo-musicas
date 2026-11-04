@@ -1,0 +1,108 @@
+"""Messages and checks shared by the parts of the open library."""
+
+from pathlib import Path
+
+from acervo.messages import _, register
+
+register(
+    {
+        "Library: {folder}": "Biblioteca: {folder}",
+        "Invalid or symbolic music path": "Caminho de música inválido ou simbólico",
+        "Missing or invalid file; refresh the library": "Arquivo ausente ou inválido; atualize a biblioteca",
+        "The library must be a folder": "A biblioteca deve ser uma pasta",
+        "Application data must stay outside the music library": "Os dados do programa devem ficar fora da biblioteca musical",
+        "Preparing…": "Preparando…",
+        "Select a track by its ID and review the lyrics": "Selecione uma faixa pelo identificador e confira a letra",
+        "Empty or invalid lyrics": "Letra vazia ou inválida",
+        "Use plain lyrics without timestamps": "Use a letra simples, sem marcações de tempo",
+        "Review the lyrics preview before saving": "Confira a prévia da letra antes de salvar",
+        "Could not load new tracks; refresh the library: {error}": "Não foi possível carregar novas faixas; atualize a biblioteca: {error}",
+        "Select tracks by their library IDs": "Selecione faixas pelos identificadores da biblioteca",
+        "Choose valid fields and whether to protect or unlock them": "Escolha campos válidos e se deseja protegê-los ou desbloqueá-los",
+        "Select tracks or an album from the library": "Selecione faixas ou um álbum da biblioteca",
+        "Use up to 200 characters in the search": "Use até 200 caracteres na busca",
+        "Choose to search the library or the global catalog": "Escolha buscar na biblioteca ou no catálogo global",
+        "Invalid library filter": "Filtro de biblioteca inválido",
+        "Invalid version filter": "Filtro de versão inválido",
+        "Invalid artist or album filter": "Filtro de artista ou álbum inválido",
+        "Enter a playlist name": "Informe um nome para a playlist",
+        "Use a simple name without slashes, special characters or line breaks": "Use um nome simples, sem barras, caracteres especiais ou quebras de linha",
+        "Invalid album": "Álbum inválido",
+        "No songs selected for the playlist": "Nenhuma música selecionada para a playlist",
+        "The Playlists folder and playlist cannot be symbolic links": "A pasta Playlists e a playlist não podem ser links simbólicos",
+        "The existing playlist must be a regular file without hard links": "A playlist existente deve ser um arquivo comum, sem hard links",
+        "Replacing a playlist requires an explicit choice": "A substituição da playlist exige uma escolha explícita",
+        "The playlist already exists. Choose another name or approve replacement": "A playlist já existe. Escolha outro nome ou aprove a substituição",
+        "The playlist changed since preview; review it again": "A playlist mudou desde a prévia; revise novamente",
+        "\nInterface closed.": "\nInterface encerrada.",
+        "Wait for the current operation to finish": "Aguarde a operação atual terminar",
+        "Could not clear the new-track cache: {error}": "Não foi possível limpar o cache de novas faixas: {error}",
+        "Song not found": "Música não encontrada",
+        "The track already has exactly these lyrics": "A faixa já tem exatamente essa letra",
+        "The file changed during preview; review it again": "O arquivo mudou durante a prévia; confira novamente",
+        "The preview expired; review the lyrics again": "A prévia expirou; confira a letra novamente",
+        "Incompatible cache of new tracks": "Cache de novas faixas incompatível",
+        "Album not found; refresh the library": "Álbum não encontrado; atualize a biblioteca",
+        "The library is busy with another write; wait and try again": "A biblioteca está ocupada por outra gravação; aguarde e tente novamente",
+        "The playlist backup folder cannot be a symbolic link": "A pasta de backup de playlists não pode ser simbólica",
+        "The playlist changed during backup; review it again": "A playlist mudou durante o backup; revise novamente",
+        "Host not allowed": "Host não permitido",
+        "Unauthorized request": "Requisição não autorizada",
+        "Invalid request": "Requisição inválida",
+        "The request body must be a JSON object": "O corpo da requisição deve ser um objeto JSON",
+        "\nWaiting for the current write to finish so files are not left incomplete…": "\nAguardando a gravação em andamento terminar para não deixar arquivos pela metade…",
+        "{done} of {total} · {name}": "{done} de {total} · {name}",
+        "The track changed in the inventory; review it again": "A faixa mudou no inventário; confira novamente",
+        "The file changed while being read": "O arquivo mudou durante a leitura",
+        "{count} downloaded tracks were moved or removed; refresh the library to find them": "{count} faixas baixadas foram movidas ou removidas; atualize a biblioteca para encontrá-las",
+        "Download saved, but the track was not added to the inventory: {file_name}. {error}": "Download salvo, mas a faixa não entrou no inventário: {file_name}. {error}",
+        "Downloads saved; refresh the library after restarting: {error}": "Downloads salvos; atualize a biblioteca após reiniciar: {error}",
+        "Invalid track selection; refresh the library": "Seleção de faixas inválida; atualize a biblioteca",
+        "Asset not found": "Recurso não encontrado",
+        "Operation completed": "Operação concluída",
+        "Select a track by its library ID": "Selecione uma música pelo identificador da biblioteca",
+        "Track not found": "Faixa não encontrada",
+        "No log available.": "Sem registro disponível.",
+        "Invalid selection": "Seleção inválida",
+        "No lookup or download is running": "Não há consulta ou download em andamento",
+        "Creating backups and validating approved files…": "Criando backups e validando os arquivos aprovados…",
+        "Creating full backups and validating tags…": "Criando backups completos e validando as tags…",
+        "Select changes to approve": "Selecione alterações para aprovar",
+        "Scan the library first": "Analise a biblioteca primeiro",
+        "The selection is outdated; reload the page": "A seleção está desatualizada; recarregue a página",
+        "Validating backups and restoring files…": "Validando backups e restaurando os arquivos…",
+        "Operation not found": "Execução não encontrada",
+        "Route not found": "Rota não encontrada",
+        "Page not found": "Página não encontrada",
+        "Run a scan first": "Execute uma análise primeiro",
+        "The lyrics lookup expired; start another lookup": "A busca de letras expirou; inicie outra busca",
+        "Start a lyrics lookup using the library inventory": "Inicie a busca de letras pelo inventário da biblioteca",
+        "Choose a library with 1 to 20,000 tracks for this lookup": "Escolha uma biblioteca com 1 a 20.000 faixas para esta busca",
+        "Checking tracks {current} of {total}": "Conferindo faixas {current} de {total}",
+        "The track changed during lookup; refresh the library and try again": "A faixa mudou durante a busca; atualize a biblioteca e tente novamente",
+        "Checking lyrics results {current} of {total}": "Conferindo resultados de letras {current} de {total}",
+        "No lyrics lookup is running": "Não há busca de letras em andamento",
+        "Select lyrics from the lookup results": "Selecione letras dos resultados da busca",
+        "Select only lyrics ready to save": "Selecione somente letras prontas para salvar",
+        "The track changed after lookup: {file}. Start another lookup": "A faixa mudou após a busca: {file}. Inicie outra busca",
+        "The selected tracks already have exactly these lyrics": "As faixas selecionadas já têm exatamente essas letras",
+        "Invalid sort order": "Ordenação inválida",
+        "Choose an existing folder using its full path": "Escolha uma pasta existente usando o caminho completo",
+        "Could not read this folder: {error}": "Não foi possível ler esta pasta: {error}",
+        "Another folder is already opening": "Outra pasta já está sendo aberta",
+        "Wait for the current operation to finish before opening another folder": "Aguarde a operação atual terminar antes de abrir outra pasta",
+        "Only waiting downloads can be removed": "Só é possível remover downloads que ainda estão aguardando",
+        "Invalid sort direction": "Direção de ordenação inválida",
+        "Could not refresh track {file_name}; scan the library again: {error}": "Não foi possível atualizar a faixa {file_name}; analise a biblioteca novamente: {error}",
+    }
+)
+
+
+def readable_music(root, value):
+    path = Path(value)
+    if not path.is_absolute() or path.is_symlink() or path.resolve() != path:
+        raise ValueError(_("Invalid or symbolic music path"))
+    path.relative_to(root)
+    if not path.is_file() or path.suffix.casefold() not in (".mp3", ".flac"):
+        raise ValueError(_("Missing or invalid file; refresh the library"))
+    return path

@@ -96,9 +96,9 @@ class StaticHTTPTest(unittest.TestCase):
         (package / "sub").mkdir(parents=True)
         source = package / "sub" / "module.py"
         source.write_text("loaded version", encoding="utf-8")
-        with patch("acervo.app.PACKAGE", package):
+        with patch("acervo.app.core.PACKAGE", package):
             loaded = code_fingerprint()
-            with patch("acervo.app.LOADED_CODE", loaded):
+            with patch("acervo.app.core.LOADED_CODE", loaded):
                 self.assertFalse(json.loads(self.get("/api/state")[0])["restart_required"])
                 source.write_text("a version of another size", encoding="utf-8")
                 self.assertTrue(json.loads(self.get("/api/state")[0])["restart_required"])

@@ -185,7 +185,7 @@ class PlaylistHTTPTest(unittest.TestCase):
         self.assertEqual(backup.read_text(encoding="utf-8"), "editada por outro programa\n")
         preview = self.preview()
         original = path.read_bytes()
-        with patch("acervo.app.durable_copy", side_effect=OSError("disco cheio")):
+        with patch("acervo.app.collection.durable_copy", side_effect=OSError("disco cheio")):
             self.export(status=400, sobrescrever=True, anterior_sha256=preview["previous_sha256"])
         self.assertEqual(path.read_bytes(), original)
 
@@ -193,7 +193,7 @@ class PlaylistHTTPTest(unittest.TestCase):
         os.link(self.lib / "Ação 01.mp3", self.base / "seed.mp3")
         self.assertEqual(self.preview()["tracks"], 53)
         entered, release = threading.Event(), threading.Event()
-        from acervo.app import render_m3u8
+        from acervo.app.collection import render_m3u8
 
         def slow_render(*args):
             entered.set()
@@ -201,7 +201,7 @@ class PlaylistHTTPTest(unittest.TestCase):
             return render_m3u8(*args)
 
         result = []
-        with patch("acervo.app.render_m3u8", side_effect=slow_render):
+        with patch("acervo.app.collection.render_m3u8", side_effect=slow_render):
             request = threading.Thread(target=lambda: result.append(self.preview()))
             request.start()
             try:

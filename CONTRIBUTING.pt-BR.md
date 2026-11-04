@@ -91,7 +91,10 @@ Acervo é distribuído em inglês e em português do Brasil:
 | `messages.py` | Catálogo de mensagens e escolha de idioma |
 | `web/api_contract.py` | Traduz as chaves dos dados gravados para a API HTTP em inglês |
 | `library/musicbrainz.py` | Cliente MusicBrainz opcional, com cache e limite |
-| `app.py` | A biblioteca aberta: operações, fila de downloads, letras |
+| `app/core.py` | A biblioteca aberta: estado e tarefas em andamento |
+| `app/downloads.py` | Fila de downloads e faixas adicionadas por eles |
+| `app/lyrics.py` | Letras de uma faixa ou em lote |
+| `app/collection.py` | Propostas, campos protegidos, busca, playlists, histórico |
 | `library/query.py` | Ordenação e filtros das telas |
 | `web/server.py` e `web/static/` | Servidor local e interface |
 

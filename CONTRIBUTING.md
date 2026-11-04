@@ -91,7 +91,10 @@ ships in English and Brazilian Portuguese:
 | `messages.py` | Message catalogue and language selection |
 | `web/api_contract.py` | Maps stored data keys to the English HTTP API |
 | `library/musicbrainz.py` | Optional MusicBrainz client, with cache and limits |
-| `app.py` | The open library: operations, download queue, lyrics |
+| `app/core.py` | The open library: state and running jobs |
+| `app/downloads.py` | Download queue and tracks added by downloads |
+| `app/lyrics.py` | Lyrics for one track or in bulk |
+| `app/collection.py` | Proposals, protected fields, search, playlists, history |
 | `library/query.py` | Sorting and filtering for the views |
 | `web/server.py` and `web/static/` | Local server and interface |
 
