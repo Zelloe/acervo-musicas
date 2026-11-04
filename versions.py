@@ -14,15 +14,31 @@ from search import normalize
 KINDS = ("ao_vivo", "acustico", "demo", "remix", "instrumental", "estudio")
 # English source labels; classify() translates them for the current language.
 LABELS = {
-    "ao_vivo": "Live", "acustico": "Acoustic", "demo": "Demo", "remix": "Remix",
-    "instrumental": "Instrumental", "estudio": "Studio", "remaster": "Remaster",
-    "coletanea": "Compilation", "edicao_especial": "Special edition", "nao_confirmado": "Unverified",
+    "ao_vivo": "Live",
+    "acustico": "Acoustic",
+    "demo": "Demo",
+    "remix": "Remix",
+    "instrumental": "Instrumental",
+    "estudio": "Studio",
+    "remaster": "Remaster",
+    "coletanea": "Compilation",
+    "edicao_especial": "Special edition",
+    "nao_confirmado": "Unverified",
 }
-register({
-    "Live": "Ao vivo", "Acoustic": "Acústico", "Demo": "Demo", "Remix": "Remix",
-    "Instrumental": "Instrumental", "Studio": "Estúdio", "Remaster": "Remaster",
-    "Compilation": "Coletânea", "Special edition": "Edição especial", "Unverified": "Não confirmado",
-})
+register(
+    {
+        "Live": "Ao vivo",
+        "Acoustic": "Acústico",
+        "Demo": "Demo",
+        "Remix": "Remix",
+        "Instrumental": "Instrumental",
+        "Studio": "Estúdio",
+        "Remaster": "Remaster",
+        "Compilation": "Coletânea",
+        "Special edition": "Edição especial",
+        "Unverified": "Não confirmado",
+    }
+)
 
 _LIVE = r"\b(live|ao vivo|en vivo|en directo|in concert|unplugged)\b"
 QUALIFIER = {
@@ -35,11 +51,15 @@ QUALIFIER = {
 }
 ALBUM = {
     # "Holy Live", "Live After Death", "Live in São Paulo"; not "Long Live Rock 'n' Roll".
-    "ao_vivo": re.compile(r"(^live\b|\blive$|\blive (at|in|from|on|em|no|na)\b|\b(ao vivo|en vivo|en directo|in concert|unplugged)\b)"),
+    "ao_vivo": re.compile(
+        r"(^live\b|\blive$|\blive (at|in|from|on|em|no|na)\b|\b(ao vivo|en vivo|en directo|in concert|unplugged)\b)"
+    ),
     "acustico": re.compile(r"\b(acoustic|acustic[oa]|unplugged|desplugado)\b"),
     "demo": re.compile(r"\bdemos?\b"),
     "remix": re.compile(r"\b(remix|remixes|remixed)\b"),
-    "coletanea": re.compile(r"\b(greatest hits|best of|the very best|essential|anthology|collection|melhores|grandes sucessos|maiores sucessos|the singles)\b"),
+    "coletanea": re.compile(
+        r"\b(greatest hits|best of|the very best|essential|anthology|collection|melhores|grandes sucessos|maiores sucessos|the singles)\b"
+    ),
     "edicao_especial": re.compile(r"\b(deluxe|expanded|anniversary|edition|edicao|box set)\b"),
     "remaster": re.compile(r"\bremaster(ed)?\b"),
 }

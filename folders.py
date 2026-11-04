@@ -8,10 +8,11 @@ from pathlib import Path
 
 from messages import _, register
 
-register({
-    'The music folder does not exist: {folder}\nSpecify where your music is, for example: {option} "$HOME/Music"':
-        'A pasta de músicas não existe: {folder}\nInforme onde estão suas músicas, por exemplo: {option} "$HOME/Música"',
-})
+register(
+    {
+        'The music folder does not exist: {folder}\nSpecify where your music is, for example: {option} "$HOME/Music"': 'A pasta de músicas não existe: {folder}\nInforme onde estão suas músicas, por exemplo: {option} "$HOME/Música"',
+    }
+)
 
 
 def default_music_folder() -> Path:
@@ -40,5 +41,11 @@ def default_music_folder() -> Path:
 def require_folder(folder: Path, option: str = "--pasta") -> Path:
     folder = folder.expanduser()
     if not folder.is_dir():
-        raise ValueError(_('The music folder does not exist: {folder}\nSpecify where your music is, for example: {option} "$HOME/Music"', folder=folder, option=option))
+        raise ValueError(
+            _(
+                'The music folder does not exist: {folder}\nSpecify where your music is, for example: {option} "$HOME/Music"',
+                folder=folder,
+                option=option,
+            )
+        )
     return folder.resolve()

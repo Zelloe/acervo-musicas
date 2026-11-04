@@ -21,7 +21,7 @@ PT_BR: dict[str, str] = {}
 
 
 def normalize_language(value: str | None) -> str | None:
-    """"pt", "pt_BR.UTF-8", "pt-br" -> "pt-BR"; "en_US" -> "en"; unknown -> None."""
+    """ "pt", "pt_BR.UTF-8", "pt-br" -> "pt-BR"; "en_US" -> "en"; unknown -> None."""
     if not value:
         return None
     code = value.strip().split(".")[0].split("@")[0].replace("_", "-").casefold()

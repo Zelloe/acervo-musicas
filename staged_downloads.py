@@ -26,58 +26,60 @@ from library_plan import BASE, propose, rules
 from library_scan import album_base, normalized, read_track
 from messages import _, register
 
-register({
-    "Enter a track/album link or a short search": "Informe um link de música/álbum ou uma busca curta",
-    "Invalid query": "Consulta inválida",
-    "Use a public HTTPS link from Spotify or YouTube": "Use um link HTTPS público do Spotify ou YouTube",
-    "yt-dlp takes YouTube links; use spotDL for Spotify links": "O yt-dlp recebe links do YouTube; use spotDL para links Spotify",
-    "Use a track, album or playlist; whole artists are not downloaded in bulk": "Use uma faixa, álbum ou playlist; artistas inteiros não são baixados em lote",
-    "Enter a public YouTube link to use yt-dlp": "Informe um link público do YouTube para usar yt-dlp",
-    "Use a name search or a public link; local paths are not queries": "Use uma busca por nome ou um link público; caminhos locais não são consultas",
-    "Operation cancelled": "Operação cancelada",
-    "Timed out waiting; check the log or try another source": "Tempo de espera esgotado; revise o registro ou tente outra fonte",
-    "The tool did not finish the operation. {log}": "A ferramenta não concluiu a operação. {log}",
-    "Review data and downloads must be kept outside the library": "Os dados e downloads de revisão devem ficar fora da biblioteca",
-    "Invalid batch": "Lote inválido",
-    "Symlinked batch not allowed": "Lote simbólico não permitido",
-    "The batch belongs to another library": "O lote pertence a outra biblioteca",
-    "{provider} is not installed": "{provider} não está instalado",
-    "yt-dlp did not return a valid catalog": "O yt-dlp não retornou um catálogo válido",
-    "not identified": "sem identificação",
-    "genre chosen in this review": "gênero escolhido nesta revisão",
-    "source metadata; needs review": "metadados da fonte; requer revisão",
-    "Invalid download tool": "Ferramenta de download inválida",
-    "Invalid download mode": "Modo de download inválido",
-    "Invalid metadata": "Metadados informados inválidos",
-    "Invalid bitrate": "Bitrate inválido",
-    "Enter the year as YYYY or an ISO date": "Informe o ano como AAAA ou uma data ISO",
-    "Querying the source catalog…": "Consultando o catálogo da fonte…",
-    "The catalog must contain 1 to 200 valid tracks": "O catálogo precisa conter de 1 a 200 faixas válidas",
-    "The source contains several albums; pick one album at a time to impose a single name": "A fonte contém vários álbuns; escolha um álbum por vez para impor um nome único",
-    "Genre pending identification": "Gênero pendente de identificação",
-    "More than one local version: choose the target in the review": "Mais de uma versão local: escolha o alvo na revisão",
-    "The duration differs from the reference: check the version before replacing": "A duração difere da referência: confira a versão antes de substituir",
-    "Comparing {current} of {total} tracks…": "Comparando {current} de {total} faixas…",
-    "The catalog returned fewer tracks than the total reported by the source": "O catálogo retornou menos faixas do que o total informado pela fonte",
-    "Download not ready yet": "Download ainda não está pronto",
-    "Invalid download file": "Arquivo de download inválido",
-    "This batch was prepared only to unify metadata": "Este lote foi preparado apenas para unificar metadados",
-    "Invalid download selection": "Seleção de download inválida",
-    "Some tracks already exist; use full album mode for an explicit redownload": "Há faixas já existentes; use o modo álbum completo para um redownload explícito",
-    "This batch has already been imported; prepare another one for new changes": "Este lote já foi importado; prepare outro para novas alterações",
-    "Downloading {current} of {total} · {label}": "Baixando {current} de {total} · {label}",
-    "The tool finished without producing a valid MP3; check the log": "A ferramenta terminou sem produzir um MP3 válido; consulte o registro",
-    "The downloaded audio's duration differs from the catalog: listen before importing": "O áudio baixado difere em duração do catálogo: ouça antes de importar",
-    "Downloads ready to listen to and review": "Downloads preparados para ouvir e revisar",
-    "This batch has already been imported": "Este lote já foi importado",
-    "Invalid import selection": "Seleção de importação inválida",
-    "Empty or repeated import selection": "Seleção de importação vazia ou repetida",
-    "Invalid import operation": "Operação de importação inválida",
-    "Title, artist or album missing; fill in the metadata and prepare a new preview": "Faltam título, artista ou álbum; preencha os metadados e prepare uma nova prévia",
-    "Explicitly choose the matching local version": "Escolha explicitamente a versão local correspondente",
-    "We do not replace FLAC with MP3; use metadata or add it as another version": "Não substituímos FLAC por MP3; use metadados ou adicione como outra versão",
-    "This track's tags already match the reference": "As tags desta faixa já correspondem à referência",
-})
+register(
+    {
+        "Enter a track/album link or a short search": "Informe um link de música/álbum ou uma busca curta",
+        "Invalid query": "Consulta inválida",
+        "Use a public HTTPS link from Spotify or YouTube": "Use um link HTTPS público do Spotify ou YouTube",
+        "yt-dlp takes YouTube links; use spotDL for Spotify links": "O yt-dlp recebe links do YouTube; use spotDL para links Spotify",
+        "Use a track, album or playlist; whole artists are not downloaded in bulk": "Use uma faixa, álbum ou playlist; artistas inteiros não são baixados em lote",
+        "Enter a public YouTube link to use yt-dlp": "Informe um link público do YouTube para usar yt-dlp",
+        "Use a name search or a public link; local paths are not queries": "Use uma busca por nome ou um link público; caminhos locais não são consultas",
+        "Operation cancelled": "Operação cancelada",
+        "Timed out waiting; check the log or try another source": "Tempo de espera esgotado; revise o registro ou tente outra fonte",
+        "The tool did not finish the operation. {log}": "A ferramenta não concluiu a operação. {log}",
+        "Review data and downloads must be kept outside the library": "Os dados e downloads de revisão devem ficar fora da biblioteca",
+        "Invalid batch": "Lote inválido",
+        "Symlinked batch not allowed": "Lote simbólico não permitido",
+        "The batch belongs to another library": "O lote pertence a outra biblioteca",
+        "{provider} is not installed": "{provider} não está instalado",
+        "yt-dlp did not return a valid catalog": "O yt-dlp não retornou um catálogo válido",
+        "not identified": "sem identificação",
+        "genre chosen in this review": "gênero escolhido nesta revisão",
+        "source metadata; needs review": "metadados da fonte; requer revisão",
+        "Invalid download tool": "Ferramenta de download inválida",
+        "Invalid download mode": "Modo de download inválido",
+        "Invalid metadata": "Metadados informados inválidos",
+        "Invalid bitrate": "Bitrate inválido",
+        "Enter the year as YYYY or an ISO date": "Informe o ano como AAAA ou uma data ISO",
+        "Querying the source catalog…": "Consultando o catálogo da fonte…",
+        "The catalog must contain 1 to 200 valid tracks": "O catálogo precisa conter de 1 a 200 faixas válidas",
+        "The source contains several albums; pick one album at a time to impose a single name": "A fonte contém vários álbuns; escolha um álbum por vez para impor um nome único",
+        "Genre pending identification": "Gênero pendente de identificação",
+        "More than one local version: choose the target in the review": "Mais de uma versão local: escolha o alvo na revisão",
+        "The duration differs from the reference: check the version before replacing": "A duração difere da referência: confira a versão antes de substituir",
+        "Comparing {current} of {total} tracks…": "Comparando {current} de {total} faixas…",
+        "The catalog returned fewer tracks than the total reported by the source": "O catálogo retornou menos faixas do que o total informado pela fonte",
+        "Download not ready yet": "Download ainda não está pronto",
+        "Invalid download file": "Arquivo de download inválido",
+        "This batch was prepared only to unify metadata": "Este lote foi preparado apenas para unificar metadados",
+        "Invalid download selection": "Seleção de download inválida",
+        "Some tracks already exist; use full album mode for an explicit redownload": "Há faixas já existentes; use o modo álbum completo para um redownload explícito",
+        "This batch has already been imported; prepare another one for new changes": "Este lote já foi importado; prepare outro para novas alterações",
+        "Downloading {current} of {total} · {label}": "Baixando {current} de {total} · {label}",
+        "The tool finished without producing a valid MP3; check the log": "A ferramenta terminou sem produzir um MP3 válido; consulte o registro",
+        "The downloaded audio's duration differs from the catalog: listen before importing": "O áudio baixado difere em duração do catálogo: ouça antes de importar",
+        "Downloads ready to listen to and review": "Downloads preparados para ouvir e revisar",
+        "This batch has already been imported": "Este lote já foi importado",
+        "Invalid import selection": "Seleção de importação inválida",
+        "Empty or repeated import selection": "Seleção de importação vazia ou repetida",
+        "Invalid import operation": "Operação de importação inválida",
+        "Title, artist or album missing; fill in the metadata and prepare a new preview": "Faltam título, artista ou álbum; preencha os metadados e prepare uma nova prévia",
+        "Explicitly choose the matching local version": "Escolha explicitamente a versão local correspondente",
+        "We do not replace FLAC with MP3; use metadata or add it as another version": "Não substituímos FLAC por MP3; use metadados ou adicione como outra versão",
+        "This track's tags already match the reference": "As tags desta faixa já correspondem à referência",
+    }
+)
 
 
 def clean_log(text: str) -> str:
@@ -89,7 +91,11 @@ def clean_log(text: str) -> str:
 def title_key(value: str) -> str:
     value = normalized(value)
     # Only strips remaster qualifiers; live/demo/mix stay distinct.
-    return re.sub(r"\s*(?:-\s*(?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?|[\[(](?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?[\])])\s*$", "", value).strip()
+    return re.sub(
+        r"\s*(?:-\s*(?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?|[\[(](?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?[\])])\s*$",
+        "",
+        value,
+    ).strip()
 
 
 def validate_query(query: str, provider: str) -> str:
@@ -105,7 +111,9 @@ def validate_query(query: str, provider: str) -> str:
             raise ValueError(_("Use a public HTTPS link from Spotify or YouTube"))
         if provider == "yt-dlp" and parsed.hostname == "open.spotify.com":
             raise ValueError(_("yt-dlp takes YouTube links; use spotDL for Spotify links"))
-        if parsed.hostname == "open.spotify.com" and not re.search(r"/(?:track|album|playlist)/[A-Za-z0-9]+", parsed.path):
+        if parsed.hostname == "open.spotify.com" and not re.search(
+            r"/(?:track|album|playlist)/[A-Za-z0-9]+", parsed.path
+        ):
             raise ValueError(_("Use a track, album or playlist; whole artists are not downloaded in bulk"))
     elif provider == "yt-dlp":
         raise ValueError(_("Enter a public YouTube link to use yt-dlp"))
@@ -115,7 +123,10 @@ def validate_query(query: str, provider: str) -> str:
 
 
 def tool_status() -> dict:
-    return {name: {"disponivel": bool(shutil.which(name)), "executavel": shutil.which(name)} for name in ("spotdl", "yt-dlp", "ffmpeg", "deno")}
+    return {
+        name: {"disponivel": bool(shutil.which(name)), "executavel": shutil.which(name)}
+        for name in ("spotdl", "yt-dlp", "ffmpeg", "deno")
+    }
 
 
 class CommandRunner:
@@ -126,12 +137,18 @@ class CommandRunner:
         if self.cancelled.is_set():
             raise RuntimeError(_("Operation cancelled"))
         with log.open("a", encoding="utf-8") as output:
-            process = subprocess.Popen(args, cwd=cwd, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
+            process = subprocess.Popen(
+                args, cwd=cwd, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, start_new_session=True
+            )
             deadline = time.monotonic() + timeout
             stopped = None
             while process.poll() is None:
                 if self.cancelled.is_set() or time.monotonic() > deadline:
-                    stopped = _("Operation cancelled") if self.cancelled.is_set() else _("Timed out waiting; check the log or try another source")
+                    stopped = (
+                        _("Operation cancelled")
+                        if self.cancelled.is_set()
+                        else _("Timed out waiting; check the log or try another source")
+                    )
                     os.killpg(process.pid, signal.SIGTERM)
                     try:
                         process.wait(timeout=3)
@@ -139,11 +156,16 @@ class CommandRunner:
                         os.killpg(process.pid, signal.SIGKILL)
                         process.wait()
                     break
-                time.sleep(.2)
+                time.sleep(0.2)
             if stopped:
                 raise RuntimeError(stopped)
             if process.returncode:
-                raise RuntimeError(_("The tool did not finish the operation. {log}", log=clean_log(log.read_text(errors="replace", encoding="utf-8"))[-1200:]))
+                raise RuntimeError(
+                    _(
+                        "The tool did not finish the operation. {log}",
+                        log=clean_log(log.read_text(errors="replace", encoding="utf-8"))[-1200:],
+                    )
+                )
 
 
 def safe_filename(artist: str, title: str) -> str:
@@ -152,7 +174,14 @@ def safe_filename(artist: str, title: str) -> str:
     return (text.encode("utf-8")[:190].decode("utf-8", errors="ignore").rstrip(" .") or "Faixa") + ".mp3"
 
 
-def changes_for(current: dict, desired: dict, replace: bool, force_genre: bool, mp3_version: int | None = None, protected: frozenset = frozenset()) -> dict:
+def changes_for(
+    current: dict,
+    desired: dict,
+    replace: bool,
+    force_genre: bool,
+    mp3_version: int | None = None,
+    protected: frozenset = frozenset(),
+) -> dict:
     changes = {}
     for field, values in desired.items():
         if field in protected:
@@ -222,8 +251,33 @@ class Downloads:
                 interpreter = []
             if interpreter and any("python" in Path(v).name for v in interpreter):
                 return interpreter + [str(BASE / "spotdl_catalog.py"), query, str(path / "catalogo.spotdl")]
-            return [executable, "save", query, "--save-file", str(path / "catalogo.spotdl"), "--lyrics", "--threads", "1", "--max-retries", "1", "--simple-tui"]
-        return [executable, "--ignore-config", "--skip-download", "--flat-playlist", "--dump-single-json", "--playlist-end", "200", "--socket-timeout", "20", "--retries", "1", query]
+            return [
+                executable,
+                "save",
+                query,
+                "--save-file",
+                str(path / "catalogo.spotdl"),
+                "--lyrics",
+                "--threads",
+                "1",
+                "--max-retries",
+                "1",
+                "--simple-tui",
+            ]
+        return [
+            executable,
+            "--ignore-config",
+            "--skip-download",
+            "--flat-playlist",
+            "--dump-single-json",
+            "--playlist-end",
+            "200",
+            "--socket-timeout",
+            "20",
+            "--retries",
+            "1",
+            query,
+        ]
 
     def resolve_catalog(self, provider: str, query: str, path: Path) -> list[dict]:
         command = self.catalog_command(provider, query, path)
@@ -245,15 +299,45 @@ class Downloads:
             url = row.get("webpage_url") or row.get("url")
             if not isinstance(url, str) or not url.startswith("https://"):
                 url = "https://www.youtube.com/watch?v=" + row["id"]
-            result.append({"name": row.get("track") or row.get("title"), "artists": artists, "artist": artists[0] if artists else "", "album_name": row.get("album") or "", "album_artist": row.get("album_artist") or (artists[0] if artists else ""), "duration": row.get("duration"), "year": row.get("release_year"), "date": str(row.get("release_year") or ""), "track_number": row.get("track_number") or index+1, "tracks_count": len(rows), "disc_number": row.get("disc_number") or 1, "disc_count": 1, "genres": row.get("genres") or [], "url": url, "song_id": row.get("id"), "cover_url": row.get("thumbnail")})
+            result.append(
+                {
+                    "name": row.get("track") or row.get("title"),
+                    "artists": artists,
+                    "artist": artists[0] if artists else "",
+                    "album_name": row.get("album") or "",
+                    "album_artist": row.get("album_artist") or (artists[0] if artists else ""),
+                    "duration": row.get("duration"),
+                    "year": row.get("release_year"),
+                    "date": str(row.get("release_year") or ""),
+                    "track_number": row.get("track_number") or index + 1,
+                    "tracks_count": len(rows),
+                    "disc_number": row.get("disc_number") or 1,
+                    "disc_count": 1,
+                    "genres": row.get("genres") or [],
+                    "url": url,
+                    "song_id": row.get("id"),
+                    "cover_url": row.get("thumbnail"),
+                }
+            )
         return result
 
     def metadata(self, raw: dict, options: dict) -> tuple[dict, str]:
         artist = options.get("artista") or raw.get("artist") or ""
         artists = [artist] if options.get("artista") else raw.get("artists") or ([artist] if artist else [])
         original_album = raw.get("album_name") or ""
-        album = options.get("album") or (album_base(original_album) if options.get("unificar_album", True) else original_album)
-        metadata = {"titulo": [str(raw.get("name") or "")], "artista": artists, "artista_album": [options.get("artista_album") or raw.get("album_artist") or artist], "album": [album] if album else [], "ano": [str(options.get("ano") or raw.get("date") or raw.get("year") or "")], "faixa": [str(raw.get("track_number") or "")], "disco": [str(raw.get("disc_number") or "1")], "genero": []}
+        album = options.get("album") or (
+            album_base(original_album) if options.get("unificar_album", True) else original_album
+        )
+        metadata = {
+            "titulo": [str(raw.get("name") or "")],
+            "artista": artists,
+            "artista_album": [options.get("artista_album") or raw.get("album_artist") or artist],
+            "album": [album] if album else [],
+            "ano": [str(options.get("ano") or raw.get("date") or raw.get("year") or "")],
+            "faixa": [str(raw.get("track_number") or "")],
+            "disco": [str(raw.get("disc_number") or "1")],
+            "genero": [],
+        }
         metadata = {k: [str(v) for v in values if str(v).strip()] for k, values in metadata.items()}
         origin = _("not identified")
         if options.get("genero"):
@@ -284,9 +368,22 @@ class Downloads:
                 continue
             path = secure_file(self.root, track["arquivo"])
             current = metadata_values(path)
-            delta = abs(float(seconds)-track["duracao_segundos"]) if seconds else None
+            delta = abs(float(seconds) - track["duracao_segundos"]) if seconds else None
             version = ID3(path, translate=False).version[1] if path.suffix.casefold() == ".mp3" else None
-            result.append({"id": track["id"], "arquivo": str(path), "sha256": sha256(path), "tamanho_bytes": path.stat().st_size, "formato": track["formato"], "metadados": current, "versao_id3": version, "duracao_segundos": track["duracao_segundos"], "diferenca_duracao": round(delta, 3) if delta is not None else None, "duracao_compativel": delta is not None and delta <= max(3, float(seconds)*.02)})
+            result.append(
+                {
+                    "id": track["id"],
+                    "arquivo": str(path),
+                    "sha256": sha256(path),
+                    "tamanho_bytes": path.stat().st_size,
+                    "formato": track["formato"],
+                    "metadados": current,
+                    "versao_id3": version,
+                    "duracao_segundos": track["duracao_segundos"],
+                    "diferenca_duracao": round(delta, 3) if delta is not None else None,
+                    "duracao_compativel": delta is not None and delta <= max(3, float(seconds) * 0.02),
+                }
+            )
         return result
 
     def prepare(self, options: dict, tracks: list[dict], catalog: list[dict] | None = None) -> dict:
@@ -298,8 +395,18 @@ class Downloads:
         mode = options.get("modo", "faltantes")
         if mode not in ("faltantes", "completo", "metadados"):
             raise ValueError(_("Invalid download mode"))
-        options = {k: str(options.get(k) or "").strip() for k in ("artista", "artista_album", "album", "ano", "genero")} | {"forcar_genero": bool(options.get("forcar_genero")), "unificar_album": bool(options.get("unificar_album", True)), "bitrate": options.get("bitrate", "auto"), "destino": options.get("destino")}
-        if any(len(options[k]) > 300 or any(ord(c)<32 for c in options[k]) for k in ("artista", "artista_album", "album", "ano", "genero")):
+        options = {
+            k: str(options.get(k) or "").strip() for k in ("artista", "artista_album", "album", "ano", "genero")
+        } | {
+            "forcar_genero": bool(options.get("forcar_genero")),
+            "unificar_album": bool(options.get("unificar_album", True)),
+            "bitrate": options.get("bitrate", "auto"),
+            "destino": options.get("destino"),
+        }
+        if any(
+            len(options[k]) > 300 or any(ord(c) < 32 for c in options[k])
+            for k in ("artista", "artista_album", "album", "ano", "genero")
+        ):
             raise ValueError(_("Invalid metadata"))
         if options["bitrate"] not in ("auto", "128k", "192k", "256k", "320k"):
             raise ValueError(_("Invalid bitrate"))
@@ -313,16 +420,35 @@ class Downloads:
         path = self.path(ident)
         path.mkdir()
         (path / "audio").mkdir()
-        batch = {"schema": 1, "id": ident, "biblioteca": str(self.root), "criado_em": datetime.now(timezone.utc).isoformat(), "consulta": query, "ferramenta": provider, "modo": mode, "opcoes": options, "estado": "consultando", "faixas": [], "avisos": []}
+        batch = {
+            "schema": 1,
+            "id": ident,
+            "biblioteca": str(self.root),
+            "criado_em": datetime.now(timezone.utc).isoformat(),
+            "consulta": query,
+            "ferramenta": provider,
+            "modo": mode,
+            "opcoes": options,
+            "estado": "consultando",
+            "faixas": [],
+            "avisos": [],
+        }
         self.save(batch)
         try:
             self.runner.cancelled.clear()
             self.progress(_("Querying the source catalog…"), None)
             catalog = catalog if catalog is not None else self.resolve_catalog(provider, query, path)
-            if not isinstance(catalog, list) or not catalog or len(catalog)>200 or not all(isinstance(v, dict) for v in catalog):
+            if (
+                not isinstance(catalog, list)
+                or not catalog
+                or len(catalog) > 200
+                or not all(isinstance(v, dict) for v in catalog)
+            ):
                 raise ValueError(_("The catalog must contain 1 to 200 valid tracks"))
             if options["album"] and len({normalized(album_base(r.get("album_name") or "")) for r in catalog}) > 1:
-                raise ValueError(_("The source contains several albums; pick one album at a time to impose a single name"))
+                raise ValueError(
+                    _("The source contains several albums; pick one album at a time to impose a single name")
+                )
             reserved = set()
             for index, raw in enumerate(catalog):
                 metadata, genre_origin = self.metadata(raw, options)
@@ -330,25 +456,48 @@ class Downloads:
                 filename = safe_filename(" / ".join(metadata["artista"]), " ".join(metadata["titulo"]))
                 stem = Path(filename).stem
                 suffix = 2
-                while filename in reserved or os.path.lexists(Path(destination)/filename):
+                while filename in reserved or os.path.lexists(Path(destination) / filename):
                     filename = f"{stem} ({suffix}).mp3"
                     suffix += 1
                 reserved.add(filename)
-                row = {"id": uuid.uuid4().hex, "fonte": raw, "metadados": metadata, "origem_genero": genre_origin, "correspondencias": matches, "arquivo_novo": str(Path(destination)/filename), "estado": "catalogado", "avisos": [], "alteracoes": {}}
+                row = {
+                    "id": uuid.uuid4().hex,
+                    "fonte": raw,
+                    "metadados": metadata,
+                    "origem_genero": genre_origin,
+                    "correspondencias": matches,
+                    "arquivo_novo": str(Path(destination) / filename),
+                    "estado": "catalogado",
+                    "avisos": [],
+                    "alteracoes": {},
+                }
                 if not metadata["genero"]:
                     row["avisos"].append(_("Genre pending identification"))
-                if len(matches)>1:
+                if len(matches) > 1:
                     row["avisos"].append(_("More than one local version: choose the target in the review"))
                 for local in matches:
                     locked = protections.protected(policy, self.root, local["arquivo"])
                     local["campos_protegidos"] = sorted(locked, key=protections.FIELDS.index)
-                    local["alteracoes"] = changes_for(local["metadados"], metadata, False, options["forcar_genero"], local["versao_id3"], locked)
-                    local["alteracoes_substituicao"] = changes_for(local["metadados"], metadata, True, options["forcar_genero"], local["versao_id3"], locked)
+                    local["alteracoes"] = changes_for(
+                        local["metadados"], metadata, False, options["forcar_genero"], local["versao_id3"], locked
+                    )
+                    local["alteracoes_substituicao"] = changes_for(
+                        local["metadados"], metadata, True, options["forcar_genero"], local["versao_id3"], locked
+                    )
                     if not local["duracao_compativel"]:
-                        row["avisos"].append(_("The duration differs from the reference: check the version before replacing"))
+                        row["avisos"].append(
+                            _("The duration differs from the reference: check the version before replacing")
+                        )
                 batch["faixas"].append(row)
-                self.progress(_("Comparing {current} of {total} tracks…", current=index+1, total=len(catalog)), round((index+1)/len(catalog)*100))
-            if "/album/" in query and catalog[0].get("tracks_count") and len(catalog) != int(catalog[0]["tracks_count"]):
+                self.progress(
+                    _("Comparing {current} of {total} tracks…", current=index + 1, total=len(catalog)),
+                    round((index + 1) / len(catalog) * 100),
+                )
+            if (
+                "/album/" in query
+                and catalog[0].get("tracks_count")
+                and len(catalog) != int(catalog[0]["tracks_count"])
+            ):
                 batch["avisos"].append(_("The catalog returned fewer tracks than the total reported by the source"))
             batch["estado"] = "pronto"
         except Exception as error:
@@ -373,7 +522,7 @@ class Downloads:
         if batch["modo"] == "metadados":
             raise ValueError(_("This batch was prepared only to unify metadata"))
         known = {r["id"]: r for r in batch["faixas"]}
-        if not ids or len(ids)!=len(set(ids)) or not set(ids)<=known.keys():
+        if not ids or len(ids) != len(set(ids)) or not set(ids) <= known.keys():
             raise ValueError(_("Invalid download selection"))
         if batch["modo"] == "faltantes" and any(known[i]["correspondencias"] for i in ids):
             raise ValueError(_("Some tracks already exist; use full album mode for an explicit redownload"))
@@ -388,7 +537,15 @@ class Downloads:
             if row["estado"] == "baixado":
                 continue
             try:
-                self.progress(_("Downloading {current} of {total} · {label}", current=index+1, total=len(ids), label=" / ".join(row["metadados"]["titulo"])), round(index/len(ids)*100))
+                self.progress(
+                    _(
+                        "Downloading {current} of {total} · {label}",
+                        current=index + 1,
+                        total=len(ids),
+                        label=" / ".join(row["metadados"]["titulo"]),
+                    ),
+                    round(index / len(ids) * 100),
+                )
                 output = path / "audio" / (row_id + ".mp3")
                 log = path / (row_id + ".log")
                 # Leftovers from an interrupted attempt would be reused
@@ -408,15 +565,75 @@ class Downloads:
                     # folders starting with a dot). A fixed relative path
                     # keeps the download strictly inside the review batch.
                     template = str(Path("audio") / output.with_suffix(".{output-ext}").name)
-                    command = [shutil.which("spotdl") or "spotdl", "download", str(single), "--output", template, "--format", "mp3", "--bitrate", batch["opcoes"]["bitrate"], "--overwrite", "skip", "--threads", "1", "--lyrics", "--max-retries", "1", "--simple-tui", "--print-errors"]
+                    command = [
+                        shutil.which("spotdl") or "spotdl",
+                        "download",
+                        str(single),
+                        "--output",
+                        template,
+                        "--format",
+                        "mp3",
+                        "--bitrate",
+                        batch["opcoes"]["bitrate"],
+                        "--overwrite",
+                        "skip",
+                        "--threads",
+                        "1",
+                        "--lyrics",
+                        "--max-retries",
+                        "1",
+                        "--simple-tui",
+                        "--print-errors",
+                    ]
                 else:
                     url = validate_query(row["fonte"]["url"], "yt-dlp")
-                    quality = "0" if batch["opcoes"]["bitrate"]=="auto" else batch["opcoes"]["bitrate"]
-                    command = [shutil.which("yt-dlp") or "yt-dlp", "--ignore-config", "--no-playlist", "--no-overwrites", "--socket-timeout", "20", "--retries", "2", "-f", "bestaudio/best", "-x", "--audio-format", "mp3", "--audio-quality", quality, "--embed-metadata", "--embed-thumbnail", "--convert-thumbnails", "jpg", "-o", str(output.with_suffix(".%(ext)s")), url]
+                    quality = "0" if batch["opcoes"]["bitrate"] == "auto" else batch["opcoes"]["bitrate"]
+                    command = [
+                        shutil.which("yt-dlp") or "yt-dlp",
+                        "--ignore-config",
+                        "--no-playlist",
+                        "--no-overwrites",
+                        "--socket-timeout",
+                        "20",
+                        "--retries",
+                        "2",
+                        "-f",
+                        "bestaudio/best",
+                        "-x",
+                        "--audio-format",
+                        "mp3",
+                        "--audio-quality",
+                        quality,
+                        "--embed-metadata",
+                        "--embed-thumbnail",
+                        "--convert-thumbnails",
+                        "jpg",
+                        "-o",
+                        str(output.with_suffix(".%(ext)s")),
+                        url,
+                    ]
                 self.runner.run(command, path, log, timeout=600)
                 if not output.is_file():
                     raise ValueError(_("The tool finished without producing a valid MP3; check the log"))
-                self.runner.run([shutil.which("ffmpeg") or "ffmpeg", "-v", "error", "-xerror", "-nostdin", "-i", str(output), "-map", "0:a:0", "-f", "null", "-"], path, log, timeout=180)
+                self.runner.run(
+                    [
+                        shutil.which("ffmpeg") or "ffmpeg",
+                        "-v",
+                        "error",
+                        "-xerror",
+                        "-nostdin",
+                        "-i",
+                        str(output),
+                        "-map",
+                        "0:a:0",
+                        "-f",
+                        "null",
+                        "-",
+                    ],
+                    path,
+                    log,
+                    timeout=180,
+                )
                 try:
                     ID3(output)
                 except ID3NoHeaderError:
@@ -428,8 +645,12 @@ class Downloads:
                     write_validated(output, changes)
                 actual = read_track(output)
                 row.update(estado="baixado", sha256=sha256(output), real=actual)
-                if row["fonte"].get("duration") and abs(actual["duracao_segundos"]-float(row["fonte"]["duration"]))>max(3,float(row["fonte"]["duration"])*.02):
-                    row["avisos"].append(_("The downloaded audio's duration differs from the catalog: listen before importing"))
+                if row["fonte"].get("duration") and abs(
+                    actual["duracao_segundos"] - float(row["fonte"]["duration"])
+                ) > max(3, float(row["fonte"]["duration"]) * 0.02):
+                    row["avisos"].append(
+                        _("The downloaded audio's duration differs from the catalog: listen before importing")
+                    )
             except Exception as error:
                 row.update(estado="erro", erro=str(error))
                 if self.runner.cancelled.is_set():
@@ -439,15 +660,23 @@ class Downloads:
             self.save(batch)
         batch["estado"] = "revisao"
         self.save(batch)
-        self.progress(_("Downloads ready to listen to and review"),100)
-        return {"lote": ident, "baixadas": sum(r["estado"]=="baixado" for r in batch["faixas"]), "erros": sum(r["estado"]=="erro" for r in batch["faixas"])}
+        self.progress(_("Downloads ready to listen to and review"), 100)
+        return {
+            "lote": ident,
+            "baixadas": sum(r["estado"] == "baixado" for r in batch["faixas"]),
+            "erros": sum(r["estado"] == "erro" for r in batch["faixas"]),
+        }
 
     def operations(self, ident: str, selections: list[dict]) -> list[dict]:
         batch = self.load(ident)
         if batch.get("importacao"):
             raise ValueError(_("This batch has already been imported"))
         known = {r["id"]: r for r in batch["faixas"]}
-        if not isinstance(selections, list) or not selections or any(not isinstance(s, dict) or not isinstance(s.get("id"), str) for s in selections):
+        if (
+            not isinstance(selections, list)
+            or not selections
+            or any(not isinstance(s, dict) or not isinstance(s.get("id"), str) for s in selections)
+        ):
             raise ValueError(_("Invalid import selection"))
         if len(selections) != len({s.get("id") for s in selections}):
             raise ValueError(_("Empty or repeated import selection"))
@@ -465,18 +694,20 @@ class Downloads:
                 target = Path(row["arquivo_novo"])
                 new_destination(self.root, str(target.parent), target.name)
                 if not all(row["real"].get(k) for k in ("titulo", "artista", "album")):
-                    raise ValueError(_("Title, artist or album missing; fill in the metadata and prepare a new preview"))
+                    raise ValueError(
+                        _("Title, artist or album missing; fill in the metadata and prepare a new preview")
+                    )
                 operation["arquivo"] = str(target)
             else:
                 matches = row["correspondencias"]
-                target_id = selected.get("alvo") or (matches[0]["id"] if len(matches)==1 else None)
-                local = next((m for m in matches if m["id"]==target_id), None)
+                target_id = selected.get("alvo") or (matches[0]["id"] if len(matches) == 1 else None)
+                local = next((m for m in matches if m["id"] == target_id), None)
                 if local is None:
                     raise ValueError(_("Explicitly choose the matching local version"))
                 if action == "substituir" and local["formato"] != "MP3":
                     raise ValueError(_("We do not replace FLAC with MP3; use metadata or add it as another version"))
-                changes = local["alteracoes_substituicao"] if action=="substituir" else local["alteracoes"]
-                if action=="metadados" and not changes:
+                changes = local["alteracoes_substituicao"] if action == "substituir" else local["alteracoes"]
+                if action == "metadados" and not changes:
                     raise ValueError(_("This track's tags already match the reference"))
                 operation.update(arquivo=local["arquivo"], antes_sha256=local["sha256"], alteracoes=changes)
             operations.append(operation)
@@ -484,7 +715,7 @@ class Downloads:
 
     def import_batch(self, ident: str, selections: list[dict]) -> dict:
         operations = self.operations(ident, selections)
-        result = import_reviewed(self.root, self.storage/"backups", operations, ident)
+        result = import_reviewed(self.root, self.storage / "backups", operations, ident)
         batch = self.load(ident)
         batch.update(importacao=result, estado="importado")
         self.save(batch)

@@ -17,7 +17,22 @@ class PlaylistTest(unittest.TestCase):
     def setUpClass(cls):
         cls.samples = tempfile.TemporaryDirectory()
         cls.sample = Path(cls.samples.name) / "sample.mp3"
-        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=0.1", "-c:a", "libmp3lame", str(cls.sample)], check=True)
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:duration=0.1",
+                "-c:a",
+                "libmp3lame",
+                str(cls.sample),
+            ],
+            check=True,
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -37,14 +52,34 @@ class PlaylistTest(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(self.sample, path)
         tags = ID3()
-        for frame in (TIT2(encoding=3, text=[title]), TPE1(encoding=3, text=[artist]), TALB(encoding=3, text=[album]), TRCK(encoding=3, text=[track]), TCON(encoding=3, text=[genre])):
+        for frame in (
+            TIT2(encoding=3, text=[title]),
+            TPE1(encoding=3, text=[artist]),
+            TALB(encoding=3, text=[album]),
+            TRCK(encoding=3, text=[track]),
+            TCON(encoding=3, text=[genre]),
+        ):
             tags.add(frame)
         tags.save(path, v2_version=3)
         return path
 
     def library(self):
-        self.mp3("Engenheiros do Hawaii/02 - Até o Fim.mp3", "Até o Fim", "Engenheiros do Hawaii", "Várias Variáveis", "2", "Rock Brasileiro")
-        self.mp3("Engenheiros do Hawaii/01 - Herdeiro da Pampa Pobre.mp3", "Herdeiro da Pampa Pobre", "Engenheiros do Hawaii", "Várias Variáveis", "1/12", "Rock Brasileiro")
+        self.mp3(
+            "Engenheiros do Hawaii/02 - Até o Fim.mp3",
+            "Até o Fim",
+            "Engenheiros do Hawaii",
+            "Várias Variáveis",
+            "2",
+            "Rock Brasileiro",
+        )
+        self.mp3(
+            "Engenheiros do Hawaii/01 - Herdeiro da Pampa Pobre.mp3",
+            "Herdeiro da Pampa Pobre",
+            "Engenheiros do Hawaii",
+            "Várias Variáveis",
+            "1/12",
+            "Rock Brasileiro",
+        )
         self.mp3("#Hashtag/Ação.mp3", "Ação", "Banda #1", "Começo", "1", "Rock Brasileiro")
         self.mp3("Outros/Faixa.mp3", "Faixa", "Outra", "Outro", "1", "Jazz")
         tracks, errors = collect(self.lib)
@@ -112,7 +147,10 @@ class PlaylistTest(unittest.TestCase):
     def test_failed_exclusive_write_leaves_nothing_behind(self):
         tracks = self.library()
         playlist = self.lib / "falha.m3u8"
-        with patch.object(playlists.os, "link", side_effect=OSError("sem hard links")), patch.object(playlists.os, "fsync", side_effect=[None, OSError("erro de E/S")]):
+        with (
+            patch.object(playlists.os, "link", side_effect=OSError("sem hard links")),
+            patch.object(playlists.os, "fsync", side_effect=[None, OSError("erro de E/S")]),
+        ):
             with self.assertRaises(OSError):
                 write_m3u8(playlist, tracks)
         self.assertFalse(playlist.exists())

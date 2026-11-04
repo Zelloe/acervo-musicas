@@ -28,7 +28,22 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
         cls.samples = tempfile.TemporaryDirectory()
         cls.sample_root = Path(cls.samples.name)
         for extension, codec in (("mp3", "libmp3lame"), ("flac", "flac")):
-            subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=duration=0.12", "-c:a", codec, str(cls.sample_root / ("sample." + extension))], check=True)
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=duration=0.12",
+                    "-c:a",
+                    codec,
+                    str(cls.sample_root / ("sample." + extension)),
+                ],
+                check=True,
+            )
 
     @classmethod
     def tearDownClass(cls):
@@ -48,7 +63,11 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
             shutil.copy(self.sample_root / ("sample" + path.suffix), path)
             if path.suffix == ".mp3":
                 tags = ID3()
-                for frame in (TIT2(encoding=3, text=[path.stem]), TPE1(encoding=3, text=["Fixture band"]), TALB(encoding=3, text=["Fixture album"])):
+                for frame in (
+                    TIT2(encoding=3, text=[path.stem]),
+                    TPE1(encoding=3, text=["Fixture band"]),
+                    TALB(encoding=3, text=["Fixture album"]),
+                ):
                     tags.add(frame)
                 if path == self.unchanged:
                     tags.add(TCON(encoding=3, text=["Existing genre"]))
@@ -76,9 +95,11 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
         self.addCleanup(server.server_close)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
+
         def stop():
             server.shutdown()
             thread.join()
+
         self.addCleanup(stop)
         return f"http://127.0.0.1:{server.server_port}"
 
@@ -110,8 +131,10 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
         self.assertEqual(app.root, self.root)
         url = self.http(app)
         tracks = self.get(url, "/api/library")["tracks"]
-        self.assertEqual({row["title"][0]: row["genre"] for row in tracks},
-                         {"first": ["Updated MP3 genre"], "second": ["Updated FLAC genre"], "unchanged": ["Existing genre"]})
+        self.assertEqual(
+            {row["title"][0]: row["genre"] for row in tracks},
+            {"first": ["Updated MP3 genre"], "second": ["Updated FLAC genre"], "unchanged": ["Existing genre"]},
+        )
         self.assertEqual(self.get(url, "/api/library?filter=missing-genre")["total"], 0)
         state = self.get(url, "/api/state")
         self.assertEqual(state["library"], str(self.root))
@@ -159,12 +182,14 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
 
     def test_track_changing_during_refresh_is_left_for_a_new_scan(self):
         self.update_genres()
+
         def concurrent_read(path):
             row = read_track(path)
             if path == self.mp3:
                 stat = path.stat()
                 os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000))
             return row
+
         with patch("server.read_track", side_effect=concurrent_read):
             app = self.open_app()
         self.assertEqual(len(app.tracks), 2)
@@ -176,7 +201,9 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
     def test_download_moved_after_a_session_is_reported_once_and_forgotten(self):
         cache = self.open_app().download_cache
         moved = self.root / "moved away.mp3"
-        cache.write_text(json.dumps({"biblioteca": str(self.root), "arquivos": [str(self.unchanged), str(moved)]}), encoding="utf-8")
+        cache.write_text(
+            json.dumps({"biblioteca": str(self.root), "arquivos": [str(self.unchanged), str(moved)]}), encoding="utf-8"
+        )
         app = self.open_app()
         self.assertIn("1 downloaded tracks were moved or removed", app.error)
         self.assertNotIn("Download saved", app.error)
@@ -190,7 +217,10 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
         shutil.copy(self.sample_root / "sample.mp3", new)
         link = self.root / "link.mp3"
         link.symlink_to(self.unchanged)
-        cache.write_text(json.dumps({"biblioteca": str(self.root), "arquivos": [str(self.unchanged), str(new), str(link)]}), encoding="utf-8")
+        cache.write_text(
+            json.dumps({"biblioteca": str(self.root), "arquivos": [str(self.unchanged), str(new), str(link)]}),
+            encoding="utf-8",
+        )
         with patch("server.read_track", wraps=read_track) as reader:
             app = self.open_app()
         read = {Path(call.args[0]) for call in reader.call_args_list}
@@ -205,7 +235,10 @@ class InventoryRefreshHTTPTest(unittest.TestCase):
         audio.add(TIT2(encoding=3, text=["Edited title"]))
         audio.save(self.unchanged, v2_version=3)
         reopened = self.open_app()
-        self.assertEqual(reopened.by_id[next(t["id"] for t in reopened.tracks if t["arquivo"] == str(self.unchanged))]["titulo"], ["Edited title"])
+        self.assertEqual(
+            reopened.by_id[next(t["id"] for t in reopened.tracks if t["arquivo"] == str(self.unchanged))]["titulo"],
+            ["Edited title"],
+        )
 
 
 if __name__ == "__main__":

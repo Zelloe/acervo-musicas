@@ -17,7 +17,16 @@ class MessagesTest(unittest.TestCase):
         messages.PT_BR.update(self.saved)
 
     def test_language_codes(self):
-        for value, expected in (("pt", "pt-BR"), ("pt_BR.UTF-8", "pt-BR"), ("PT-br", "pt-BR"), ("en_US", "en"), ("en", "en"), ("de_DE", None), ("", None), (None, None)):
+        for value, expected in (
+            ("pt", "pt-BR"),
+            ("pt_BR.UTF-8", "pt-BR"),
+            ("PT-br", "pt-BR"),
+            ("en_US", "en"),
+            ("en", "en"),
+            ("de_DE", None),
+            ("", None),
+            (None, None),
+        ):
             self.assertEqual(normalize_language(value), expected)
 
     def test_library_default_is_english_and_cli_follows_environment(self):

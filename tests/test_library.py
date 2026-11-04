@@ -26,7 +26,22 @@ class LibraryTest(unittest.TestCase):
         cls.samples = tempfile.TemporaryDirectory()
         cls.sample_root = Path(cls.samples.name)
         for ext, codec in (("mp3", "libmp3lame"), ("flac", "flac")):
-            subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=0.1", "-c:a", codec, str(cls.sample_root / ("sample." + ext))], check=True)
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=frequency=440:duration=0.1",
+                    "-c:a",
+                    codec,
+                    str(cls.sample_root / ("sample." + ext)),
+                ],
+                check=True,
+            )
 
     @classmethod
     def tearDownClass(cls):
@@ -46,7 +61,15 @@ class LibraryTest(unittest.TestCase):
         shutil.copy2(self.sample_root / ("sample" + path.suffix), path)
         if path.suffix == ".mp3":
             tags = ID3()
-            for frame in [TIT2(encoding=1, text=["Back In Black"]), TPE1(encoding=1, text=["AC/DC"]), TALB(encoding=1, text=["Back In Black"]), TRCK(encoding=1, text=["6"]), TPOS(encoding=1, text=["1"]), TYER(encoding=1, text=["1980"]), TXXX(encoding=1, desc="REPLAYGAIN_TRACK_GAIN", text=["-5 dB"])]:
+            for frame in [
+                TIT2(encoding=1, text=["Back In Black"]),
+                TPE1(encoding=1, text=["AC/DC"]),
+                TALB(encoding=1, text=["Back In Black"]),
+                TRCK(encoding=1, text=["6"]),
+                TPOS(encoding=1, text=["1"]),
+                TYER(encoding=1, text=["1980"]),
+                TXXX(encoding=1, desc="REPLAYGAIN_TRACK_GAIN", text=["-5 dB"]),
+            ]:
                 tags.add(frame)
             for desc in ("", "Cover", "Cover (front)"):
                 tags.add(APIC(encoding=1, mime="image/png", type=3, desc=desc, data=b"binary-cover-test"))
@@ -90,7 +113,9 @@ class LibraryTest(unittest.TestCase):
                 with path.open("ab") as f:
                     f.write(b"TAG" + bytes(range(125)))
                 before = integrity(path)
-                after = write_validated(path, {"genero": {"atual": read_track(path)["genero"], "proposto": ["Hard Rock"]}})
+                after = write_validated(
+                    path, {"genero": {"atual": read_track(path)["genero"], "proposto": ["Hard Rock"]}}
+                )
                 self.assertEqual(before["audio_sha256"], after["audio_sha256"])
                 self.assertEqual(before["versao"], after["versao"])
                 self.assertEqual(len(ID3(path).getall("APIC")), 3)
@@ -101,7 +126,13 @@ class LibraryTest(unittest.TestCase):
     def test_flac_blocks_and_comments_preserved(self):
         path = self.music("teste.flac")
         before = integrity(path)
-        after = write_validated(path, {"genero": {"atual": [], "proposto": ["Hard Rock"]}, "album": {"atual": ["Back In Black"], "proposto": ["Album de teste"]}})
+        after = write_validated(
+            path,
+            {
+                "genero": {"atual": [], "proposto": ["Hard Rock"]},
+                "album": {"atual": ["Back In Black"], "proposto": ["Album de teste"]},
+            },
+        )
         self.assertEqual(before["audio_sha256"], after["audio_sha256"])
         self.assertEqual(before["blocos"], after["blocos"])
         self.assertEqual(FLAC(path)["BIBLIOTECA_ALBUM_ANTERIOR"], ["Back In Black"])
@@ -163,11 +194,13 @@ class LibraryTest(unittest.TestCase):
         before = sha256(path)
         plan = self.plan()
         original_save = ID3.save
+
         def broken_save(tags, target, **kwargs):
             original_save(tags, target, **kwargs)
             altered = ID3(target, translate=False)
             altered.add(TIT2(encoding=1, text=["UNAPPROVED TITLE"]))
             original_save(altered, target, v2_version=3, v1=0)
+
         with patch.object(ID3, "save", broken_save):
             with self.assertRaisesRegex(RuntimeError, "tag TIT2"):
                 apply_plan(plan, self.approvals(plan), self.root / "backups")
@@ -223,11 +256,14 @@ class LibraryTest(unittest.TestCase):
         before = {str(p): sha256(p) for p in files}
         plan = self.plan()
         import library_core
+
         original_replace = library_core.os.replace
+
         def fail_second(source, target):
             if Path(target) == files[1]:
                 raise OSError("interrupção simulada")
             return original_replace(source, target)
+
         with patch("library_core.os.replace", fail_second):
             with self.assertRaisesRegex(RuntimeError, "interrupção simulada"):
                 apply_plan(plan, self.approvals(plan), self.root / "backups")
@@ -240,6 +276,7 @@ class LibraryTest(unittest.TestCase):
         from http.server import ThreadingHTTPServer
 
         from server import App, Handler
+
         files = [self.music(), self.music("teste.flac")]
         before = {str(p): sha256(p) for p in files}
         storage = self.root / "aplicativo"
@@ -249,15 +286,22 @@ class LibraryTest(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         base = f"http://127.0.0.1:{server.server_port}"
+
         def post(route, data, valid=True):
-            headers = {"Content-Type": "application/json", "Origin": base, "X-Library-Token": server.app.token if valid else "wrong"}
+            headers = {
+                "Content-Type": "application/json",
+                "Origin": base,
+                "X-Library-Token": server.app.token if valid else "wrong",
+            }
             with urlopen(Request(base + route, json.dumps(data).encode(), headers)) as response:
                 return response.status
+
         def wait_job():
             deadline = time.monotonic() + 5
             while server.app.job["status"] == "running" and time.monotonic() < deadline:
-                time.sleep(.01)
+                time.sleep(0.01)
             self.assertEqual(server.app.job["status"], "completed", server.app.job)
+
         try:
             with self.assertRaises(HTTPError) as rejected:
                 post("/api/apply", {"ids": []}, valid=False)
@@ -289,18 +333,41 @@ class LibraryTest(unittest.TestCase):
 class MusicBrainzTest(unittest.TestCase):
     def test_homonyms_are_not_chosen(self):
         from musicbrainz_client import MusicBrainz
+
         with tempfile.TemporaryDirectory() as folder:
             client = MusicBrainz(Path(folder), "unit-tests@example.invalid")
-            with patch.object(client, "get", return_value={"artists": [{"name": "Death", "score": "100", "id": "a"}, {"name": "Death", "score": "100", "id": "b"}]}):
+            with patch.object(
+                client,
+                "get",
+                return_value={
+                    "artists": [
+                        {"name": "Death", "score": "100", "id": "a"},
+                        {"name": "Death", "score": "100", "id": "b"},
+                    ]
+                },
+            ):
                 self.assertIsNone(client.artist("Death"))
 
     def test_specific_genre_and_unconfirmed_album_needs_review(self):
         from musicbrainz_client import MusicBrainz
-        self.assertEqual(MusicBrainz.choose_genre({"genres": [{"name": "rock", "count": 20}, {"name": "progressive rock", "count": 5}]}), "Progressive Rock")
+
+        self.assertEqual(
+            MusicBrainz.choose_genre(
+                {"genres": [{"name": "rock", "count": 20}, {"name": "progressive rock", "count": 5}]}
+            ),
+            "Progressive Rock",
+        )
         self.assertIsNone(MusicBrainz.choose_genre({"genres": [{"name": "wrong", "count": -1}]}))
         with tempfile.TemporaryDirectory() as folder:
             client = MusicBrainz(Path(folder), "unit-tests@example.invalid")
-            with patch.object(client, "get", side_effect=[{"artists": [{"name": "Pink Floyd", "score": "100", "id": "artist"}]}, {"release-groups": []}]) as mock:
+            with patch.object(
+                client,
+                "get",
+                side_effect=[
+                    {"artists": [{"name": "Pink Floyd", "score": "100", "id": "artist"}]},
+                    {"release-groups": []},
+                ],
+            ) as mock:
                 result = client.genre("Pink Floyd", "Unknown album")
                 self.assertNotIn("genero", result)
                 self.assertIn("revisao", result)

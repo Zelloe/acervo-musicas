@@ -30,7 +30,22 @@ class PlaylistHTTPTest(unittest.TestCase):
     def setUpClass(cls):
         cls.samples = tempfile.TemporaryDirectory()
         cls.sample = Path(cls.samples.name) / "sample.mp3"
-        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=0.1", "-c:a", "libmp3lame", str(cls.sample)], check=True)
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:duration=0.1",
+                "-c:a",
+                "libmp3lame",
+                str(cls.sample),
+            ],
+            check=True,
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -46,7 +61,12 @@ class PlaylistHTTPTest(unittest.TestCase):
             path = self.lib / f"Ação {index:02d}.mp3"
             shutil.copy(self.sample, path)
             tags = ID3()
-            frames = [TIT2(encoding=3, text=[f"Canção {index}"]), TPE1(encoding=3, text=["Banda A"]), TALB(encoding=3, text=["Mesmo álbum"]), TRCK(encoding=3, text=[str(index)])]
+            frames = [
+                TIT2(encoding=3, text=[f"Canção {index}"]),
+                TPE1(encoding=3, text=["Banda A"]),
+                TALB(encoding=3, text=["Mesmo álbum"]),
+                TRCK(encoding=3, text=[str(index)]),
+            ]
             if index != 1:
                 frames.append(TCON(encoding=3, text=["Rock"]))
             for frame in frames:
@@ -55,7 +75,11 @@ class PlaylistHTTPTest(unittest.TestCase):
         other = self.lib / "Outro artista.mp3"
         shutil.copy(self.sample, other)
         tags = ID3()
-        for frame in [TIT2(encoding=3, text=["Canção diferente"]), TPE1(encoding=3, text=["Banda B"]), TALB(encoding=3, text=["Mesmo álbum"])]:
+        for frame in [
+            TIT2(encoding=3, text=["Canção diferente"]),
+            TPE1(encoding=3, text=["Banda B"]),
+            TALB(encoding=3, text=["Mesmo álbum"]),
+        ]:
             tags.add(frame)
         tags.save(other, v2_version=3)
         self.before = {str(p): sha256(p) for p in self.lib.glob("*.mp3")}
@@ -74,7 +98,12 @@ class PlaylistHTTPTest(unittest.TestCase):
         self.thread.join()
 
     def request(self, route, data=None, status=200, **headers):
-        defaults = {"Content-Type": "application/json", "Origin": self.url, "X-Acervo-Language": "pt-BR", "X-Library-Token": self.server.app.token}
+        defaults = {
+            "Content-Type": "application/json",
+            "Origin": self.url,
+            "X-Acervo-Language": "pt-BR",
+            "X-Library-Token": self.server.app.token,
+        }
         defaults.update(headers)
         request = Request(self.url + route, None if data is None else json.dumps(to_api(data)).encode(), defaults)
         try:
@@ -95,16 +124,22 @@ class PlaylistHTTPTest(unittest.TestCase):
     def test_preview_is_read_only_and_export_includes_all_matching_pages(self):
         first_page = self.request("/api/search?q=Banda+A")
         second_page = self.request("/api/search?q=Banda+A&offset=50")
-        matching = first_page['tracks'] + second_page['tracks']
+        matching = first_page["tracks"] + second_page["tracks"]
         self.assertEqual(len(matching), first_page["total"])
         preview = self.preview(q="Banda A")
-        self.assertEqual(preview['tracks'], len(matching))
+        self.assertEqual(preview["tracks"], len(matching))
         self.assertFalse((self.lib / "Playlists").exists())
-        self.assertEqual(len(first_page['tracks']), 50)
+        self.assertEqual(len(first_page["tracks"]), 50)
         result = self.export(q="Banda A")
-        self.assertEqual((result['tracks'], result['found_count'], result['missing']), (len(matching), len(matching), []))
-        entries = {line for line in Path(result["playlist"]).read_text(encoding="utf-8").splitlines() if line and not line.startswith("#")}
-        self.assertEqual(entries, {"../" + Path(self.server.app.by_id[t["id"]]['arquivo']).name for t in matching})
+        self.assertEqual(
+            (result["tracks"], result["found_count"], result["missing"]), (len(matching), len(matching), [])
+        )
+        entries = {
+            line
+            for line in Path(result["playlist"]).read_text(encoding="utf-8").splitlines()
+            if line and not line.startswith("#")
+        }
+        self.assertEqual(entries, {"../" + Path(self.server.app.by_id[t["id"]]["arquivo"]).name for t in matching})
         content = Path(result["playlist"]).read_bytes()
         self.assertTrue(content.startswith(b"#EXTM3U\n"))
         self.assertNotIn(str(self.base).encode(), content)
@@ -113,16 +148,16 @@ class PlaylistHTTPTest(unittest.TestCase):
         self.assertEqual({p: sha256(Path(p)) for p in self.before}, self.before)
         moved = self.base / "outro disco" / "Coleção"
         shutil.copytree(self.lib, moved)
-        self.assertEqual(validate_m3u8(moved / "Playlists/Minha seleção.m3u8")['ausentes'], [])
+        self.assertEqual(validate_m3u8(moved / "Playlists/Minha seleção.m3u8")["ausentes"], [])
 
     def test_filter_matches_library_and_album_keeps_artists_separate(self):
         result = self.preview(filter="sem-genero")
         library = self.request("/api/library?" + urlencode({"filter": "sem-genero"}))
-        self.assertEqual(result['tracks'], library["total"])
-        albums = self.request("/api/albums")['albums']
+        self.assertEqual(result["tracks"], library["total"])
+        albums = self.request("/api/albums")["albums"]
         for artist, expected in (("Banda A", 52), ("Banda B", 1)):
-            album = next(a for a in albums if a['artist'] == artist)
-            self.assertEqual(self.preview(album_id=album["track_id"])['tracks'], expected)
+            album = next(a for a in albums if a["artist"] == artist)
+            self.assertEqual(self.preview(album_id=album["track_id"])["tracks"], expected)
         self.request("/api/playlists/preview", {"nome": "Vazia", "q": "nenhuma correspondência"}, status=400)
         self.request("/api/playlists/preview", {"nome": "Vazia", "album_id": "inexistente"}, status=400)
         self.assertFalse((self.lib / "Playlists").exists())
@@ -132,17 +167,17 @@ class PlaylistHTTPTest(unittest.TestCase):
         path = Path(result["playlist"])
         original = path.read_bytes()
         preview = self.preview(artista="Banda B")
-        self.assertTrue(preview['exists'])
+        self.assertTrue(preview["exists"])
         self.export(status=400, artista="Banda B")
         self.export(status=400, artista="Banda B", sobrescrever="false")
         self.export(status=400, artista="Banda B", sobrescrever=True)
         self.assertEqual(path.read_bytes(), original)
         path.write_text("editada por outro programa\n", encoding="utf-8")
-        self.export(status=400, artista="Banda B", sobrescrever=True, anterior_sha256=preview['previous_sha256'])
+        self.export(status=400, artista="Banda B", sobrescrever=True, anterior_sha256=preview["previous_sha256"])
         self.assertEqual(path.read_text(encoding="utf-8"), "editada por outro programa\n")
         preview = self.preview(artista="Banda B")
-        result = self.export(artista="Banda B", sobrescrever=True, anterior_sha256=preview['previous_sha256'])
-        self.assertEqual(result['tracks'], 1)
+        result = self.export(artista="Banda B", sobrescrever=True, anterior_sha256=preview["previous_sha256"])
+        self.assertEqual(result["tracks"], 1)
         self.assertIn("Canção diferente", path.read_text(encoding="utf-8"))
         backup = Path(result["backup"])
         self.assertFalse(backup.is_relative_to(self.lib))
@@ -151,18 +186,20 @@ class PlaylistHTTPTest(unittest.TestCase):
         preview = self.preview()
         original = path.read_bytes()
         with patch("server.durable_copy", side_effect=OSError("disco cheio")):
-            self.export(status=400, sobrescrever=True, anterior_sha256=preview['previous_sha256'])
+            self.export(status=400, sobrescrever=True, anterior_sha256=preview["previous_sha256"])
         self.assertEqual(path.read_bytes(), original)
 
     def test_hard_linked_music_is_readable_and_state_polling_stays_available(self):
         os.link(self.lib / "Ação 01.mp3", self.base / "seed.mp3")
-        self.assertEqual(self.preview()['tracks'], 53)
+        self.assertEqual(self.preview()["tracks"], 53)
         entered, release = threading.Event(), threading.Event()
         from server import render_m3u8
+
         def slow_render(*args):
             entered.set()
             release.wait(5)
             return render_m3u8(*args)
+
         result = []
         with patch("server.render_m3u8", side_effect=slow_render):
             request = threading.Thread(target=lambda: result.append(self.preview()))
@@ -176,7 +213,7 @@ class PlaylistHTTPTest(unittest.TestCase):
             finally:
                 release.set()
                 request.join()
-        self.assertEqual(result[0]['tracks'], 53)
+        self.assertEqual(result[0]["tracks"], 53)
         self.assertFalse(self.server.app.playlist_busy)
 
     def test_names_and_links_cannot_write_outside_playlist_directory(self):
@@ -210,7 +247,7 @@ class PlaylistHTTPTest(unittest.TestCase):
         self.server.app.job = None
         with library_lock(self.lib):
             result = self.export(status=400)
-        self.assertIn("ocupada", result['error'])
+        self.assertIn("ocupada", result["error"])
         self.assertFalse(self.server.app.playlist_busy)
         (self.lib / "Ação 01.mp3").unlink()
         self.export(status=400)

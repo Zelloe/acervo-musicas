@@ -9,7 +9,14 @@ from search import GlobalSearch, LibraryIndex, normalize
 
 
 def track(ident, title, artist, album, genre="", album_artist=""):
-    return {"id": ident, "titulo": [title], "artista": [artist], "artista_album": [album_artist] if album_artist else [], "album": [album], "genero": [genre] if genre else []}
+    return {
+        "id": ident,
+        "titulo": [title],
+        "artista": [artist],
+        "artista_album": [album_artist] if album_artist else [],
+        "album": [album],
+        "genero": [genre] if genre else [],
+    }
 
 
 TRACKS = [
@@ -40,7 +47,7 @@ class LibrarySearchTest(unittest.TestCase):
     def test_accents_typos_prefixes_and_compact_names(self):
         self.assertEqual(self.ids("varias variaveis")[0], "5")
         self.assertEqual(self.ids("metalica")[0], "4")  # typo
-        self.assertEqual(self.ids("engenh")[0], "5")    # still typing
+        self.assertEqual(self.ids("engenh")[0], "5")  # still typing
         self.assertEqual(self.ids("acdc", 5), ["1", "2"])
         self.assertEqual(self.ids("aenima")[0], "3")
         self.assertEqual(self.ids("enima")[0], "3")
@@ -69,6 +76,7 @@ class LibrarySearchTest(unittest.TestCase):
 
     def test_large_library_stays_fast(self):
         import time
+
         many = [track(str(i), f"Song {i}", f"Band {i % 300}", f"Album {i % 900}", "Rock") for i in range(3000)]
         index = LibraryIndex(many)
         start = time.perf_counter()
@@ -77,7 +85,7 @@ class LibrarySearchTest(unittest.TestCase):
         self.assertLess(time.perf_counter() - start, 1.5)
 
 
-FAKE_WORKER = textwrap.dedent('''
+FAKE_WORKER = textwrap.dedent("""
     import json, sys, time
     calls = 0
     for line in sys.stdin:
@@ -92,7 +100,7 @@ FAKE_WORKER = textwrap.dedent('''
         print("aviso solto de alguma biblioteca", flush=True)
         print(json.dumps({"id": request["id"] - 1, "ok": True, "dados": "atrasada"}), flush=True)
         print(json.dumps({"id": request["id"], "ok": True, "dados": {"termos": [text + " x"], "artistas": [{"nome": text.title()}], "chamadas": calls}}), flush=True)
-''')
+""")
 
 
 class GlobalSearchTest(unittest.TestCase):
@@ -110,7 +118,7 @@ class GlobalSearchTest(unittest.TestCase):
         first = self.search.suggest("Kyuss")
         self.assertEqual(first["termos"], ["Kyuss x"])
         self.assertEqual(self.search.suggest("  kyuss ")["chamadas"], 1)  # same normalized query
-        self.assertEqual(self.search.suggest("alice")["chamadas"], 2)    # the process stays open
+        self.assertEqual(self.search.suggest("alice")["chamadas"], 2)  # the process stays open
         self.assertEqual(self.search.suggest("k"), {"termos": [], "artistas": []})
 
     def test_errors_and_timeouts_recover(self):
@@ -123,6 +131,7 @@ class GlobalSearchTest(unittest.TestCase):
 
     def test_close_during_pending_query(self):
         import threading
+
         self.search.timeout = 10.0
         process = (self.search.suggest("aquece"), self.search.process)[1]
         errors = []

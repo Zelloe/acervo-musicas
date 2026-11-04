@@ -17,18 +17,29 @@ from messages import _, register
 FIELDS = {"titulo": 3.0, "artista": 2.5, "album": 2.0, "genero": 1.0}
 LABELS = {"titulo": "title", "artista": "artist", "album": "album", "genero": "genre"}
 
-register({
-    "title": "título", "artist": "artista", "album": "álbum", "genre": "gênero",
-    "The global search stopped unexpectedly": "A busca global foi encerrada inesperadamente",
-    "The global search took too long; try again": "A busca global demorou demais; tente de novo",
-    "The global search failed: {details}": "A busca global falhou: {details}",
-    "no details": "sem detalhes",
-})
+register(
+    {
+        "title": "título",
+        "artist": "artista",
+        "album": "álbum",
+        "genre": "gênero",
+        "The global search stopped unexpectedly": "A busca global foi encerrada inesperadamente",
+        "The global search took too long; try again": "A busca global demorou demais; tente de novo",
+        "The global search failed: {details}": "A busca global falhou: {details}",
+        "no details": "sem detalhes",
+    }
+)
 
 
 def normalize(text: str) -> str:
     """Lowercase, without accents or punctuation: "Ænima!" and "aenima" match."""
-    text = unicodedata.normalize("NFKD", str(text)).replace("æ", "ae").replace("Æ", "ae").replace("ø", "o").replace("Ø", "o")
+    text = (
+        unicodedata.normalize("NFKD", str(text))
+        .replace("æ", "ae")
+        .replace("Æ", "ae")
+        .replace("ø", "o")
+        .replace("Ø", "o")
+    )
     text = "".join(c for c in text if not unicodedata.combining(c)).casefold()
     text = text.replace("&", " e ").replace("'", "").replace("’", "")
     return " ".join(re.sub(r"[^\w]+", " ", text).replace("_", " ").split())
@@ -59,7 +70,13 @@ def _token_score(query: str, token: str) -> float:
     if len(query) >= 4:
         limit = 2 if len(query) >= 8 else 1
         # Also compare with the start of the word, for typos made mid-typing.
-        if min(_distance(query, token, limit), _distance(query, token[:len(query)], limit) if len(token) > len(query) else limit + 1) <= limit:
+        if (
+            min(
+                _distance(query, token, limit),
+                _distance(query, token[: len(query)], limit) if len(token) > len(query) else limit + 1,
+            )
+            <= limit
+        ):
             return 0.35
     return 0.0
 
@@ -120,12 +137,17 @@ class LibraryIndex:
 
     def __init__(self, tracks: list[dict]):
         self.tracks = tracks
-        self.songs = _Matcher([{
-            "titulo": _join(t.get("titulo")),
-            "artista": " ".join([_join(t.get("artista")), _join(t.get("artista_album"))]),
-            "album": _join(t.get("album")),
-            "genero": _join(t.get("genero")),
-        } for t in tracks])
+        self.songs = _Matcher(
+            [
+                {
+                    "titulo": _join(t.get("titulo")),
+                    "artista": " ".join([_join(t.get("artista")), _join(t.get("artista_album"))]),
+                    "album": _join(t.get("album")),
+                    "genero": _join(t.get("genero")),
+                }
+                for t in tracks
+            ]
+        )
         artists, albums = OrderedDict(), OrderedDict()
         for track in tracks:
             names = {}
@@ -138,7 +160,10 @@ class LibraryIndex:
             artist = _join(track.get("artista_album")) or _join(track.get("artista"))
             album = _join(track.get("album"))
             if album:
-                entry = albums.setdefault((normalize(artist), normalize(album)), {"titulo": album, "artista": artist, "track_id": track.get("id"), "faixas": 0})
+                entry = albums.setdefault(
+                    (normalize(artist), normalize(album)),
+                    {"titulo": album, "artista": artist, "track_id": track.get("id"), "faixas": 0},
+                )
                 entry["faixas"] += 1
         self.artists = list(artists.values())
         self.albums = list(albums.values())
@@ -146,8 +171,10 @@ class LibraryIndex:
         self.album_matcher = _Matcher([{"album": a["titulo"], "artista": a["artista"]} for a in self.albums])
 
     def search(self, query: str, limit: int = 50) -> list[dict]:
-        return [{"id": self.tracks[index].get("id"), "pontuacao": score, "motivo": _(LABELS[field])}
-                for score, index, field in self.songs.rank(query, limit)]
+        return [
+            {"id": self.tracks[index].get("id"), "pontuacao": score, "motivo": _(LABELS[field])}
+            for score, index, field in self.songs.rank(query, limit)
+        ]
 
     def suggest(self, query: str, limit: int = 8) -> dict:
         artists = [self.artists[i] for _, i, _ in self.artist_matcher.rank(query, limit)]
@@ -155,7 +182,9 @@ class LibraryIndex:
         songs = []
         for _score, index, _matched in self.songs.rank(query, limit):
             track = self.tracks[index]
-            songs.append({"id": track.get("id"), "titulo": _join(track.get("titulo")), "artista": _join(track.get("artista"))})
+            songs.append(
+                {"id": track.get("id"), "titulo": _join(track.get("titulo")), "artista": _join(track.get("artista"))}
+            )
         return {"artistas": artists[:4], "albuns": albums[:4], "musicas": songs[:limit]}
 
 
@@ -171,6 +200,7 @@ class GlobalSearch:
 
             def command_factory():
                 return [*downloader.spotdl_python(), "-I", str(Path(downloader.ADAPTER)), "servir"]
+
         self.command_factory = command_factory
         self.timeout = timeout
         self.cache: OrderedDict[str, dict] = OrderedDict()
@@ -182,7 +212,16 @@ class GlobalSearch:
     def _start(self):
         if self.process and self.process.poll() is None:
             return
-        self.process = subprocess.Popen(self.command_factory(), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1, encoding="utf-8", errors="replace")
+        self.process = subprocess.Popen(
+            self.command_factory(),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            bufsize=1,
+            encoding="utf-8",
+            errors="replace",
+        )
         # A thread reads the lines; several answers may arrive together in one chunk.
         self.lines = queue.Queue()
         threading.Thread(target=self._read, args=(self.process, self.lines), daemon=True).start()
@@ -224,7 +263,9 @@ class GlobalSearch:
             if not isinstance(answer, dict) or answer.get("id") != self.counter:
                 continue  # a stray warning or a late answer to an earlier query
             if not answer.get("ok"):
-                raise RuntimeError(_("The global search failed: {details}", details=answer.get("erro") or _("no details")))
+                raise RuntimeError(
+                    _("The global search failed: {details}", details=answer.get("erro") or _("no details"))
+                )
             return answer.get("dados")
 
     def suggest(self, query: str) -> dict:
@@ -237,6 +278,7 @@ class GlobalSearch:
                 return self.cache[key]
             result = self._call("sugestoes", query.strip()[:200])
             from downloader import safe_photo
+
             for artist in result.get("artistas", []):
                 artist["foto"] = safe_photo(artist.get("foto"))
             self.cache[key] = result

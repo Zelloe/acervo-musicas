@@ -116,14 +116,18 @@ class LibraryOpenHTTPTest(unittest.TestCase):
         old.worker and old.worker.join(5)
         refused = []
         real = App
+
         def build(*args):
-            for operation in (lambda: old.start("import", lambda: self.fail("wrote during the switch")),
-                              lambda: old.start_bulk_lyrics({}),
-                              lambda: old.change_protections({"ids": ["x"], "campos": ["genero"], "proteger": True})):
+            for operation in (
+                lambda: old.start("import", lambda: self.fail("wrote during the switch")),
+                lambda: old.start_bulk_lyrics({}),
+                lambda: old.change_protections({"ids": ["x"], "campos": ["genero"], "proteger": True}),
+            ):
                 with self.assertRaises(ValueError):
                     operation()
                 refused.append(True)
             return real(*args)
+
         with patch("server.App", side_effect=build):
             self.post("/api/library/open", {"folder": str(self.second)})
         self.assertEqual(len(refused), 3)
@@ -133,9 +137,18 @@ class LibraryOpenHTTPTest(unittest.TestCase):
 
     def test_only_an_explicit_folder_option_overrides_the_remembered_one(self):
         default = self.first
-        for arguments, fixed in (([], False), (["--folder", str(default)], True), (["--pasta", str(default)], True), (["--folder", str(self.second)], True)):
-            with self.subTest(arguments=arguments), patch("sys.argv", ["acervo.py", "serve", *arguments]), \
-                    patch("acervo.default_music_folder", return_value=default), patch("server.serve") as serve:
+        for arguments, fixed in (
+            ([], False),
+            (["--folder", str(default)], True),
+            (["--pasta", str(default)], True),
+            (["--folder", str(self.second)], True),
+        ):
+            with (
+                self.subTest(arguments=arguments),
+                patch("sys.argv", ["acervo.py", "serve", *arguments]),
+                patch("acervo.default_music_folder", return_value=default),
+                patch("server.serve") as serve,
+            ):
                 acervo.main()
                 self.assertIs(serve.call_args.args[4], fixed)
                 self.assertEqual(serve.call_args.args[0], Path(arguments[1]) if arguments else default)

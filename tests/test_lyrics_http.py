@@ -28,9 +28,18 @@ class LyricsHTTPTest(unittest.TestCase):
         self.path = self.root / "Faixa.mp3"
         ID3().save(self.path)
         self.app = App(self.root, base / "dados")
-        self.track = {"id": "fixture", "arquivo": str(self.path), "titulo": ["Faixa inventada"], "artista": ["Banda fictícia"],
-                      "artista_album": [], "album": ["Disco fictício"], "duracao_segundos": 123.4,
-                      "formato": "MP3", "campos_ausentes": [], "capas": []}
+        self.track = {
+            "id": "fixture",
+            "arquivo": str(self.path),
+            "titulo": ["Faixa inventada"],
+            "artista": ["Banda fictícia"],
+            "artista_album": [],
+            "album": ["Disco fictício"],
+            "duracao_segundos": 123.4,
+            "formato": "MP3",
+            "campos_ausentes": [],
+            "capas": [],
+        }
         self.app.tracks = [self.track]
         self.app.by_id = {"fixture": self.track}
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -48,7 +57,9 @@ class LyricsHTTPTest(unittest.TestCase):
 
     def get(self, params=None, status=200, host=None, route="/api/lyrics"):
         route += "?" + urlencode(to_api(params if params is not None else {"id": "fixture"}))
-        request = Request(self.url + route, headers={"X-Acervo-Language": "pt-BR", **({} if host is None else {"Host": host})})
+        request = Request(
+            self.url + route, headers={"X-Acervo-Language": "pt-BR", **({} if host is None else {"Host": host})}
+        )
         try:
             response = urlopen(request, timeout=5)
         except HTTPError as error:
@@ -63,10 +74,14 @@ class LyricsHTTPTest(unittest.TestCase):
         tags.add(USLT(encoding=3, lang="por", desc="", text="Verso fictício do arquivo"))
         tags.save(self.path)
         original = sha256(self.path)
-        with patch.object(self.app.lyrics_client, "lookup", side_effect=AssertionError("Não consultar a rede quando a letra já existe")):
+        with patch.object(
+            self.app.lyrics_client,
+            "lookup",
+            side_effect=AssertionError("Não consultar a rede quando a letra já existe"),
+        ):
             result = self.get()
-            self.assertEqual(result['source'], 'file')
-            self.assertEqual(result['text'], "Verso fictício do arquivo")
+            self.assertEqual(result["source"], "file")
+            self.assertEqual(result["text"], "Verso fictício do arquivo")
         self.assertEqual(sha256(self.path), original)
         ID3().save(self.path)
         sidecar = self.path.with_suffix(".lrc")
@@ -74,11 +89,18 @@ class LyricsHTTPTest(unittest.TestCase):
         original = {p: sha256(p) for p in (self.path, sidecar)}
         with patch.object(self.app.lyrics_client, "lookup", side_effect=AssertionError("O sidecar já possui letra")):
             result = self.get()
-            self.assertEqual(result['synced'][1], {"t": 2.0, 'line': "Segundo verso fictício"})
+            self.assertEqual(result["synced"][1], {"t": 2.0, "line": "Segundo verso fictício"})
         self.assertEqual({p: sha256(p) for p in original}, original)
 
     def test_lookup_uses_only_inventory_metadata_and_keeps_cache_outside_library(self):
-        expected = {"encontrada": True, "texto": "Letra fictícia", "sincronizada": [], "instrumental": False, "fonte": "lrclib", "url": "https://lrclib.net/api/get/1"}
+        expected = {
+            "encontrada": True,
+            "texto": "Letra fictícia",
+            "sincronizada": [],
+            "instrumental": False,
+            "fonte": "lrclib",
+            "url": "https://lrclib.net/api/get/1",
+        }
         before = sha256(self.path)
         with patch.object(self.app.lyrics_client, "lookup", return_value=expected) as provider:
             self.assertEqual(self.get(), to_api(expected))
@@ -89,7 +111,12 @@ class LyricsHTTPTest(unittest.TestCase):
 
     def test_unknown_id_free_text_external_file_symlink_and_untrusted_host_are_refused(self):
         with patch.object(self.app.lyrics_client, "lookup") as provider:
-            for params in ({}, {"id": "missing"}, {"id": "fixture", "titulo": "texto livre"}, {"id": "fixture", "arquivo": "/tmp/x.mp3"}):
+            for params in (
+                {},
+                {"id": "missing"},
+                {"id": "fixture", "titulo": "texto livre"},
+                {"id": "fixture", "arquivo": "/tmp/x.mp3"},
+            ):
                 self.get(params, status=400)
             self.get(host="evil.invalid", status=403)
             outside = self.root.parent / "outside.mp3"
@@ -106,29 +133,33 @@ class LyricsHTTPTest(unittest.TestCase):
         for result in ({"encontrada": False}, {"encontrada": True, "instrumental": True, "fonte": "lrclib"}):
             with patch.object(self.app.lyrics_client, "lookup", return_value=result):
                 self.assertEqual(self.get(), to_api(result))
-        with patch.object(self.app.lyrics_client, "lookup", side_effect=RuntimeError("Serviço temporariamente indisponível")):
-            self.assertIn("temporariamente", self.get(status=503)['error'])
+        with patch.object(
+            self.app.lyrics_client, "lookup", side_effect=RuntimeError("Serviço temporariamente indisponível")
+        ):
+            self.assertIn("temporariamente", self.get(status=503)["error"])
         self.assertIsNone(self.app.job)
 
     def test_pending_lookup_does_not_hold_library_lock_or_block_state_polling(self):
         entered, release = threading.Event(), threading.Event()
+
         def slow_lookup(*args):
             entered.set()
             release.wait(5)
             return {"encontrada": False}
+
         results = []
         with patch.object(self.app.lyrics_client, "lookup", side_effect=slow_lookup):
             request = threading.Thread(target=lambda: results.append(self.get()))
             request.start()
             try:
                 self.assertTrue(entered.wait(2))
-                self.assertTrue(self.app.lock.acquire(timeout=.5))
+                self.assertTrue(self.app.lock.acquire(timeout=0.5))
                 self.app.lock.release()
-                self.assertEqual(self.get(route="/api/state")['summary']['read_count'], 1)
+                self.assertEqual(self.get(route="/api/state")["summary"]["read_count"], 1)
             finally:
                 release.set()
                 request.join(5)
-        self.assertEqual(results, [{'found': False}])
+        self.assertEqual(results, [{"found": False}])
 
 
 if __name__ == "__main__":

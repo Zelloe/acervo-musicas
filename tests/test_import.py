@@ -21,7 +21,22 @@ class ImportTest(unittest.TestCase):
         cls.samples = tempfile.TemporaryDirectory()
         cls.sample_root = Path(cls.samples.name)
         for name, frequency, duration in (("original.mp3", 440, 0.1), ("download.mp3", 880, 0.2)):
-            subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", f"sine=frequency={frequency}:duration={duration}", "-c:a", "libmp3lame", str(cls.sample_root / name)], check=True)
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    f"sine=frequency={frequency}:duration={duration}",
+                    "-c:a",
+                    "libmp3lame",
+                    str(cls.sample_root / name),
+                ],
+                check=True,
+            )
 
     @classmethod
     def tearDownClass(cls):
@@ -50,10 +65,23 @@ class ImportTest(unittest.TestCase):
         return path
 
     def replace_op(self, target: Path, source: Path) -> dict:
-        return {"acao": "substituir", "arquivo": str(target), "antes_sha256": sha256(target), "origem": str(source), "origem_sha256": sha256(source), "alteracoes": {}}
+        return {
+            "acao": "substituir",
+            "arquivo": str(target),
+            "antes_sha256": sha256(target),
+            "origem": str(source),
+            "origem_sha256": sha256(source),
+            "alteracoes": {},
+        }
 
     def add_op(self, target: Path, source: Path) -> dict:
-        return {"acao": "adicionar", "arquivo": str(target), "origem": str(source), "origem_sha256": sha256(source), "alteracoes": {}}
+        return {
+            "acao": "adicionar",
+            "arquivo": str(target),
+            "origem": str(source),
+            "origem_sha256": sha256(source),
+            "alteracoes": {},
+        }
 
     def manifest(self, error: RuntimeError) -> Path:
         return Path(str(error).split("restoring: ")[1].split(". ")[0])

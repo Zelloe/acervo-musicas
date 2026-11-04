@@ -43,11 +43,27 @@ class SourceRulesTest(unittest.TestCase):
     def test_rule_recognizes_the_cases_it_exists_for(self):
         def flagged(code):
             return text_call_without_encoding(ast.parse(code, mode="eval").body)
-        for code in ("path.read_text()", "path.read_text(errors='replace')", "path.write_text(x)", "path.open()",
-                     "path.open('a+')", "open(name)", "open(name, 'w')", "subprocess.run(c, text=True)"):
+
+        for code in (
+            "path.read_text()",
+            "path.read_text(errors='replace')",
+            "path.write_text(x)",
+            "path.open()",
+            "path.open('a+')",
+            "open(name)",
+            "open(name, 'w')",
+            "subprocess.run(c, text=True)",
+        ):
             self.assertTrue(flagged(code), code)
-        for code in ("path.read_text(encoding='utf-8')", "path.open('rb')", "open(name, 'rb')", "picker.open(data)",
-                     "os.open(name, flags)", "subprocess.run(c)", "path.read_bytes()"):
+        for code in (
+            "path.read_text(encoding='utf-8')",
+            "path.open('rb')",
+            "open(name, 'rb')",
+            "picker.open(data)",
+            "os.open(name, flags)",
+            "subprocess.run(c)",
+            "path.read_bytes()",
+        ):
             self.assertFalse(flagged(code), code)
 
     def test_project_and_setup_script_install_the_same_dependencies(self):

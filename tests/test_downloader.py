@@ -55,7 +55,22 @@ class DownloadTest(unittest.TestCase):
     def setUpClass(cls):
         cls.samples = tempfile.TemporaryDirectory()
         cls.sample = Path(cls.samples.name) / "sample.mp3"
-        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=duration=0.1", "-c:a", "libmp3lame", str(cls.sample)], check=True)
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=duration=0.1",
+                "-c:a",
+                "libmp3lame",
+                str(cls.sample),
+            ],
+            check=True,
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -64,7 +79,12 @@ class DownloadTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.folder = Path(self.temp.name)
-        self.item = {"titulo": "Back In Black", "artista": "AC/DC", "album": "Back In Black", "url": "https://open.spotify.com/track/abc123"}
+        self.item = {
+            "titulo": "Back In Black",
+            "artista": "AC/DC",
+            "album": "Back In Black",
+            "url": "https://open.spotify.com/track/abc123",
+        }
 
     def tearDown(self):
         self.temp.cleanup()
@@ -86,18 +106,24 @@ class DownloadTest(unittest.TestCase):
             if foreign:
                 (self.folder / name).write_bytes(b"outro programa")
             return subprocess.CompletedProcess(command, returncode, "", "erro simulado" if returncode else "")
+
         return run
 
     def download(self, items, **fake):
-        with patch.object(downloader, "spotdl_executable", return_value="spotdl"), patch.object(downloader.subprocess, "run", side_effect=self.wrap(self.fake_spotdl(**fake))):
+        with (
+            patch.object(downloader, "spotdl_executable", return_value="spotdl"),
+            patch.object(downloader.subprocess, "run", side_effect=self.wrap(self.fake_spotdl(**fake))),
+        ):
             return downloader.download(items, self.folder, lyrics=False)
 
     def wrap(self, fake):
         real = subprocess.run
+
         def dispatch(command, *args, **kwargs):
             if command[0] == "spotdl":
                 return fake(command, **kwargs)
             return real(command, *args, **kwargs)  # the real ffmpeg validates the audio
+
         return dispatch
 
     def listing(self):
@@ -156,11 +182,17 @@ class DownloadTest(unittest.TestCase):
             return real_publish(source, final)
 
         fourth = {**self.item, "titulo": "Hells Bells (Live)", "url": "https://open.spotify.com/track/jkl012"}
+
         def run(command, cwd, **kwargs):
             name = next(names)
             self.item = next(i for i in (self.item, other, third) if command[2] == i["url"])
             return self.fake_spotdl(name)(command, cwd)
-        with patch.object(downloader, "spotdl_executable", return_value="spotdl"), patch.object(downloader, "_publish", side_effect=publish), patch.object(downloader.subprocess, "run", side_effect=self.wrap(run)):
+
+        with (
+            patch.object(downloader, "spotdl_executable", return_value="spotdl"),
+            patch.object(downloader, "_publish", side_effect=publish),
+            patch.object(downloader.subprocess, "run", side_effect=self.wrap(run)),
+        ):
             results = downloader.download([self.item, other, third, fourth], self.folder, lyrics=False)
         self.assertEqual([r["estado"] for r in results], ["baixado", "erro", "erro", "nao_baixado"])
         self.assertEqual(self.listing(), ["ACDC - Back In Black.mp3"])
@@ -168,23 +200,45 @@ class DownloadTest(unittest.TestCase):
     def test_index_marks_existing_tracks(self):
         self.download([self.item])
         index = downloader.local_index(self.folder)
-        marked = downloader.mark_owned([dict(self.item), {"titulo": "Back In Black - Remastered 2003", "artista": "AC/DC"}, {"titulo": "Hells Bells", "artista": "AC/DC"}], index)
+        marked = downloader.mark_owned(
+            [
+                dict(self.item),
+                {"titulo": "Back In Black - Remastered 2003", "artista": "AC/DC"},
+                {"titulo": "Hells Bells", "artista": "AC/DC"},
+            ],
+            index,
+        )
         self.assertEqual([m["ja_tenho"] for m in marked], [True, True, False])
 
     def test_bad_link_is_reported_without_running(self):
-        with patch.object(downloader, "spotdl_executable", return_value="spotdl"), patch.object(downloader.subprocess, "run") as run:
-            result = downloader.download([{**self.item, "url": "https://open.spotify.com/album/x"}], self.folder, lyrics=False)
+        with (
+            patch.object(downloader, "spotdl_executable", return_value="spotdl"),
+            patch.object(downloader.subprocess, "run") as run,
+        ):
+            result = downloader.download(
+                [{**self.item, "url": "https://open.spotify.com/album/x"}], self.folder, lyrics=False
+            )
         run.assert_not_called()
         self.assertEqual(result[0]["estado"], "erro")
         self.assertEqual(result[0]["mensagem"], "Invalid track link")
 
     def test_messages_follow_the_request_language(self):
         progress = []
-        with language("pt-BR"), patch.object(downloader, "spotdl_executable", return_value="spotdl"), patch.object(downloader.subprocess, "run") as run:
-            result = downloader.download([{**self.item, "url": "https://open.spotify.com/album/x"}], self.folder, progress=lambda text, _: progress.append(text), lyrics=False)
+        with (
+            language("pt-BR"),
+            patch.object(downloader, "spotdl_executable", return_value="spotdl"),
+            patch.object(downloader.subprocess, "run") as run,
+        ):
+            result = downloader.download(
+                [{**self.item, "url": "https://open.spotify.com/album/x"}],
+                self.folder,
+                progress=lambda text, _: progress.append(text),
+                lyrics=False,
+            )
         run.assert_not_called()
         self.assertEqual(result[0]["mensagem"], "Link de faixa inválido")
         self.assertEqual(progress, ["Baixando 1 de 1 · AC/DC - Back In Black", "Downloads concluídos"])
+
 
 class AlbumListTest(unittest.TestCase):
     ROWS = [
@@ -233,10 +287,20 @@ class AlbumListTest(unittest.TestCase):
 
     def test_artist_page_lists_more_than_the_text_search(self):
         fake = MagicMock()
-        fake.search.side_effect = lambda text, filter, limit: [{"artist": "Other", "browseId": "x"}, {"artist": "band", "browseId": "b"}] if filter == "artists" else [{"title": "Tribute", "artists": [{"name": "Band"}]}]
-        fake.get_artist.return_value = {"albums": {"browseId": "all", "params": "p", "results": [{"title": "Only preview"}]},
-                                        "singles": {"results": [{"title": "Small EP", "type": "EP"}, {"title": "One song", "type": "Single"}]}}
-        fake.get_artist_albums.return_value = [{"title": "Full One", "year": "1990", "type": "Album"}, {"title": "Band Karaoke", "type": "Album"}, {"title": "full one", "type": "Album"}]
+        fake.search.side_effect = lambda text, filter, limit: (
+            [{"artist": "Other", "browseId": "x"}, {"artist": "band", "browseId": "b"}]
+            if filter == "artists"
+            else [{"title": "Tribute", "artists": [{"name": "Band"}]}]
+        )
+        fake.get_artist.return_value = {
+            "albums": {"browseId": "all", "params": "p", "results": [{"title": "Only preview"}]},
+            "singles": {"results": [{"title": "Small EP", "type": "EP"}, {"title": "One song", "type": "Single"}]},
+        }
+        fake.get_artist_albums.return_value = [
+            {"title": "Full One", "year": "1990", "type": "Album"},
+            {"title": "Band Karaoke", "type": "Album"},
+            {"title": "full one", "type": "Album"},
+        ]
         with patch("spotdl_search.ytmusic", return_value=fake):
             self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["Full One", "Small EP"])
         fake.get_artist.assert_called_once_with("b")
@@ -244,24 +308,36 @@ class AlbumListTest(unittest.TestCase):
     def test_bands_with_the_same_name_are_both_listed(self):
         fake = MagicMock()
         fake.search.return_value = [{"artist": "Band", "browseId": "a"}, {"artist": "Band", "browseId": "b"}]
-        fake.get_artist.side_effect = lambda ident: {"singles": {"results": []}, "albums": {"results": [{"title": "From " + ident}]}}
+        fake.get_artist.side_effect = lambda ident: {
+            "singles": {"results": []},
+            "albums": {"results": [{"title": "From " + ident}]},
+        }
         with patch("spotdl_search.ytmusic", return_value=fake):
             self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["From a", "From b"])
 
     def test_text_search_remains_when_the_artist_page_fails(self):
         fake = MagicMock()
-        fake.search.side_effect = lambda text, filter, limit: [{"title": "Found", "artists": [{"name": "Band"}]}, {"title": "Cover", "artists": [{"name": "Other"}]}] if filter == "albums" else [{"artist": "Band", "browseId": "b"}]
+        fake.search.side_effect = lambda text, filter, limit: (
+            [{"title": "Found", "artists": [{"name": "Band"}]}, {"title": "Cover", "artists": [{"name": "Other"}]}]
+            if filter == "albums"
+            else [{"artist": "Band", "browseId": "b"}]
+        )
         fake.get_artist.side_effect = KeyError("layout changed")
         with patch("spotdl_search.ytmusic", return_value=fake):
             self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["Found"])
 
     def test_one_unavailable_namesake_keeps_the_other_artist_albums(self):
         fake = MagicMock()
-        fake.search.return_value = [{"artist": "Band", "browseId": "unavailable"}, {"artist": "Band", "browseId": "available"}]
+        fake.search.return_value = [
+            {"artist": "Band", "browseId": "unavailable"},
+            {"artist": "Band", "browseId": "available"},
+        ]
+
         def page(ident):
             if ident == "unavailable":
                 raise KeyError("artist page unavailable")
             return {"albums": {"results": [{"title": "Available Album"}]}}
+
         fake.get_artist.side_effect = page
         with patch("spotdl_search.ytmusic", return_value=fake):
             self.assertEqual([a["titulo"] for a in spotdl_search.albums("Band")], ["Available Album"])
@@ -309,7 +385,11 @@ class LookupProcessTest(unittest.TestCase):
 
     def test_spotify_client_is_started_only_once_in_a_process(self):
         spotify = MagicMock()
-        modules = {"spotdl": MagicMock(), "spotdl.utils": MagicMock(), "spotdl.utils.spotify": MagicMock(SpotifyClient=spotify)}
+        modules = {
+            "spotdl": MagicMock(),
+            "spotdl.utils": MagicMock(),
+            "spotdl.utils.spotify": MagicMock(SpotifyClient=spotify),
+        }
         with patch.dict(sys.modules, modules), patch("spotdl_search._spotify", None):
             self.assertIs(spotdl_search.client(), spotdl_search.client())
         spotify.init.assert_called_once()

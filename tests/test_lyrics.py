@@ -47,7 +47,15 @@ class FakeLRCLIB:
         return io.BytesIO(json.dumps(answer).encode())
 
 
-HIT = {"id": 7, "trackName": "Back In Black", "artistName": "AC/DC", "duration": 255, "instrumental": False, "plainLyrics": "Back in black\nI hit the sack", "syncedLyrics": "[00:27.24]Back in black\n[00:31.00]I hit the sack"}
+HIT = {
+    "id": 7,
+    "trackName": "Back In Black",
+    "artistName": "AC/DC",
+    "duration": 255,
+    "instrumental": False,
+    "plainLyrics": "Back in black\nI hit the sack",
+    "syncedLyrics": "[00:27.24]Back in black\n[00:31.00]I hit the sack",
+}
 
 
 class LyricsTest(unittest.TestCase):
@@ -62,7 +70,14 @@ class LyricsTest(unittest.TestCase):
         return LyricsClient(self.dir / "cache", opener=fake, min_interval=0, sleep=lambda s: None)
 
     def test_parse_lrc_drops_credits_and_orders_repeated_lines(self):
-        self.assertEqual(parse_lrc(LRC), [{"t": 27.24, "linha": "Back in black"}, {"t": 31.0, "linha": "I hit the sack"}, {"t": 100.5, "linha": "I hit the sack"}])
+        self.assertEqual(
+            parse_lrc(LRC),
+            [
+                {"t": 27.24, "linha": "Back in black"},
+                {"t": 31.0, "linha": "I hit the sack"},
+                {"t": 100.5, "linha": "I hit the sack"},
+            ],
+        )
 
     def test_exact_match_and_cache(self):
         fake = FakeLRCLIB(HIT)
@@ -100,7 +115,9 @@ class LyricsTest(unittest.TestCase):
         self.assertEqual(self.client(fake).lookup("Kyuss", "Gardenia", "", 413), {"encontrada": False})
 
     def test_instrumental(self):
-        result = self.client(FakeLRCLIB({**HIT, "instrumental": True, "plainLyrics": None, "syncedLyrics": None})).lookup("Metallica", "Orion", "", 507)
+        result = self.client(
+            FakeLRCLIB({**HIT, "instrumental": True, "plainLyrics": None, "syncedLyrics": None})
+        ).lookup("Metallica", "Orion", "", 507)
         self.assertTrue(result["encontrada"] and result["instrumental"])
 
 
@@ -111,7 +128,22 @@ class EmbeddedLyricsTest(unittest.TestCase):
         cls.samples = tempfile.TemporaryDirectory()
         root = Path(cls.samples.name)
         for ext, codec in (("mp3", "libmp3lame"), ("flac", "flac")):
-            subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=duration=0.1", "-c:a", codec, str(root / f"s.{ext}")], check=True)
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=duration=0.1",
+                    "-c:a",
+                    codec,
+                    str(root / f"s.{ext}"),
+                ],
+                check=True,
+            )
         cls.mp3, cls.flac = root / "s.mp3", root / "s.flac"
 
     @classmethod
@@ -165,6 +197,7 @@ class EmbeddedLyricsTest(unittest.TestCase):
 
     def test_write_lyrics_with_backup_and_exact_undo(self):
         from mutagen.id3 import APIC
+
         library, storage = self.dir / "musicas", self.dir / "dados"
         library.mkdir()
         mp3 = library / "faixa.mp3"
@@ -201,10 +234,18 @@ class EmbeddedLyricsTest(unittest.TestCase):
         shutil.copy(self.mp3, mp3)
         shutil.copy(self.flac, flac)
         for path in (mp3, flac):
-            save_lyrics(library, storage, str(path), "[00:00.00] 作词 : Johnson\r\n[ar:AC/DC]\n[00:27.24]Back in black\n[01:40.5]I hit the sack")
+            save_lyrics(
+                library,
+                storage,
+                str(path),
+                "[00:00.00] 作词 : Johnson\r\n[ar:AC/DC]\n[00:27.24]Back in black\n[01:40.5]I hit the sack",
+            )
             self.assertEqual(current_lyrics(path), ["[00:27.24]Back in black\n[01:40.50]I hit the sack"])
             embedded = read_embedded(path)
-            self.assertEqual(embedded["sincronizada"], [{"t": 27.24, "linha": "Back in black"}, {"t": 100.5, "linha": "I hit the sack"}])
+            self.assertEqual(
+                embedded["sincronizada"],
+                [{"t": 27.24, "linha": "Back in black"}, {"t": 100.5, "linha": "I hit the sack"}],
+            )
             self.assertEqual(embedded["texto"], "Back in black\nI hit the sack")
 
     def test_lrc_formatting_is_idempotent_at_minute_boundaries(self):
@@ -221,11 +262,15 @@ class EmbeddedLyricsTest(unittest.TestCase):
             tracks.append(library / name)
         save_lyrics(library, storage, str(tracks[2]), "Igual")
         originals = {p: p.read_bytes() for p in tracks}
-        result = save_lyrics_batch(library, storage, [
-            {"file": str(tracks[0]), "text": "[00:01.00]Um"},
-            {"file": str(tracks[1]), "text": "Dois"},
-            {"file": str(tracks[2]), "text": "Igual"},
-        ])
+        result = save_lyrics_batch(
+            library,
+            storage,
+            [
+                {"file": str(tracks[0]), "text": "[00:01.00]Um"},
+                {"file": str(tracks[1]), "text": "Dois"},
+                {"file": str(tracks[2]), "text": "Igual"},
+            ],
+        )
         self.assertEqual(result["arquivos_alterados"], 2)
         self.assertEqual(result["skipped"], [str(tracks[2])])
         self.assertEqual([current_lyrics(p) for p in tracks], [["[00:01.00]Um"], ["Dois"], ["Igual"]])
@@ -249,10 +294,22 @@ class EmbeddedLyricsTest(unittest.TestCase):
         tags.save(plain)
 
         def track(path, title):
-            return {"id": title, "arquivo": str(path), "artista": ["Banda"], "titulo": [title], "album": ["Disco"], "duracao_segundos": 100}
+            return {
+                "id": title,
+                "arquivo": str(path),
+                "artista": ["Banda"],
+                "titulo": [title],
+                "album": ["Disco"],
+                "duracao_segundos": 100,
+            }
 
         answers = {
-            "Plain upgrade": {"encontrada": True, "instrumental": False, "sincronizada": [{"t": 1.0, "linha": "Verso"}], "texto": "Verso"},
+            "Plain upgrade": {
+                "encontrada": True,
+                "instrumental": False,
+                "sincronizada": [{"t": 1.0, "linha": "Verso"}],
+                "texto": "Verso",
+            },
             "Text only": {"encontrada": True, "instrumental": False, "sincronizada": [], "texto": "Linha"},
             "Orion": {"encontrada": True, "instrumental": True, "sincronizada": [], "texto": ""},
             "Missing": {"encontrada": False},
@@ -276,11 +333,35 @@ class EmbeddedLyricsTest(unittest.TestCase):
         tags = ID3()
         tags.add(USLT(encoding=3, lang="eng", desc="", text="[00:02.00]Dentro da tag"))
         tags.save(in_tag)
-        rows = [track(in_tag, "Already"), track(synced, "Sidecar"), track(plain, "Plain upgrade"), track(missing, "Text only"), track(missing, "Orion"), track(missing, "Missing")]
+        rows = [
+            track(in_tag, "Already"),
+            track(synced, "Sidecar"),
+            track(plain, "Plain upgrade"),
+            track(missing, "Text only"),
+            track(missing, "Orion"),
+            track(missing, "Missing"),
+        ]
         rows += [track(missing, f"Down {i}") for i in range(3)] + [track(missing, "Text only")]
         result = bulk_lookup(rows, client, max_failures=3)
-        self.assertEqual([r["status"] for r in result], ["already_synced", "synced", "synced", "plain", "instrumental", "not_found", "error", "error", "error", "not_checked"])
-        self.assertEqual((result[1]["text"], result[1]["source"], result[1]["current"]), ("[00:01.00]Já sincronizada", "lrc_file", "none"))
+        self.assertEqual(
+            [r["status"] for r in result],
+            [
+                "already_synced",
+                "synced",
+                "synced",
+                "plain",
+                "instrumental",
+                "not_found",
+                "error",
+                "error",
+                "error",
+                "not_checked",
+            ],
+        )
+        self.assertEqual(
+            (result[1]["text"], result[1]["source"], result[1]["current"]),
+            ("[00:01.00]Já sincronizada", "lrc_file", "none"),
+        )
         self.assertEqual(result[2]["text"], "[00:01.00]Verso")
         self.assertEqual(result[2]["current"], "plain")
         self.assertNotIn("Already", client.calls)
@@ -291,6 +372,7 @@ class EmbeddedLyricsTest(unittest.TestCase):
 
     def test_write_refuses_track_changed_since_preview(self):
         from library_core import sha256
+
         library, storage = self.dir / "musicas", self.dir / "dados"
         library.mkdir()
         track = library / "faixa.mp3"
@@ -309,7 +391,13 @@ class EmbeddedLyricsTest(unittest.TestCase):
         self.assertEqual(current_lyrics(track), ["Letra"])
 
     def test_download_embeds_lyrics_and_survives_lyrics_failure(self):
-        item = {"titulo": "Back In Black", "artista": "AC/DC", "album": "Back In Black", "duracao": 255, "url": "https://open.spotify.com/track/abc123"}
+        item = {
+            "titulo": "Back In Black",
+            "artista": "AC/DC",
+            "album": "Back In Black",
+            "duracao": 255,
+            "url": "https://open.spotify.com/track/abc123",
+        }
         real = subprocess.run
 
         def run(command, *args, **kwargs):
@@ -332,8 +420,17 @@ class EmbeddedLyricsTest(unittest.TestCase):
                     raise self.result
                 return self.result
 
-        with patch.object(downloader, "spotdl_executable", return_value="spotdl"), patch.object(downloader.subprocess, "run", side_effect=run):
-            done = downloader.download([item], self.dir, lyrics=Client({"encontrada": True, "instrumental": False, "texto": "Back in black", "sincronizada": []}))[0]
+        with (
+            patch.object(downloader, "spotdl_executable", return_value="spotdl"),
+            patch.object(downloader.subprocess, "run", side_effect=run),
+        ):
+            done = downloader.download(
+                [item],
+                self.dir,
+                lyrics=Client(
+                    {"encontrada": True, "instrumental": False, "texto": "Back in black", "sincronizada": []}
+                ),
+            )[0]
             self.assertTrue(done["letra"])
             self.assertEqual(ID3(done["arquivo"]).getall("USLT")[0].text, "Back in black")
             other = self.dir / "outra"

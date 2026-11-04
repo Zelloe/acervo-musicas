@@ -28,10 +28,22 @@ class APIContractHTTPTest(unittest.TestCase):
         self.original = sha256(self.path)
         self.app = App(self.root, base / "data")
         # Inventory data on disk keeps this schema for existing backups/plans.
-        self.track = {"id": "fixture", "arquivo": str(self.path), "titulo": ["estado"],
-                      "artista": ["artista"], "artista_album": [], "album": ["biblioteca"],
-                      "genero": ["genero", "estudio"], "ano": [], "faixa": [], "disco": [],
-                      "formato": "MP3", "duracao_segundos": 1, "capas": [], "campos_ausentes": ["ano"]}
+        self.track = {
+            "id": "fixture",
+            "arquivo": str(self.path),
+            "titulo": ["estado"],
+            "artista": ["artista"],
+            "artista_album": [],
+            "album": ["biblioteca"],
+            "genero": ["genero", "estudio"],
+            "ano": [],
+            "faixa": [],
+            "disco": [],
+            "formato": "MP3",
+            "duracao_segundos": 1,
+            "capas": [],
+            "campos_ausentes": ["ano"],
+        }
         self.app.tracks = [self.track]
         self.app.by_id = {"fixture": self.track}
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -62,8 +74,10 @@ class APIContractHTTPTest(unittest.TestCase):
     def test_english_fields_leave_metadata_and_inventory_unchanged(self):
         before = deepcopy(self.track)
         result = self.request("/api/track?id=fixture")
-        self.assertEqual((result["title"], result["artist"], result["album"], result["genre"]),
-                         (["estado"], ["artista"], ["biblioteca"], ["genero", "estudio"]))
+        self.assertEqual(
+            (result["title"], result["artist"], result["album"], result["genre"]),
+            (["estado"], ["artista"], ["biblioteca"], ["genero", "estudio"]),
+        )
         self.assertEqual(result["missing_fields"], ["year"])
         self.assertNotIn("arquivo", result)
         self.assertEqual(result["file"], str(self.path))
@@ -87,8 +101,11 @@ class APIContractHTTPTest(unittest.TestCase):
 
     def test_provider_records_and_lyrics_text_are_not_reinterpreted(self):
         provider = {"title": "estado", "artista": "vendor-specific field", "status": "biblioteca"}
-        batch = {"id": "fixture", "estado": "pronto", "faixas": [{"id": "row", "fonte": provider,
-                 "metadados": {"titulo": ["titulo"], "genero": ["estudio"]}}]}
+        batch = {
+            "id": "fixture",
+            "estado": "pronto",
+            "faixas": [{"id": "row", "fonte": provider, "metadados": {"titulo": ["titulo"], "genero": ["estudio"]}}],
+        }
         before = deepcopy(batch)
         with patch.object(self.app.downloads, "load", return_value=batch):
             result = self.request("/api/downloads/batch?id=fixture")
@@ -98,12 +115,17 @@ class APIContractHTTPTest(unittest.TestCase):
         self.assertEqual(batch, before)
         lyrics = {"encontrada": True, "texto": "arquivo\nexecutando\ntitulo", "sincronizada": [], "fonte": "arquivo"}
         with patch.object(self.app, "lyrics", return_value=lyrics):
-            self.assertEqual(self.request("/api/lyrics?id=fixture"),
-                             {"found": True, "text": "arquivo\nexecutando\ntitulo", "synced": [], "source": "file"})
+            self.assertEqual(
+                self.request("/api/lyrics?id=fixture"),
+                {"found": True, "text": "arquivo\nexecutando\ntitulo", "synced": [], "source": "file"},
+            )
 
     def test_conflicting_request_aliases_are_rejected_before_policy_is_written(self):
-        result = self.request("/api/protections", {"ids": ["fixture"], "fields": ["genre"],
-                              "campos": ["ano"], "protect": True}, status=400)
+        result = self.request(
+            "/api/protections",
+            {"ids": ["fixture"], "fields": ["genre"], "campos": ["ano"], "protect": True},
+            status=400,
+        )
         self.assertIn("error", result)
         self.assertFalse(protections.policy_path(self.app.storage, self.root).exists())
         self.assertEqual(sha256(self.path), self.original)

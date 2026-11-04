@@ -20,6 +20,7 @@ def ytmusic():
     global _ytmusic
     if _ytmusic is None:
         from ytmusicapi import YTMusic
+
         _ytmusic = YTMusic()
     return _ytmusic
 
@@ -31,6 +32,7 @@ def client():
     global _spotify
     if _spotify is None:
         from spotdl.utils.spotify import SpotifyClient
+
         SpotifyClient.init(client_id="", client_secret="", headless=True, max_retries=1, use_official_api=False)
         _spotify = SpotifyClient()
     return _spotify
@@ -86,7 +88,15 @@ def albums(artist: str) -> list[dict]:
         key = title.casefold()
         if key not in seen:
             seen.add(key)
-            found.append({"titulo": title, "artista": artist, "ano": item.get("year") or "", "tipo": item.get("type") or "", "capa": picture(item.get("thumbnails"))})
+            found.append(
+                {
+                    "titulo": title,
+                    "artista": artist,
+                    "ano": item.get("year") or "",
+                    "tipo": item.get("type") or "",
+                    "capa": picture(item.get("thumbnails")),
+                }
+            )
     return found
 
 
@@ -99,7 +109,16 @@ def editions(artist: str, album: str) -> list[dict]:
             continue
         if not any(same(a["name"], artist) for a in item["artists"]):
             continue
-        found.setdefault(item["id"], {"titulo": item["name"], "artista": ", ".join(a["name"] for a in item["artists"]), "tipo": item.get("album_type") or "", "url": item["external_urls"]["spotify"], "capa": picture(item.get("images"))})
+        found.setdefault(
+            item["id"],
+            {
+                "titulo": item["name"],
+                "artista": ", ".join(a["name"] for a in item["artists"]),
+                "tipo": item.get("album_type") or "",
+                "url": item["external_urls"]["spotify"],
+                "capa": picture(item.get("images")),
+            },
+        )
     # The edition with the exact name comes first; deluxe/remaster after.
     return sorted(found.values(), key=lambda e: (not same(e["titulo"], album), len(e["titulo"])))
 
@@ -108,28 +127,48 @@ def songs(text: str) -> list[dict]:
     result = []
     for track in client().search(text, type="track", limit=25)["tracks"]["items"]:
         year = (track["album"].get("release_date") or "")[:4]
-        result.append({
-            "titulo": track["name"], "artista": ", ".join(a["name"] for a in track["artists"]),
-            "album": track["album"]["name"], "ano": "" if year == "0000" else year,
-            "duracao": round(track.get("duration_ms", 0) / 1000), "numero": track.get("track_number"),
-            "url": track["external_urls"]["spotify"], "tipo_album": track["album"].get("album_type") or "",
-            "capa": picture(track["album"].get("images")),
-        })
+        result.append(
+            {
+                "titulo": track["name"],
+                "artista": ", ".join(a["name"] for a in track["artists"]),
+                "album": track["album"]["name"],
+                "ano": "" if year == "0000" else year,
+                "duracao": round(track.get("duration_ms", 0) / 1000),
+                "numero": track.get("track_number"),
+                "url": track["external_urls"]["spotify"],
+                "tipo_album": track["album"].get("album_type") or "",
+                "capa": picture(track["album"].get("images")),
+            }
+        )
     return result
 
 
 def tracks(url: str) -> list[dict]:
     from spotdl.utils.search import get_simple_songs
+
     client()
     found = get_simple_songs([url])
     if not found or len(found) > 300:
         raise ValueError("The source must contain between 1 and 300 tracks")
-    return [{
-        "titulo": s.name, "artista": s.artist, "artistas": s.artists, "album": s.album_name,
-        "artista_album": s.album_artist, "ano": str(s.year or ""), "data": s.date or "",
-        "numero": s.track_number, "total": s.tracks_count, "disco": s.disc_number,
-        "duracao": s.duration, "url": s.url, "capa": s.cover_url or "", "tipo_album": s.album_type or "",
-    } for s in found]
+    return [
+        {
+            "titulo": s.name,
+            "artista": s.artist,
+            "artistas": s.artists,
+            "album": s.album_name,
+            "artista_album": s.album_artist,
+            "ano": str(s.year or ""),
+            "data": s.date or "",
+            "numero": s.track_number,
+            "total": s.tracks_count,
+            "disco": s.disc_number,
+            "duracao": s.duration,
+            "url": s.url,
+            "capa": s.cover_url or "",
+            "tipo_album": s.album_type or "",
+        }
+        for s in found
+    ]
 
 
 def suggestions(text: str) -> dict:
@@ -159,7 +198,11 @@ def serve():
             handler = HANDLERS[request["cmd"]]
             answer = {"id": request.get("id"), "ok": True, "dados": handler(*request.get("args", []))}
         except Exception as error:
-            answer = {"id": request.get("id") if isinstance(request, dict) else None, "ok": False, "erro": f"{type(error).__name__}: {error}"[:300]}
+            answer = {
+                "id": request.get("id") if isinstance(request, dict) else None,
+                "ok": False,
+                "erro": f"{type(error).__name__}: {error}"[:300],
+            }
         out.write(json.dumps(answer, ensure_ascii=False) + "\n")
         out.flush()
 

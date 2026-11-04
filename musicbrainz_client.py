@@ -16,24 +16,26 @@ from library_core import atomic_json
 from library_scan import album_base, normalized
 from messages import _, register
 
-register({
-    "Enter a real contact in --contact to identify the MusicBrainz client": "Informe um contato real em --contato para identificar o cliente MusicBrainz",
-    "Online lookups suspended or limit reached; review pending": "Consultas online suspensas ou limite atingido; revisão pendente",
-    "Online lookup limit reached": "Limite de consultas online atingido",
-    "MusicBrainz unavailable (HTTP {code}); lookups suspended": "MusicBrainz indisponível (HTTP {code}); consultas suspensas",
-    "MusicBrainz unavailable; lookups suspended for this analysis": "MusicBrainz indisponível; consultas suspensas nesta análise",
-    "No response from MusicBrainz": "Sem resposta MusicBrainz",
-    "MusicBrainz artist missing or ambiguous": "Artista MusicBrainz ausente ou ambíguo",
-    "MusicBrainz album missing or ambiguous; the artist name alone does not confirm their identity": "Álbum MusicBrainz ausente ou ambíguo; o nome do artista sozinho não confirma sua identidade",
-    "Release Group genre; local recording not identified": "Gênero do Release Group; gravação local não identificada",
-    "Artist genre after matching an album without a genre; local recording not identified": "Gênero do artista após correspondência de álbum sem gênero; gravação local não identificada",
-    "MusicBrainz has no voted genre for this artist/album": "MusicBrainz sem gênero votado para este artista/álbum",
-    "review required; does not confirm the audio": "revisão obrigatória; não confirma áudio",
-})
+register(
+    {
+        "Enter a real contact in --contact to identify the MusicBrainz client": "Informe um contato real em --contato para identificar o cliente MusicBrainz",
+        "Online lookups suspended or limit reached; review pending": "Consultas online suspensas ou limite atingido; revisão pendente",
+        "Online lookup limit reached": "Limite de consultas online atingido",
+        "MusicBrainz unavailable (HTTP {code}); lookups suspended": "MusicBrainz indisponível (HTTP {code}); consultas suspensas",
+        "MusicBrainz unavailable; lookups suspended for this analysis": "MusicBrainz indisponível; consultas suspensas nesta análise",
+        "No response from MusicBrainz": "Sem resposta MusicBrainz",
+        "MusicBrainz artist missing or ambiguous": "Artista MusicBrainz ausente ou ambíguo",
+        "MusicBrainz album missing or ambiguous; the artist name alone does not confirm their identity": "Álbum MusicBrainz ausente ou ambíguo; o nome do artista sozinho não confirma sua identidade",
+        "Release Group genre; local recording not identified": "Gênero do Release Group; gravação local não identificada",
+        "Artist genre after matching an album without a genre; local recording not identified": "Gênero do artista após correspondência de álbum sem gênero; gravação local não identificada",
+        "MusicBrainz has no voted genre for this artist/album": "MusicBrainz sem gênero votado para este artista/álbum",
+        "review required; does not confirm the audio": "revisão obrigatória; não confirma áudio",
+    }
+)
 
 
 def literal(value: str) -> str:
-    return '"' + re.sub(r'([+\-&|!(){}\[\]^"~*?:\\/])', r'\\\1', value) + '"'
+    return '"' + re.sub(r'([+\-&|!(){}\[\]^"~*?:\\/])', r"\\\1", value) + '"'
 
 
 class MusicBrainz:
@@ -85,8 +87,10 @@ class MusicBrainz:
                 except HTTPError as error:
                     if error.code not in (429, 500, 502, 503, 504) or attempt == 2:
                         self.disabled = True
-                        raise ValueError(_("MusicBrainz unavailable (HTTP {code}); lookups suspended", code=error.code)) from error
-                    time.sleep(2 ** attempt)
+                        raise ValueError(
+                            _("MusicBrainz unavailable (HTTP {code}); lookups suspended", code=error.code)
+                        ) from error
+                    time.sleep(2**attempt)
                 except (URLError, TimeoutError, OSError, ValueError) as error:
                     self.disabled = True
                     raise ValueError(_("MusicBrainz unavailable; lookups suspended for this analysis")) from error
@@ -94,7 +98,11 @@ class MusicBrainz:
 
     def artist(self, name: str) -> dict | None:
         result = self.get("artist", query="artist:" + literal(name), limit=25)
-        candidates = [a for a in result.get("artists", []) if normalized(a.get("name", "")) == normalized(name) and int(a.get("score", 0)) >= 95]
+        candidates = [
+            a
+            for a in result.get("artists", [])
+            if normalized(a.get("name", "")) == normalized(name) and int(a.get("score", 0)) >= 95
+        ]
         # Never picks by popularity among artists with the same name.
         return candidates[0] if len(candidates) == 1 else None
 
@@ -134,18 +142,38 @@ class MusicBrainz:
         if artist is None:
             return {"revisao": _("MusicBrainz artist missing or ambiguous")}
         ident = artist["id"]
-        groups = self.get("release-group", query=f"releasegroup:{literal(album_base(album))} AND arid:{ident}", limit=25)
-        exact = [g for g in groups.get("release-groups", []) if normalized(g.get("title", "")) == normalized(album_base(album)) and int(g.get("score", 0)) >= 95 and any(c.get("artist", {}).get("id") == ident for c in g.get("artist-credit", []) if isinstance(c, dict))]
+        groups = self.get(
+            "release-group", query=f"releasegroup:{literal(album_base(album))} AND arid:{ident}", limit=25
+        )
+        exact = [
+            g
+            for g in groups.get("release-groups", [])
+            if normalized(g.get("title", "")) == normalized(album_base(album))
+            and int(g.get("score", 0)) >= 95
+            and any(c.get("artist", {}).get("id") == ident for c in g.get("artist-credit", []) if isinstance(c, dict))
+        ]
         if len(exact) != 1:
-            return {"revisao": _("MusicBrainz album missing or ambiguous; the artist name alone does not confirm their identity")}
+            return {
+                "revisao": _(
+                    "MusicBrainz album missing or ambiguous; the artist name alone does not confirm their identity"
+                )
+            }
         group = self.get("release-group/" + exact[0]["id"], inc="genres")
         genre = self.choose_genre(group)
         if genre:
-            return {"genero": genre, "fonte": "https://musicbrainz.org/release-group/" + group["id"], "criterio": _("Release Group genre; local recording not identified")}
+            return {
+                "genero": genre,
+                "fonte": "https://musicbrainz.org/release-group/" + group["id"],
+                "criterio": _("Release Group genre; local recording not identified"),
+            }
         artist_data = self.get("artist/" + ident, inc="genres")
         genre = self.choose_genre(artist_data)
         if genre:
-            return {"genero": genre, "fonte": "https://musicbrainz.org/artist/" + ident, "criterio": _("Artist genre after matching an album without a genre; local recording not identified")}
+            return {
+                "genero": genre,
+                "fonte": "https://musicbrainz.org/artist/" + ident,
+                "criterio": _("Artist genre after matching an album without a genre; local recording not identified"),
+            }
         return {"revisao": _("MusicBrainz has no voted genre for this artist/album")}
 
     def recordings(self, artist: str, title: str, seconds: float) -> list[dict]:
@@ -153,9 +181,22 @@ class MusicBrainz:
         candidates = []
         for row in result.get("recordings", []):
             names = [c.get("artist", {}).get("name", "") for c in row.get("artist-credit", []) if isinstance(c, dict)]
-            if normalized(row.get("title", "")) != normalized(title) or not any(normalized(n) == normalized(artist) for n in names):
+            if normalized(row.get("title", "")) != normalized(title) or not any(
+                normalized(n) == normalized(artist) for n in names
+            ):
                 continue
             length = row.get("length")
             delta = abs(length / 1000 - seconds) if length else None
-            candidates.append({"id": row["id"], "titulo": row["title"], "duracao_ms": length, "diferenca_segundos": delta, "duracao_compativel": delta is not None and delta <= 2, "desambiguacao": row.get("disambiguation", ""), "fonte": "https://musicbrainz.org/recording/" + row["id"], "status": _("review required; does not confirm the audio")})
+            candidates.append(
+                {
+                    "id": row["id"],
+                    "titulo": row["title"],
+                    "duracao_ms": length,
+                    "diferenca_segundos": delta,
+                    "duracao_compativel": delta is not None and delta <= 2,
+                    "desambiguacao": row.get("disambiguation", ""),
+                    "fonte": "https://musicbrainz.org/recording/" + row["id"],
+                    "status": _("review required; does not confirm the audio"),
+                }
+            )
         return candidates

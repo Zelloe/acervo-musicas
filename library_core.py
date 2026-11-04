@@ -18,42 +18,44 @@ from mutagen.id3 import ID3, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXX
 
 from messages import _, register
 
-register({
-    "Invalid ID3 header": "Cabeçalho ID3 inválido",
-    "Writing is limited to ID3v2.3/v2.4; file sent for review": "Gravação restrita a ID3v2.3/v2.4; arquivo encaminhado para revisão",
-    "Unsupported format": "Formato não suportado",
-    "Invalid FLAC header": "Cabeçalho FLAC inválido",
-    "Truncated FLAC block": "Bloco FLAC truncado",
-    "Unsupported change fields": "Campos de alteração não suportados",
-    "Invalid proposed value": "Valor proposto inválido",
-    "Current lyrics differ from the plan": "Valor atual de letra difere do plano",
-    "Current value of {field} differs from the plan": "Valor atual de {field} difere do plano",
-    "Validation rejected a change to {field}": "Validação recusou mudança em {field}",
-    "Validation rejected a change to tag {key}": "Validação recusou mudança na tag {key}",
-    "Could not confirm that the lyrics were written": "Não foi possível confirmar a gravação de letra",
-    "Could not confirm that {field} was written": "Não foi possível confirmar a gravação de {field}",
-    "Edition information was not preserved": "Informação da edição não foi preservada",
-    "Invalid path or symbolic link: {path}": "Caminho inválido ou simbólico: {path}",
-    "Invalid file: {path}": "Arquivo inválido: {path}",
-    "File with hard links requires review: {path}": "Arquivo com hard links exige revisão: {path}",
-    "The plan was modified; run a new analysis": "O plano foi alterado; gere outra análise",
-    "Incompatible plan version": "Versão de plano incompatível",
-    "Approvals contain an unknown or repeated ID": "Aprovações contêm ID desconhecido ou repetido",
-    "Edit only the aprovar column; values differ from the plan": "Edite apenas a coluna aprovar; valores diferem do plano",
-    "Use yes or no in the aprovar column": "Use sim ou não na coluna aprovar",
-    "No rows approved; the library remains unchanged": "Nenhuma linha aprovada; a biblioteca continua sem alterações",
-    "Backups must be kept outside the library": "Backups devem ficar fora da biblioteca",
-    "File changed since the analysis: {path}": "Arquivo mudou desde a análise: {path}",
-    "Not enough space for full backups and a temporary file": "Espaço insuficiente para backups completos e arquivo temporário",
-    "Not enough space in the library for a temporary file": "Espaço insuficiente na biblioteca para arquivo temporário",
-    "Backup does not match the plan: {source}": "Backup não corresponde ao plano: {source}",
-    "File modified by another program: {source}": "Arquivo alterado por outro programa: {source}",
-    "Run interrupted. Check or restore {manifest_path}: {error}": "Execução interrompida. Consulte/restaure {manifest_path}: {error}",
-    "Incompatible manifest": "Manifesto incompatível",
-    "Damaged backup: {backup}": "Backup danificado: {backup}",
-    "There are later edits; restore refused: {source}": "Há edições posteriores; restauração recusada: {source}",
-    "File or backup changed during the restore: {source}": "Arquivo ou backup mudou durante a restauração: {source}",
-})
+register(
+    {
+        "Invalid ID3 header": "Cabeçalho ID3 inválido",
+        "Writing is limited to ID3v2.3/v2.4; file sent for review": "Gravação restrita a ID3v2.3/v2.4; arquivo encaminhado para revisão",
+        "Unsupported format": "Formato não suportado",
+        "Invalid FLAC header": "Cabeçalho FLAC inválido",
+        "Truncated FLAC block": "Bloco FLAC truncado",
+        "Unsupported change fields": "Campos de alteração não suportados",
+        "Invalid proposed value": "Valor proposto inválido",
+        "Current lyrics differ from the plan": "Valor atual de letra difere do plano",
+        "Current value of {field} differs from the plan": "Valor atual de {field} difere do plano",
+        "Validation rejected a change to {field}": "Validação recusou mudança em {field}",
+        "Validation rejected a change to tag {key}": "Validação recusou mudança na tag {key}",
+        "Could not confirm that the lyrics were written": "Não foi possível confirmar a gravação de letra",
+        "Could not confirm that {field} was written": "Não foi possível confirmar a gravação de {field}",
+        "Edition information was not preserved": "Informação da edição não foi preservada",
+        "Invalid path or symbolic link: {path}": "Caminho inválido ou simbólico: {path}",
+        "Invalid file: {path}": "Arquivo inválido: {path}",
+        "File with hard links requires review: {path}": "Arquivo com hard links exige revisão: {path}",
+        "The plan was modified; run a new analysis": "O plano foi alterado; gere outra análise",
+        "Incompatible plan version": "Versão de plano incompatível",
+        "Approvals contain an unknown or repeated ID": "Aprovações contêm ID desconhecido ou repetido",
+        "Edit only the aprovar column; values differ from the plan": "Edite apenas a coluna aprovar; valores diferem do plano",
+        "Use yes or no in the aprovar column": "Use sim ou não na coluna aprovar",
+        "No rows approved; the library remains unchanged": "Nenhuma linha aprovada; a biblioteca continua sem alterações",
+        "Backups must be kept outside the library": "Backups devem ficar fora da biblioteca",
+        "File changed since the analysis: {path}": "Arquivo mudou desde a análise: {path}",
+        "Not enough space for full backups and a temporary file": "Espaço insuficiente para backups completos e arquivo temporário",
+        "Not enough space in the library for a temporary file": "Espaço insuficiente na biblioteca para arquivo temporário",
+        "Backup does not match the plan: {source}": "Backup não corresponde ao plano: {source}",
+        "File modified by another program: {source}": "Arquivo alterado por outro programa: {source}",
+        "Run interrupted. Check or restore {manifest_path}: {error}": "Execução interrompida. Consulte/restaure {manifest_path}: {error}",
+        "Incompatible manifest": "Manifesto incompatível",
+        "Damaged backup: {backup}": "Backup danificado: {backup}",
+        "There are later edits; restore refused: {source}": "Há edições posteriores; restauração recusada: {source}",
+        "File or backup changed during the restore: {source}": "Arquivo ou backup mudou durante a restauração: {source}",
+    }
+)
 
 
 ORIGINAL_MP3 = "BibliotecaMusical:AlbumAnterior"
@@ -155,7 +157,8 @@ def integrity(path: Path) -> dict:
         with path.open("rb") as handle:
             offset = id3_size(handle)
         return {
-            "formato": "MP3", "versao": list(tags.version),
+            "formato": "MP3",
+            "versao": list(tags.version),
             "tags": {k: freeze(vars(v)) for k, v in tags.items()},
             "desconhecidos": freeze(tags.unknown_frames),
             "audio_sha256": sha256(path, offset),
@@ -186,9 +189,11 @@ def integrity(path: Path) -> dict:
                 break
         offset = handle.tell()
     return {
-        "formato": "FLAC", "versao": None,
+        "formato": "FLAC",
+        "versao": None,
         "tags": {k: list(v) for k, v in (audio.tags or {}).items()},
-        "vendor": getattr(audio.tags, "vendor", None), "blocos": blocks,
+        "vendor": getattr(audio.tags, "vendor", None),
+        "blocos": blocks,
         "prefixo_id3_sha256": prefix,
         "audio_sha256": sha256(path, offset),
     }
@@ -207,7 +212,11 @@ def write_validated(path: Path, changes: dict) -> dict:
         raise ValueError(_("Unsupported change fields"))
     for change in changes.values():
         proposed = change["proposto"]
-        if not isinstance(proposed, list) or not proposed or any(not isinstance(v, str) or not v.strip() or "\x00" in v for v in proposed):
+        if (
+            not isinstance(proposed, list)
+            or not proposed
+            or any(not isinstance(v, str) or not v.strip() or "\x00" in v for v in proposed)
+        ):
             raise ValueError(_("Invalid proposed value"))
     before = integrity(path)
     allowed = set()
@@ -226,7 +235,9 @@ def write_validated(path: Path, changes: dict) -> dict:
                     raise ValueError(_("Current lyrics differ from the plan"))
                 allowed.update(k for k in tags.keys() if k.startswith("USLT"))
                 tags.delall("USLT")
-                tags.add(USLT(encoding=1 if tags.version[1] == 3 else 3, lang="XXX", desc="", text=change["proposto"][0]))
+                tags.add(
+                    USLT(encoding=1 if tags.version[1] == 3 else 3, lang="XXX", desc="", text=change["proposto"][0])
+                )
                 allowed.add("USLT::XXX")
                 continue
             key, frame = id3_field(field, tags.version[1])
@@ -335,14 +346,21 @@ def approved_changes(plan: dict, csv_path: Path) -> dict:
                 raise ValueError(_("Approvals contain an unknown or repeated ID"))
             seen.add(ident)
             track, change = known[ident]
-            fixed = {"arquivo": track["arquivo"], "campo": change["campo"], "atual": json.dumps(change["atual"], ensure_ascii=False), "proposto": json.dumps(change["proposto"], ensure_ascii=False)}
+            fixed = {
+                "arquivo": track["arquivo"],
+                "campo": change["campo"],
+                "atual": json.dumps(change["atual"], ensure_ascii=False),
+                "proposto": json.dumps(change["proposto"], ensure_ascii=False),
+            }
             if any(row.get(k) != v for k, v in fixed.items()):
                 raise ValueError(_("Edit only the aprovar column; values differ from the plan"))
             answer = row.get("aprovar", "").strip().casefold()
             if answer not in ("", "nao", "não", "no", "sim", "yes"):
                 raise ValueError(_("Use yes or no in the aprovar column"))
             if answer in ("sim", "yes"):
-                selected.setdefault(track["arquivo"], {"sha256": track["sha256"], "alteracoes": {}})["alteracoes"][change["campo"]] = change
+                selected.setdefault(track["arquivo"], {"sha256": track["sha256"], "alteracoes": {}})["alteracoes"][
+                    change["campo"]
+                ] = change
     return selected
 
 
@@ -355,6 +373,7 @@ def durable_copy(source: Path, destination: Path) -> None:
 
 def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Path | None = None) -> dict:
     import protections
+
     plan = load_plan(plan_path)
     root = Path(plan["biblioteca"]).resolve(strict=True)
     selected = approved_changes(plan, approvals)
@@ -384,7 +403,13 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Pat
         originals = transaction / "originais"
         originals.mkdir()
         manifest_path = transaction / "manifesto.json"
-        manifest = {"schema": 1, "biblioteca": str(root), "plano_sha256": sha256(plan_path), "estado": "preparando_backups", "arquivos": []}
+        manifest = {
+            "schema": 1,
+            "biblioteca": str(root),
+            "plano_sha256": sha256(plan_path),
+            "estado": "preparando_backups",
+            "arquivos": [],
+        }
         atomic_json(manifest_path, manifest)
         try:
             # All backups are confirmed before the first write to the collection.
@@ -394,7 +419,16 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Pat
                 durable_copy(source, backup)
                 if sha256(backup) != entry["sha256"] or sha256(source) != entry["sha256"]:
                     raise ValueError(_("Backup does not match the plan: {source}", source=source))
-                manifest["arquivos"].append({"arquivo": name, "backup": str(backup.relative_to(transaction)), "antes_sha256": entry["sha256"], "depois_sha256": None, "estado": "backup_confirmado", "alteracoes": entry["alteracoes"]})
+                manifest["arquivos"].append(
+                    {
+                        "arquivo": name,
+                        "backup": str(backup.relative_to(transaction)),
+                        "antes_sha256": entry["sha256"],
+                        "depois_sha256": None,
+                        "estado": "backup_confirmado",
+                        "alteracoes": entry["alteracoes"],
+                    }
+                )
                 atomic_json(manifest_path, manifest)
             manifest["estado"] = "aplicando"
             atomic_json(manifest_path, manifest)
@@ -407,7 +441,9 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Pat
                     durable_copy(transaction / entry["backup"], temp)
                     entry["verificacao"] = write_validated(temp, entry["alteracoes"])
                     # Cover frames were already verified; avoids duplicating tags in the manifest.
-                    entry["verificacao"] = {k: v for k, v in entry["verificacao"].items() if k in ("audio_sha256", "formato", "versao")}
+                    entry["verificacao"] = {
+                        k: v for k, v in entry["verificacao"].items() if k in ("audio_sha256", "formato", "versao")
+                    }
                     entry["depois_sha256"] = sha256(temp)
                     entry["estado"] = "pronto_para_substituir"
                     atomic_json(manifest_path, manifest)
@@ -424,19 +460,27 @@ def apply_plan(plan_path: Path, approvals: Path, backup_root: Path, storage: Pat
             manifest["estado"] = "interrompido"
             manifest["erro"] = f"{type(error).__name__}: {error}"
             atomic_json(manifest_path, manifest)
-            raise RuntimeError(_("Run interrupted. Check or restore {manifest_path}: {error}", manifest_path=manifest_path, error=error)) from error
+            raise RuntimeError(
+                _(
+                    "Run interrupted. Check or restore {manifest_path}: {error}",
+                    manifest_path=manifest_path,
+                    error=error,
+                )
+            ) from error
         atomic_json(manifest_path, manifest)
         return {"manifesto": str(manifest_path), "arquivos_alterados": len(selected), "estado": manifest["estado"]}
 
 
 def restore(manifest_path: Path, storage: Path | None = None) -> dict:
     import protections
+
     manifest_path = manifest_path.resolve(strict=True)
     # Manifests live in <data>/backups/<run>/manifesto.json.
     storage = storage or manifest_path.parent.parent.parent
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("tipo") == "downloads":
         from library_import import restore_import
+
         return restore_import(manifest_path, storage)
     if manifest.get("schema") != 1:
         raise ValueError(_("Incompatible manifest"))

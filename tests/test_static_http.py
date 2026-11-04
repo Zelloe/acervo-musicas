@@ -71,7 +71,17 @@ class StaticHTTPTest(unittest.TestCase):
         sub = self.web / "sub"
         sub.mkdir()
         (sub / "nested.js").write_text("nested", encoding="utf-8")
-        for path in ("/../secret.js", "/%2e%2e/secret.js", "/sub/nested.js", "/linked.js", "/directory.js", "/.hidden.js", "/UPPER.js", "/server.py", "/missing.css"):
+        for path in (
+            "/../secret.js",
+            "/%2e%2e/secret.js",
+            "/sub/nested.js",
+            "/linked.js",
+            "/directory.js",
+            "/.hidden.js",
+            "/UPPER.js",
+            "/server.py",
+            "/missing.css",
+        ):
             with self.subTest(path=path):
                 body, _ = self.get(path, status=404)
                 self.assertNotIn(b"private contents", body)
@@ -85,13 +95,13 @@ class StaticHTTPTest(unittest.TestCase):
         source = self.assets / "server-source.py"
         source.write_text("loaded version", encoding="utf-8")
         with patch("server.SERVER_SOURCE", source), patch("server.SERVER_CODE_HASH", sha256(source)):
-            self.assertFalse(json.loads(self.get("/api/state")[0])['restart_required'])
+            self.assertFalse(json.loads(self.get("/api/state")[0])["restart_required"])
             source.write_text("updated version", encoding="utf-8")
-            self.assertTrue(json.loads(self.get("/api/state")[0])['restart_required'])
+            self.assertTrue(json.loads(self.get("/api/state")[0])["restart_required"])
             source.write_text("loaded version", encoding="utf-8")
-            self.assertFalse(json.loads(self.get("/api/state")[0])['restart_required'])
+            self.assertFalse(json.loads(self.get("/api/state")[0])["restart_required"])
             source.unlink()
-            self.assertTrue(json.loads(self.get("/api/state")[0])['restart_required'])
+            self.assertTrue(json.loads(self.get("/api/state")[0])["restart_required"])
 
 
 if __name__ == "__main__":

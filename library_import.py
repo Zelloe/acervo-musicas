@@ -25,39 +25,41 @@ from library_core import (
 )
 from messages import _, register
 
-register({
-    "Truncated MP3": "MP3 truncado",
-    "Replacement requires MP3 for MP3; keep the FLAC and add the new version separately": "A substituição exige MP3 por MP3; preserve o FLAC e adicione a nova versão separadamente",
-    "The original contains identification or audio measurements; add the download as another version": "O original contém identificação ou medições de áudio; adicione o download como outra versão",
-    "The download's audio stream changed while preserving the tags": "O fluxo de áudio do download mudou ao preservar as tags",
-    "Could not preserve the original ID3 structure": "Não foi possível preservar a estrutura ID3 original",
-    "Could not preserve all the original tags": "Não foi possível preservar todas as tags originais",
-    "Invalid destination folder or symbolic link": "Pasta de destino inválida ou simbólica",
-    "Invalid new file name": "Nome de arquivo novo inválido",
-    "The destination already exists; generate a new preview: {name}": "O destino já existe; gere outra prévia: {name}",
-    "The file system of {directory} does not support hard links (common on exFAT/FAT32); adding new tracks there is not supported yet": "O sistema de arquivos de {directory} não aceita hard links (comum em exFAT/FAT32); adicionar faixas novas ali ainda não é suportado",
-    "Select at least one operation to approve": "Selecione ao menos uma operação para aprovar",
-    "Backups must be kept outside the library": "Backups devem ficar fora da biblioteca",
-    "Two operations affect the same file; review the selection": "Duas operações atingem o mesmo arquivo; revise a seleção",
-    "The original changed since the preview: {name}": "O original mudou desde a prévia: {name}",
-    "The download changed since the preview": "O download mudou desde a prévia",
-    "Not enough space to prepare the import and the backups": "Espaço insuficiente para preparar a importação e os backups",
-    "The original changed during the backup": "O original mudou durante o backup",
-    "The original was modified by another program": "O original foi alterado por outro programa",
-    "The prepared copy changed": "A cópia preparada mudou",
-    "The original changed before the replacement": "O original mudou antes da substituição",
-    "Import interrupted. The history allows restoring: {manifest_path}. {error}": "Importação interrompida. O histórico permite restaurar: {manifest_path}. {error}",
-    "Invalid import manifest": "Manifesto de importação inválido",
-    "Invalid restore destination": "Destino da restauração inválido",
-    "Kept, it was not published by this import: {name}": "Mantido, não foi publicado por esta importação: {name}",
-    "The added track was edited afterwards: {name}": "A faixa adicionada recebeu edições posteriores: {name}",
-    "The copy of an undone addition was modified": "A cópia de uma adição desfeita foi alterada",
-    "Damaged backup; restore refused": "Backup danificado; restauração recusada",
-    "Kept, it was modified by another program before the replacement: {name}": "Mantido, foi alterado por outro programa antes da substituição: {name}",
-    "There are later edits: {name}": "Há edições posteriores: {name}",
-    "The track changed during the restore": "A faixa mudou durante a restauração",
-    "The file changed during the restore": "O arquivo mudou durante a restauração",
-})
+register(
+    {
+        "Truncated MP3": "MP3 truncado",
+        "Replacement requires MP3 for MP3; keep the FLAC and add the new version separately": "A substituição exige MP3 por MP3; preserve o FLAC e adicione a nova versão separadamente",
+        "The original contains identification or audio measurements; add the download as another version": "O original contém identificação ou medições de áudio; adicione o download como outra versão",
+        "The download's audio stream changed while preserving the tags": "O fluxo de áudio do download mudou ao preservar as tags",
+        "Could not preserve the original ID3 structure": "Não foi possível preservar a estrutura ID3 original",
+        "Could not preserve all the original tags": "Não foi possível preservar todas as tags originais",
+        "Invalid destination folder or symbolic link": "Pasta de destino inválida ou simbólica",
+        "Invalid new file name": "Nome de arquivo novo inválido",
+        "The destination already exists; generate a new preview: {name}": "O destino já existe; gere outra prévia: {name}",
+        "The file system of {directory} does not support hard links (common on exFAT/FAT32); adding new tracks there is not supported yet": "O sistema de arquivos de {directory} não aceita hard links (comum em exFAT/FAT32); adicionar faixas novas ali ainda não é suportado",
+        "Select at least one operation to approve": "Selecione ao menos uma operação para aprovar",
+        "Backups must be kept outside the library": "Backups devem ficar fora da biblioteca",
+        "Two operations affect the same file; review the selection": "Duas operações atingem o mesmo arquivo; revise a seleção",
+        "The original changed since the preview: {name}": "O original mudou desde a prévia: {name}",
+        "The download changed since the preview": "O download mudou desde a prévia",
+        "Not enough space to prepare the import and the backups": "Espaço insuficiente para preparar a importação e os backups",
+        "The original changed during the backup": "O original mudou durante o backup",
+        "The original was modified by another program": "O original foi alterado por outro programa",
+        "The prepared copy changed": "A cópia preparada mudou",
+        "The original changed before the replacement": "O original mudou antes da substituição",
+        "Import interrupted. The history allows restoring: {manifest_path}. {error}": "Importação interrompida. O histórico permite restaurar: {manifest_path}. {error}",
+        "Invalid import manifest": "Manifesto de importação inválido",
+        "Invalid restore destination": "Destino da restauração inválido",
+        "Kept, it was not published by this import: {name}": "Mantido, não foi publicado por esta importação: {name}",
+        "The added track was edited afterwards: {name}": "A faixa adicionada recebeu edições posteriores: {name}",
+        "The copy of an undone addition was modified": "A cópia de uma adição desfeita foi alterada",
+        "Damaged backup; restore refused": "Backup danificado; restauração recusada",
+        "Kept, it was modified by another program before the replacement: {name}": "Mantido, foi alterado por outro programa antes da substituição: {name}",
+        "There are later edits: {name}": "Há edições posteriores: {name}",
+        "The track changed during the restore": "A faixa mudou durante a restauração",
+        "The file changed during the restore": "O arquivo mudou durante a restauração",
+    }
+)
 
 
 def compressed_mp3_hash(path: Path) -> str:
@@ -85,8 +87,12 @@ def preserve_original_tags(original: Path, candidate: Path) -> None:
         raise ValueError(_("Replacement requires MP3 for MP3; keep the FLAC and add the new version separately"))
     before = integrity(original)
     for key in before["tags"]:
-        if any(word in key.casefold() for word in ("replaygain", "acoustid", "fingerprint", "musicbrainz", "rva2", "rva")):
-            raise ValueError(_("The original contains identification or audio measurements; add the download as another version"))
+        if any(
+            word in key.casefold() for word in ("replaygain", "acoustid", "fingerprint", "musicbrainz", "rva2", "rva")
+        ):
+            raise ValueError(
+                _("The original contains identification or audio measurements; add the download as another version")
+            )
     stream_hash = compressed_mp3_hash(candidate)
     fresh = ID3(candidate, translate=False)
     tags = deepcopy(ID3(original, translate=False))
@@ -135,14 +141,22 @@ def require_hard_links(directory: Path) -> None:
     try:
         os.link(probe, linked)
     except OSError as error:
-        raise ValueError(_("The file system of {directory} does not support hard links (common on exFAT/FAT32); adding new tracks there is not supported yet", directory=directory)) from error
+        raise ValueError(
+            _(
+                "The file system of {directory} does not support hard links (common on exFAT/FAT32); adding new tracks there is not supported yet",
+                directory=directory,
+            )
+        ) from error
     finally:
         linked.unlink(missing_ok=True)
         probe.unlink(missing_ok=True)
 
 
-def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch_id: str, storage: Path | None = None) -> dict:
+def import_reviewed(
+    root: Path, backup_root: Path, operations: list[dict], batch_id: str, storage: Path | None = None
+) -> dict:
     import protections
+
     root = root.resolve(strict=True)
     backup_root = backup_root.resolve()
     if not operations:
@@ -171,8 +185,12 @@ def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch
             require_hard_links(directory)
         backup_root.mkdir(parents=True, exist_ok=True)
         required = sum(Path(op["arquivo"]).stat().st_size for op in operations if op["acao"] != "adicionar")
-        required += sum(Path(op["origem"] if op["acao"] != "metadados" else op["arquivo"]).stat().st_size for op in operations)
-        largest = max(Path(op["origem"] if op["acao"] != "metadados" else op["arquivo"]).stat().st_size for op in operations)
+        required += sum(
+            Path(op["origem"] if op["acao"] != "metadados" else op["arquivo"]).stat().st_size for op in operations
+        )
+        largest = max(
+            Path(op["origem"] if op["acao"] != "metadados" else op["arquivo"]).stat().st_size for op in operations
+        )
         if shutil.disk_usage(backup_root).free < required + largest or shutil.disk_usage(root).free < largest:
             raise ValueError(_("Not enough space to prepare the import and the backups"))
         transaction = backup_root / uuid.uuid4().hex
@@ -180,7 +198,15 @@ def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch
         for name in ("originais", "prontos", "retiradas"):
             (transaction / name).mkdir()
         manifest_path = transaction / "manifesto.json"
-        manifest = {"schema": 1, "tipo": "downloads", "lote": batch_id, "biblioteca": str(root), "criado_em": datetime.now(timezone.utc).isoformat(), "estado": "preparando_backups", "arquivos": []}
+        manifest = {
+            "schema": 1,
+            "tipo": "downloads",
+            "lote": batch_id,
+            "biblioteca": str(root),
+            "criado_em": datetime.now(timezone.utc).isoformat(),
+            "estado": "preparando_backups",
+            "arquivos": [],
+        }
         atomic_json(manifest_path, manifest)
         try:
             for index, op in enumerate(operations):
@@ -204,7 +230,17 @@ def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch
                     integrity(ready)
                 if backup:
                     protections.require_same_protected(policy, root, str(target), backup, ready)
-                entry = {"arquivo": str(target), "acao": op["acao"], "antes_sha256": op.get("antes_sha256"), "depois_sha256": sha256(ready), "backup": str(backup.relative_to(transaction)) if backup else None, "pronto": str(ready.relative_to(transaction)), "retirada": f"retiradas/{index:06d}{target.suffix}", "alteracoes": op.get("alteracoes", {}), "estado": "preparado"}
+                entry = {
+                    "arquivo": str(target),
+                    "acao": op["acao"],
+                    "antes_sha256": op.get("antes_sha256"),
+                    "depois_sha256": sha256(ready),
+                    "backup": str(backup.relative_to(transaction)) if backup else None,
+                    "pronto": str(ready.relative_to(transaction)),
+                    "retirada": f"retiradas/{index:06d}{target.suffix}",
+                    "alteracoes": op.get("alteracoes", {}),
+                    "estado": "preparado",
+                }
                 manifest["arquivos"].append(entry)
                 atomic_json(manifest_path, manifest)
             manifest["estado"] = "aplicando"
@@ -242,13 +278,20 @@ def import_reviewed(root: Path, backup_root: Path, operations: list[dict], batch
         except Exception as error:
             manifest.update(estado="interrompido", erro=str(error))
             atomic_json(manifest_path, manifest)
-            raise RuntimeError(_("Import interrupted. The history allows restoring: {manifest_path}. {error}", manifest_path=manifest_path, error=error)) from error
+            raise RuntimeError(
+                _(
+                    "Import interrupted. The history allows restoring: {manifest_path}. {error}",
+                    manifest_path=manifest_path,
+                    error=error,
+                )
+            ) from error
         atomic_json(manifest_path, manifest)
         return {"manifesto": str(manifest_path), "arquivos_alterados": len(operations), "estado": "concluido"}
 
 
 def restore_import(manifest_path: Path, storage: Path | None = None) -> dict:
     import protections
+
     manifest_path = manifest_path.resolve(strict=True)
     storage = storage or manifest_path.parent.parent.parent
     transaction = manifest_path.parent
@@ -265,7 +308,12 @@ def restore_import(manifest_path: Path, storage: Path | None = None) -> dict:
             if target.resolve() != target or target.is_symlink():
                 raise ValueError(_("Invalid restore destination"))
             temp = Path(entry.get("temporario", "/inexistente"))
-            if temp.parent == target.parent and temp.name.startswith(".acervo-import-") and temp.is_file() and not temp.is_symlink():
+            if (
+                temp.parent == target.parent
+                and temp.name.startswith(".acervo-import-")
+                and temp.is_file()
+                and not temp.is_symlink()
+            ):
                 if target.is_file() and temp.stat().st_ino == target.stat().st_ino:
                     # Window between link() and unlink() when the process was interrupted.
                     temp.unlink()
@@ -305,7 +353,12 @@ def restore_import(manifest_path: Path, storage: Path | None = None) -> dict:
                     continue
                 if current != entry["depois_sha256"]:
                     if pending:
-                        notices.append(_("Kept, it was modified by another program before the replacement: {name}", name=target.name))
+                        notices.append(
+                            _(
+                                "Kept, it was modified by another program before the replacement: {name}",
+                                name=target.name,
+                            )
+                        )
                         continue
                     raise ValueError(_("There are later edits: {name}", name=target.name))
                 protections.require_same_protected(policy, root, str(target), target, backup)
@@ -336,4 +389,9 @@ def restore_import(manifest_path: Path, storage: Path | None = None) -> dict:
             atomic_json(manifest_path, manifest)
         manifest["estado"] = "restaurado"
         atomic_json(manifest_path, manifest)
-    return {"manifesto": str(manifest_path), "arquivos_restaurados": len(work), "estado": "restaurado", "avisos": notices}
+    return {
+        "manifesto": str(manifest_path),
+        "arquivos_restaurados": len(work),
+        "estado": "restaurado",
+        "avisos": notices,
+    }

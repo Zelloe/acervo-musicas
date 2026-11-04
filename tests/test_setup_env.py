@@ -19,7 +19,8 @@ class BootstrapTest(unittest.TestCase):
         self.fakebin = self.base / "bin"
         self.fakebin.mkdir()
         fake = self.fakebin / "python3"
-        fake.write_text('''#!/bin/sh
+        fake.write_text(
+            """#!/bin/sh
 if [ "$1" = "-c" ]; then exit 0; fi
 if [ "$1" = "-m" ] && [ "$2" = "venv" ]; then
   mkdir -p "$3"
@@ -27,14 +28,23 @@ if [ "$1" = "-m" ] && [ "$2" = "venv" ]; then
   exit 1
 fi
 exit 1
-''', encoding="utf-8")
+""",
+            encoding="utf-8",
+        )
         fake.chmod(0o755)
         self.script = Path(__file__).resolve().parents[1] / "setup_env.sh"
 
     def prepare(self):
-        return subprocess.run([shutil.which("bash"), "-c", 'source "$1"; acervo_preparar', "bash", str(self.script)],
-                              cwd=self.project, env={"PATH": str(self.fakebin) + os.pathsep + os.defpath, "HOME": str(self.base)},
-                              capture_output=True, text=True, timeout=5, encoding="utf-8", errors="replace")
+        return subprocess.run(
+            [shutil.which("bash"), "-c", 'source "$1"; acervo_preparar', "bash", str(self.script)],
+            cwd=self.project,
+            env={"PATH": str(self.fakebin) + os.pathsep + os.defpath, "HOME": str(self.base)},
+            capture_output=True,
+            text=True,
+            timeout=5,
+            encoding="utf-8",
+            errors="replace",
+        )
 
     def test_failed_venv_creation_preserves_existing_environment(self):
         previous = self.project / ".venv"
@@ -56,13 +66,16 @@ exit 1
     def test_old_python_in_existing_venv_is_not_accepted(self):
         executable = self.project / ".venv/bin/python"
         executable.parent.mkdir(parents=True)
-        executable.write_text('''#!/bin/sh
+        executable.write_text(
+            """#!/bin/sh
 case "$*" in
   *sys.version_info*) exit 1 ;;
   *mutagen*) exit 0 ;;
 esac
 exit 0
-''', encoding="utf-8")
+""",
+            encoding="utf-8",
+        )
         executable.chmod(0o755)
         sentinel = executable.parent.parent / "preservar.txt"
         sentinel.write_text("Ambiente com Python antigo", encoding="utf-8")
@@ -73,12 +86,15 @@ exit 0
     def test_successful_venv_command_cannot_leave_an_old_interpreter_in_use(self):
         executable = self.project / ".venv/bin/python"
         executable.parent.mkdir(parents=True)
-        executable.write_text('''#!/bin/sh
+        executable.write_text(
+            """#!/bin/sh
 case "$*" in
   *sys.version_info*) exit 1 ;;
 esac
 exit 0
-''', encoding="utf-8")
+""",
+            encoding="utf-8",
+        )
         executable.chmod(0o755)
         (self.fakebin / "python3").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         result = self.prepare()

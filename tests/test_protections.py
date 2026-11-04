@@ -23,7 +23,22 @@ class ProtectionTest(unittest.TestCase):
     def setUpClass(cls):
         cls.samples = tempfile.TemporaryDirectory()
         cls.sample = Path(cls.samples.name) / "sample.mp3"
-        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=0.1", "-c:a", "libmp3lame", str(cls.sample)], check=True)
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:duration=0.1",
+                "-c:a",
+                "libmp3lame",
+                str(cls.sample),
+            ],
+            check=True,
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -83,7 +98,10 @@ class ProtectionTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.protect("capa")
         self.protect("genre", "album_artist")  # English names are stored with the file-format names
-        self.assertEqual(protections.protected(protections.load(self.data, self.lib), self.lib, str(self.track)), {"genero", "artista_album"})
+        self.assertEqual(
+            protections.protected(protections.load(self.data, self.lib), self.lib, str(self.track)),
+            {"genero", "artista_album"},
+        )
         protections.unprotect(self.data, self.lib, [str(self.track)], ["genero", "artista_album"])
         outside = self.base / "fora.mp3"
         shutil.copy(self.sample, outside)
@@ -105,9 +123,11 @@ class ProtectionTest(unittest.TestCase):
     def test_unreadable_or_odd_policy_files_fail_closed(self):
         self.protect("genero")
         path = protections.policy_path(self.data, self.lib)
-        for bad in ({"schema": 1, "biblioteca": str(self.lib.resolve()), "faixas": {"acdc.mp3": {"campos": [{"x": 1}]}}},
-                    {"schema": 1, "biblioteca": str(self.lib.resolve()), "faixas": {"acdc.mp3": ["genero"]}},
-                    {"schema": 1, "biblioteca": str(self.lib.resolve()), "faixas": {"../fora.mp3": {"campos": ["genero"]}}}):
+        for bad in (
+            {"schema": 1, "biblioteca": str(self.lib.resolve()), "faixas": {"acdc.mp3": {"campos": [{"x": 1}]}}},
+            {"schema": 1, "biblioteca": str(self.lib.resolve()), "faixas": {"acdc.mp3": ["genero"]}},
+            {"schema": 1, "biblioteca": str(self.lib.resolve()), "faixas": {"../fora.mp3": {"campos": ["genero"]}}},
+        ):
             path.write_text(json.dumps(bad), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Incompatible"):
                 protections.load(self.data, self.lib)

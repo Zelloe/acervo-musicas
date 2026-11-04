@@ -25,27 +25,29 @@ from mutagen.mp3 import MP3
 
 from messages import _, register, use_environment_language
 
-register({
-    "File not recognized as MP3/FLAC": "Arquivo não reconhecido como MP3/FLAC",
-    "The report output must be outside the library": "A saída dos relatórios deve ficar fora da biblioteca",
-    "The output folder already exists; choose a new one to keep the existing reports": "A pasta de saída já existe; escolha uma nova para preservar os relatórios",
-    "symbolic link to a folder": "diretório simbólico",
-    "Acervo temporary copy": "cópia temporária do Acervo",
-    "symbolic link to a file": "arquivo simbólico",
-    "review required; recording not identified": "revisão obrigatória; sem identificação da gravação",
-    "text similarity; does not confirm Release Group, Release or Recording": "semelhança textual; não confirma Release Group, Release ou Recording",
-    "The inventory is not a restorable backup of the metadata.": "O inventário não é um backup restaurável dos metadados.",
-    "Stability compares size, mtime, ctime, device and inode; it does not hash the full audio.": "A estabilidade compara tamanho, mtime, ctime, dispositivo e inode; não calcula hash integral do áudio.",
-    "Reading may update atime, depending on the file system configuration.": "A leitura pode atualizar atime conforme a configuração do sistema de arquivos.",
-    "Version markers and album groups are heuristics for human review.": "Marcadores de versão e grupos de álbum são heurísticas para revisão humana.",
-    "It does not identify recordings, detect duplicates or approve changes.": "Não identifica gravações, não detecta duplicatas e não aprova alterações.",
-    "This program made no external queries.": "Nenhuma consulta externa foi feita por este programa.",
-    "Source library; read only": "Biblioteca de origem; somente leitura",
-    "New reports folder, outside the library": "Nova pasta de relatórios, fora da biblioteca",
-    "Music folder does not exist: {root}": "Pasta de músicas inexistente: {root}",
-    "Error: {error}": "Erro: {error}",
-    "Reports: {output}": "Relatórios: {output}",
-})
+register(
+    {
+        "File not recognized as MP3/FLAC": "Arquivo não reconhecido como MP3/FLAC",
+        "The report output must be outside the library": "A saída dos relatórios deve ficar fora da biblioteca",
+        "The output folder already exists; choose a new one to keep the existing reports": "A pasta de saída já existe; escolha uma nova para preservar os relatórios",
+        "symbolic link to a folder": "diretório simbólico",
+        "Acervo temporary copy": "cópia temporária do Acervo",
+        "symbolic link to a file": "arquivo simbólico",
+        "review required; recording not identified": "revisão obrigatória; sem identificação da gravação",
+        "text similarity; does not confirm Release Group, Release or Recording": "semelhança textual; não confirma Release Group, Release ou Recording",
+        "The inventory is not a restorable backup of the metadata.": "O inventário não é um backup restaurável dos metadados.",
+        "Stability compares size, mtime, ctime, device and inode; it does not hash the full audio.": "A estabilidade compara tamanho, mtime, ctime, dispositivo e inode; não calcula hash integral do áudio.",
+        "Reading may update atime, depending on the file system configuration.": "A leitura pode atualizar atime conforme a configuração do sistema de arquivos.",
+        "Version markers and album groups are heuristics for human review.": "Marcadores de versão e grupos de álbum são heurísticas para revisão humana.",
+        "It does not identify recordings, detect duplicates or approve changes.": "Não identifica gravações, não detecta duplicatas e não aprova alterações.",
+        "This program made no external queries.": "Nenhuma consulta externa foi feita por este programa.",
+        "Source library; read only": "Biblioteca de origem; somente leitura",
+        "New reports folder, outside the library": "Nova pasta de relatórios, fora da biblioteca",
+        "Music folder does not exist: {root}": "Pasta de músicas inexistente: {root}",
+        "Error: {error}": "Erro: {error}",
+        "Reports: {output}": "Relatórios: {output}",
+    }
+)
 
 
 FIELDS = {
@@ -65,7 +67,8 @@ REQUIRED = ("titulo", "artista", "artista_album", "album", "ano", "faixa", "disc
 VERSION = re.compile(
     r"\b(live|ao vivo|demo|remix|alternate|alternative mix|mix(?:es)?|session|bonus|"
     r"acoustic|ac[uú]stic[ao]|instrumental|rehearsal|ensaio|outtake|edit|"
-    r"version|vers[aã]o)\b", re.I
+    r"version|vers[aã]o)\b",
+    re.I,
 )
 
 EDITION = re.compile(r"\b(remaster(?:ed)?|deluxe|expanded|anniversary|box set)\b", re.I)
@@ -82,7 +85,7 @@ def album_base(value: str) -> str:
         label = match.group(1)
         if not EDITION.search(label) or VERSION.search(label):
             break
-        value = value[:match.start()].strip()
+        value = value[: match.start()].strip()
     return value
 
 
@@ -99,8 +102,11 @@ def signature(path: Path) -> dict:
 
 def picture(data: bytes, mime: str, kind: int, description: str) -> dict:
     return {
-        "tamanho_bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(),
-        "mime": mime, "tipo": int(kind), "descricao": description,
+        "tamanho_bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "mime": mime,
+        "tipo": int(kind),
+        "descricao": description,
     }
 
 
@@ -138,19 +144,24 @@ def read_track(path: Path) -> dict:
         ids = {k: list(v) for k, v in (tags or {}).items() if "musicbrainz" in k.casefold()}
         tag_format = "Vorbis Comment"
 
-    row.update({
-        "arquivo": str(path), "formato": "MP3" if is_mp3 else "FLAC",
-        "formato_tags": tag_format, "assinatura_antes": before,
-        "duracao_segundos": round(audio.info.length, 6),
-        "bitrate_bps": getattr(audio.info, "bitrate", None),
-        "sample_rate_hz": audio.info.sample_rate,
-        "canais": audio.info.channels,
-        "bits_por_amostra": getattr(audio.info, "bits_per_sample", None),
-        "capas": covers, "musicbrainz": ids,
-        "chaves_tags": sorted(tags.keys()) if tags is not None else [],
-        "campos_ausentes": [k for k in REQUIRED if not any(v.strip() for v in row[k])],
-        "marcadores_versao": sorted(set(VERSION.findall(" ".join(row["titulo"] + row["album"])))),
-    })
+    row.update(
+        {
+            "arquivo": str(path),
+            "formato": "MP3" if is_mp3 else "FLAC",
+            "formato_tags": tag_format,
+            "assinatura_antes": before,
+            "duracao_segundos": round(audio.info.length, 6),
+            "bitrate_bps": getattr(audio.info, "bitrate", None),
+            "sample_rate_hz": audio.info.sample_rate,
+            "canais": audio.info.channels,
+            "bits_por_amostra": getattr(audio.info, "bits_per_sample", None),
+            "capas": covers,
+            "musicbrainz": ids,
+            "chaves_tags": sorted(tags.keys()) if tags is not None else [],
+            "campos_ausentes": [k for k in REQUIRED if not any(v.strip() for v in row[k])],
+            "marcadores_versao": sorted(set(VERSION.findall(" ".join(row["titulo"] + row["album"])))),
+        }
+    )
     row["arquivo_estavel_durante_leitura"] = before == signature(path)
     return row
 
@@ -160,10 +171,13 @@ def write_csv(path: Path, rows: list[dict], fields: list[str]) -> None:
         writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         for row in rows:
-            writer.writerow({
-                k: json.dumps(v, ensure_ascii=False) if isinstance(v, (list, dict)) else v
-                for k, v in row.items() if k in fields
-            })
+            writer.writerow(
+                {
+                    k: json.dumps(v, ensure_ascii=False) if isinstance(v, (list, dict)) else v
+                    for k, v in row.items()
+                    if k in fields
+                }
+            )
 
 
 def scan(root: Path, output: Path) -> dict:
@@ -203,7 +217,9 @@ def scan(root: Path, output: Path) -> dict:
     changed = []
     for row in tracks:
         try:
-            stable = row["arquivo_estavel_durante_leitura"] and signature(Path(row["arquivo"])) == row["assinatura_antes"]
+            stable = (
+                row["arquivo_estavel_durante_leitura"] and signature(Path(row["arquivo"])) == row["assinatura_antes"]
+            )
         except OSError:
             stable = False
         row["arquivo_estavel_ate_fim_varredura"] = stable
@@ -221,27 +237,38 @@ def scan(root: Path, output: Path) -> dict:
         if len({tuple(row["album"]) for row in members}) < 2:
             continue
         for row in members:
-            variants.append({
-                "artista_grupo": list(artist), "chave_album_candidato": base,
-                "album_base_candidato": album_base(row["album"][0]),
-                "album_atual": row["album"], "titulo": row["titulo"],
-                "faixa": row["faixa"], "disco": row["disco"],
-                "arquivo": row["arquivo"], "marcadores_versao": row["marcadores_versao"],
-                "status": _("review required; recording not identified"),
-                "evidencia": _("text similarity; does not confirm Release Group, Release or Recording"),
-            })
+            variants.append(
+                {
+                    "artista_grupo": list(artist),
+                    "chave_album_candidato": base,
+                    "album_base_candidato": album_base(row["album"][0]),
+                    "album_atual": row["album"],
+                    "titulo": row["titulo"],
+                    "faixa": row["faixa"],
+                    "disco": row["disco"],
+                    "arquivo": row["arquivo"],
+                    "marcadores_versao": row["marcadores_versao"],
+                    "status": _("review required; recording not identified"),
+                    "evidencia": _("text similarity; does not confirm Release Group, Release or Recording"),
+                }
+            )
 
     formats = Counter(row["formato"] for row in tracks)
     missing = {k: sum(k in row["campos_ausentes"] for row in tracks) for k in REQUIRED}
     summary = {
-        "gerado_em_utc": datetime.now(timezone.utc).isoformat(), "biblioteca": str(root),
-        "encontrados": len(files), "lidos": len(tracks), "formatos": dict(formats),
+        "gerado_em_utc": datetime.now(timezone.utc).isoformat(),
+        "biblioteca": str(root),
+        "encontrados": len(files),
+        "lidos": len(tracks),
+        "formatos": dict(formats),
         "campos_ausentes": missing,
         "com_capa": sum(bool(row["capas"]) for row in tracks),
         "com_identificadores_musicbrainz": sum(bool(row["musicbrainz"]) for row in tracks),
         "com_marcadores_de_versao": sum(bool(row["marcadores_versao"]) for row in tracks),
         "grupos_candidatos_de_album": len({(tuple(r["artista_grupo"]), r["chave_album_candidato"]) for r in variants}),
-        "erros": errors, "ignorados": skipped, "arquivos_com_mudanca_detectada": changed,
+        "erros": errors,
+        "ignorados": skipped,
+        "arquivos_com_mudanca_detectada": changed,
         "somente_leitura": True,
         "limites": [
             _("The inventory is not a restorable backup of the metadata."),
@@ -253,11 +280,44 @@ def scan(root: Path, output: Path) -> dict:
         ],
     }
     output.mkdir(parents=True, exist_ok=False)
-    (output / "inventario.json").write_text(json.dumps({"resumo": summary, "musicas": tracks}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (output / "inventario.json").write_text(
+        json.dumps({"resumo": summary, "musicas": tracks}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     (output / "resumo.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    columns = ["arquivo", "formato", *FIELDS, "duracao_segundos", "bitrate_bps", "sample_rate_hz", "canais", "bits_por_amostra", "formato_tags", "capas", "musicbrainz", "campos_ausentes", "marcadores_versao", "arquivo_estavel_ate_fim_varredura"]
+    columns = [
+        "arquivo",
+        "formato",
+        *FIELDS,
+        "duracao_segundos",
+        "bitrate_bps",
+        "sample_rate_hz",
+        "canais",
+        "bits_por_amostra",
+        "formato_tags",
+        "capas",
+        "musicbrainz",
+        "campos_ausentes",
+        "marcadores_versao",
+        "arquivo_estavel_ate_fim_varredura",
+    ]
     write_csv(output / "inventario.csv", tracks, columns)
-    write_csv(output / "variantes_albuns.csv", variants, ["artista_grupo", "chave_album_candidato", "album_base_candidato", "album_atual", "titulo", "faixa", "disco", "arquivo", "marcadores_versao", "status", "evidencia"])
+    write_csv(
+        output / "variantes_albuns.csv",
+        variants,
+        [
+            "artista_grupo",
+            "chave_album_candidato",
+            "album_base_candidato",
+            "album_atual",
+            "titulo",
+            "faixa",
+            "disco",
+            "arquivo",
+            "marcadores_versao",
+            "status",
+            "evidencia",
+        ],
+    )
     write_csv(output / "erros.csv", errors, ["arquivo", "erro"])
     return summary
 

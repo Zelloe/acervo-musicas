@@ -65,19 +65,23 @@ class LanguageHTTPTest(unittest.TestCase):
     def test_decoding_errors_use_the_current_request_language(self):
         payload = {"ids": [], "fields": ["genre"], "campos": ["ano"], "protect": True}
         self.assertEqual(self.request("/api/protections", payload), {"error": "Duplicate request fields"})
-        self.assertEqual(self.request("/api/protections", payload, **{"X-Acervo-Language": "pt-BR"}),
-                         {"error": "Campos repetidos na requisição"})
+        self.assertEqual(
+            self.request("/api/protections", payload, **{"X-Acervo-Language": "pt-BR"}),
+            {"error": "Campos repetidos na requisição"},
+        )
         self.assertFalse((self.app.storage / "protecoes").exists())
 
     def test_job_keeps_its_language_while_another_request_uses_portuguese(self):
         entered, release = threading.Event(), threading.Event()
         observed = []
+
         def analyze(*args):
             observed.append(current_language())
             entered.set()
             release.wait(5)
             observed.append(current_language())
             return {"language": current_language()}
+
         with patch.object(self.app, "analyze", side_effect=analyze):
             self.request("/api/analyze", {}, status=202, **{"X-Acervo-Language": "en"})
             try:
@@ -93,6 +97,7 @@ class LanguageHTTPTest(unittest.TestCase):
     def test_job_failure_is_translated_inside_the_worker(self):
         def fail(*args):
             raise ValueError(_("Song not found"))
+
         with patch.object(self.app, "analyze", side_effect=fail):
             for code, expected in (("pt-BR", "Música não encontrada"), ("en", "Song not found")):
                 self.request("/api/analyze", {}, status=202, **{"X-Acervo-Language": code})

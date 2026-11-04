@@ -12,40 +12,42 @@ import downloader
 from folders import default_music_folder, require_folder
 from messages import _, register, use_environment_language
 
-register({
-    'Could not understand “{part}”. Use numbers such as 1-3,5': 'Não entendi “{part}”. Use números como 1-3,5',
-    'Choose numbers between 1 and {count}': 'Escolha números entre 1 e {count}',
-    'Number (enter to go back): ': 'Número (enter para voltar): ',
-    'Choose a number between 1 and {count}.': 'Escolha um número entre 1 e {count}.',
-    'Checking what is already in the folder…': 'Conferindo o que já existe na pasta…',
-    'Nothing found.': 'Nada encontrado.',
-    'already have': 'já tenho',
-    'Which to download? [enter = {missing} missing · all · 1-3,5 · b = back]: ': 'Quais baixar? [enter = {missing} que faltam · todas · 1-3,5 · v = voltar]: ',
-    'Nothing to download: you already have them all.': 'Nada para baixar: você já tem todas.',
-    'Download {count} track(s) to {folder}? [Y/n] ': 'Baixar {count} faixa(s) em {folder}? [S/n] ',
-    'Downloaded: {done} of {total}': 'Baixadas: {done} de {total}',
-    'Artist: ': 'Artista: ',
-    'Searching albums…': 'Procurando álbuns…',
-    "No album found. Try the artist's exact name or search for a song.": 'Nenhum álbum encontrado. Tente o nome exato do artista ou procure por música.',
-    'Searching editions…': 'Procurando edições…',
-    "That album was not found in spotDL's catalog. Try searching for a song.": 'Esse álbum não foi encontrado no catálogo do spotDL. Tente procurar por música.',
-    'Loading tracks…': 'Carregando faixas…',
-    'Song (e.g. Kyuss Gardenia): ': 'Música (ex.: Kyuss Gardenia): ',
-    'Searching…': 'Procurando…',
-    'Spotify link (song, album or playlist): ': 'Link do Spotify (música, álbum ou playlist): ',
-    'Loading…': 'Carregando…',
-    'Option: ': 'Opção: ',
-    'Error: {error}': 'Erro: {error}',
-    'Cancelled.': 'Cancelado.',
-    'Destination: {folder}': 'Destino: {folder}',
-    'Search an artist and pick an album': 'Procurar artista e escolher álbum',
-    'Search a song': 'Procurar música',
-    'Paste a Spotify link': 'Colar link do Spotify',
-    'Quit': 'Sair',
-    'genre: {genre}': 'gênero: {genre}',
-    'Where to save (default: the system music folder, e.g. ~/Music)': 'Onde salvar (padrão: a pasta de músicas do sistema, ex.: ~/Música)',
-    'Terminal menu to pick and download songs with spotDL.': 'Menu no terminal para escolher e baixar músicas com o spotDL.',
-})
+register(
+    {
+        "Could not understand “{part}”. Use numbers such as 1-3,5": "Não entendi “{part}”. Use números como 1-3,5",
+        "Choose numbers between 1 and {count}": "Escolha números entre 1 e {count}",
+        "Number (enter to go back): ": "Número (enter para voltar): ",
+        "Choose a number between 1 and {count}.": "Escolha um número entre 1 e {count}.",
+        "Checking what is already in the folder…": "Conferindo o que já existe na pasta…",
+        "Nothing found.": "Nada encontrado.",
+        "already have": "já tenho",
+        "Which to download? [enter = {missing} missing · all · 1-3,5 · b = back]: ": "Quais baixar? [enter = {missing} que faltam · todas · 1-3,5 · v = voltar]: ",
+        "Nothing to download: you already have them all.": "Nada para baixar: você já tem todas.",
+        "Download {count} track(s) to {folder}? [Y/n] ": "Baixar {count} faixa(s) em {folder}? [S/n] ",
+        "Downloaded: {done} of {total}": "Baixadas: {done} de {total}",
+        "Artist: ": "Artista: ",
+        "Searching albums…": "Procurando álbuns…",
+        "No album found. Try the artist's exact name or search for a song.": "Nenhum álbum encontrado. Tente o nome exato do artista ou procure por música.",
+        "Searching editions…": "Procurando edições…",
+        "That album was not found in spotDL's catalog. Try searching for a song.": "Esse álbum não foi encontrado no catálogo do spotDL. Tente procurar por música.",
+        "Loading tracks…": "Carregando faixas…",
+        "Song (e.g. Kyuss Gardenia): ": "Música (ex.: Kyuss Gardenia): ",
+        "Searching…": "Procurando…",
+        "Spotify link (song, album or playlist): ": "Link do Spotify (música, álbum ou playlist): ",
+        "Loading…": "Carregando…",
+        "Option: ": "Opção: ",
+        "Error: {error}": "Erro: {error}",
+        "Cancelled.": "Cancelado.",
+        "Destination: {folder}": "Destino: {folder}",
+        "Search an artist and pick an album": "Procurar artista e escolher álbum",
+        "Search a song": "Procurar música",
+        "Paste a Spotify link": "Colar link do Spotify",
+        "Quit": "Sair",
+        "genre: {genre}": "gênero: {genre}",
+        "Where to save (default: the system music folder, e.g. ~/Music)": "Onde salvar (padrão: a pasta de músicas do sistema, ex.: ~/Música)",
+        "Terminal menu to pick and download songs with spotDL.": "Menu no terminal para escolher e baixar músicas com o spotDL.",
+    }
+)
 
 
 def parse_selection(text: str, items: list[dict]) -> list[int]:
@@ -113,7 +115,9 @@ class Menu:
             print(f"  {number:>2}) {item['artista']} - {item['titulo']}  {minutes(item.get('duracao'))}{album}{mark}")
         missing = sum(not i["ja_tenho"] for i in items)
         while True:
-            answer = ask(_("Which to download? [enter = {missing} missing · all · 1-3,5 · b = back]: ", missing=missing))
+            answer = ask(
+                _("Which to download? [enter = {missing} missing · all · 1-3,5 · b = back]: ", missing=missing)
+            )
             if answer.strip().casefold() in ("b", "v"):
                 return
             try:
@@ -124,15 +128,23 @@ class Menu:
         if not chosen:
             print(_("Nothing to download: you already have them all."))
             return
-        if ask(_("Download {count} track(s) to {folder}? [Y/n] ", count=len(chosen), folder=self.folder)).strip().casefold() not in ("", "y", "yes", "s", "sim"):
+        if ask(
+            _("Download {count} track(s) to {folder}? [Y/n] ", count=len(chosen), folder=self.folder)
+        ).strip().casefold() not in ("", "y", "yes", "s", "sim"):
             return
-        results = downloader.download([items[i] for i in chosen], self.folder, lambda text, percent: print(f"  [{percent:>3}%] {text}"))
+        results = downloader.download(
+            [items[i] for i in chosen], self.folder, lambda text, percent: print(f"  [{percent:>3}%] {text}")
+        )
         self.index = None  # the folder changed
         done = [r for r in results if r["estado"] == "baixado"]
         print("\n" + _("Downloaded: {done} of {total}", done=len(done), total=len(results)))
         for result in results:
             if result["estado"] == "baixado":
-                genre = "  (" + _("genre: {genre}", genre=result["genero_preenchido"]) + ")" if result.get("genero_preenchido") else ""
+                genre = (
+                    "  (" + _("genre: {genre}", genre=result["genero_preenchido"]) + ")"
+                    if result.get("genero_preenchido")
+                    else ""
+                )
                 print(f"  ✓ {Path(result['arquivo']).name}{genre}")
             else:
                 print(f"  ✗ {result['artista']} - {result['titulo']}: {result.get('mensagem', result['estado'])}")
@@ -154,7 +166,9 @@ class Menu:
         if not editions:
             print(_("That album was not found in spotDL's catalog. Try searching for a song."))
             return
-        edition = editions[0] if len(editions) == 1 else choose_one(editions, lambda e: f"{e['titulo']}  · {e['artista']}")
+        edition = (
+            editions[0] if len(editions) == 1 else choose_one(editions, lambda e: f"{e['titulo']}  · {e['artista']}")
+        )
         if edition:
             print(_("Loading tracks…"))
             self.pick_and_download(downloader.tracks(edition["url"]), with_album=False)
@@ -174,7 +188,18 @@ class Menu:
     def run(self) -> None:
         actions = {"1": self.by_artist, "2": self.by_song, "3": self.by_link}
         while True:
-            print("\n" + _("Destination: {folder}", folder=self.folder) + "\n  1) " + _("Search an artist and pick an album") + "\n  2) " + _("Search a song") + "\n  3) " + _("Paste a Spotify link") + "\n  0) " + _("Quit"))
+            print(
+                "\n"
+                + _("Destination: {folder}", folder=self.folder)
+                + "\n  1) "
+                + _("Search an artist and pick an album")
+                + "\n  2) "
+                + _("Search a song")
+                + "\n  3) "
+                + _("Paste a Spotify link")
+                + "\n  0) "
+                + _("Quit")
+            )
             choice = ask(_("Option: ")).strip()
             if choice in ("0", "q", "sair"):
                 return
@@ -190,7 +215,14 @@ class Menu:
 def main() -> int:
     use_environment_language()
     parser = argparse.ArgumentParser(description=_(__doc__))
-    parser.add_argument("--folder", "--pasta", dest="folder", type=Path, default=default_music_folder(), help=_("Where to save (default: the system music folder, e.g. ~/Music)"))
+    parser.add_argument(
+        "--folder",
+        "--pasta",
+        dest="folder",
+        type=Path,
+        default=default_music_folder(),
+        help=_("Where to save (default: the system music folder, e.g. ~/Music)"),
+    )
     args = parser.parse_args()
     try:
         folder = require_folder(args.folder)

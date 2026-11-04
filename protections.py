@@ -11,26 +11,35 @@ from pathlib import Path
 from library_core import TAG_FIELDS, atomic_json, library_lock, metadata_values
 from messages import _, register
 
-register({
-    "Could not read the protected fields; nothing will be written: {path}": "Não foi possível ler os campos protegidos; nenhuma gravação será feita: {path}",
-    "The protected fields file must be a regular file, not a link: {path}": "O arquivo de campos protegidos deve ser um arquivo comum, não um link: {path}",
-    "Unreadable protected fields file; nothing will be written: {path}": "Arquivo de campos protegidos ilegível; nenhuma gravação será feita: {path}",
-    "Incompatible protected fields file; nothing will be written: {path}": "Arquivo de campos protegidos incompatível; nenhuma gravação será feita: {path}",
-    "The protected fields file belongs to another library: {path}": "O arquivo de campos protegidos pertence a outra biblioteca: {path}",
-    "Invalid path: {path}": "Caminho inválido: {path}",
-    "Protected field ({fields}): {name}. Unlock it before changing it.": "Campo protegido ({fields}): {name}. Desbloqueie antes de alterar.",
-    "The operation would change a protected field ({fields}): {name}. Unlock it first.": "A operação mudaria campo protegido ({fields}): {name}. Desbloqueie antes.",
-    "Invalid fields; use: {fields}": "Campos inválidos; use: {fields}",
-    "Select at least one track": "Selecione ao menos uma faixa",
-    "Invalid path or symbolic link: {path}": "Caminho inválido ou simbólico: {path}",
-    "Track does not exist or format is not supported: {path}": "Faixa inexistente ou formato não suportado: {path}",
-    "The library is busy with another write; wait and try again": "A biblioteca está ocupada por outra gravação; aguarde e tente novamente",
-})
+register(
+    {
+        "Could not read the protected fields; nothing will be written: {path}": "Não foi possível ler os campos protegidos; nenhuma gravação será feita: {path}",
+        "The protected fields file must be a regular file, not a link: {path}": "O arquivo de campos protegidos deve ser um arquivo comum, não um link: {path}",
+        "Unreadable protected fields file; nothing will be written: {path}": "Arquivo de campos protegidos ilegível; nenhuma gravação será feita: {path}",
+        "Incompatible protected fields file; nothing will be written: {path}": "Arquivo de campos protegidos incompatível; nenhuma gravação será feita: {path}",
+        "The protected fields file belongs to another library: {path}": "O arquivo de campos protegidos pertence a outra biblioteca: {path}",
+        "Invalid path: {path}": "Caminho inválido: {path}",
+        "Protected field ({fields}): {name}. Unlock it before changing it.": "Campo protegido ({fields}): {name}. Desbloqueie antes de alterar.",
+        "The operation would change a protected field ({fields}): {name}. Unlock it first.": "A operação mudaria campo protegido ({fields}): {name}. Desbloqueie antes.",
+        "Invalid fields; use: {fields}": "Campos inválidos; use: {fields}",
+        "Select at least one track": "Selecione ao menos uma faixa",
+        "Invalid path or symbolic link: {path}": "Caminho inválido ou simbólico: {path}",
+        "Track does not exist or format is not supported: {path}": "Faixa inexistente ou formato não suportado: {path}",
+        "The library is busy with another write; wait and try again": "A biblioteca está ocupada por outra gravação; aguarde e tente novamente",
+    }
+)
 
 FIELDS = tuple(TAG_FIELDS)
 # English names accepted on input; the stored names stay as above (file format).
-FIELD_ALIASES = {"title": "titulo", "artist": "artista", "album_artist": "artista_album", "genre": "genero",
-                 "year": "ano", "track": "faixa", "disc": "disco"}
+FIELD_ALIASES = {
+    "title": "titulo",
+    "artist": "artista",
+    "album_artist": "artista_album",
+    "genre": "genero",
+    "year": "ano",
+    "track": "faixa",
+    "disc": "disco",
+}
 SCHEMA = 1
 
 
@@ -54,7 +63,9 @@ def load(storage: Path, root: Path) -> dict:
     except FileNotFoundError:
         return empty(root)
     except OSError as error:
-        raise ValueError(_("Could not read the protected fields; nothing will be written: {path}", path=path)) from error
+        raise ValueError(
+            _("Could not read the protected fields; nothing will be written: {path}", path=path)
+        ) from error
     if not stat.S_ISREG(info.st_mode):
         raise ValueError(_("The protected fields file must be a regular file, not a link: {path}", path=path))
     try:
@@ -67,7 +78,12 @@ def load(storage: Path, root: Path) -> dict:
         raise ValueError(_("The protected fields file belongs to another library: {path}", path=path))
     for relative, entry in policy["faixas"].items():
         fields = entry.get("campos") if isinstance(entry, dict) else None
-        if not isinstance(fields, list) or not all(isinstance(c, str) and c in FIELDS for c in fields) or Path(relative).is_absolute() or ".." in Path(relative).parts:
+        if (
+            not isinstance(fields, list)
+            or not all(isinstance(c, str) and c in FIELDS for c in fields)
+            or Path(relative).is_absolute()
+            or ".." in Path(relative).parts
+        ):
             raise ValueError(_("Incompatible protected fields file; nothing will be written: {path}", path=path))
     return policy
 
@@ -86,7 +102,10 @@ def protected(policy: dict, root: Path, file: str) -> frozenset[str]:
 
 def listing(policy: dict) -> list[dict]:
     root = Path(policy["biblioteca"])
-    return [{"arquivo": str(root / relative), "campos": entry["campos"], "atualizado_em": entry.get("atualizado_em")} for relative, entry in sorted(policy["faixas"].items())]
+    return [
+        {"arquivo": str(root / relative), "campos": entry["campos"], "atualizado_em": entry.get("atualizado_em")}
+        for relative, entry in sorted(policy["faixas"].items())
+    ]
 
 
 def blocked_changes(policy: dict, root: Path, file: str, fields) -> list[str]:
@@ -96,7 +115,13 @@ def blocked_changes(policy: dict, root: Path, file: str, fields) -> list[str]:
 def require_unprotected(policy: dict, root: Path, file: str, fields) -> None:
     blocked = blocked_changes(policy, root, file, fields)
     if blocked:
-        raise ValueError(_("Protected field ({fields}): {name}. Unlock it before changing it.", fields=", ".join(blocked), name=Path(file).name))
+        raise ValueError(
+            _(
+                "Protected field ({fields}): {name}. Unlock it before changing it.",
+                fields=", ".join(blocked),
+                name=Path(file).name,
+            )
+        )
 
 
 def require_same_protected(policy: dict, root: Path, file: str, current: Path, candidate: Path) -> None:
@@ -107,7 +132,13 @@ def require_same_protected(policy: dict, root: Path, file: str, current: Path, c
     before, after = metadata_values(current), metadata_values(candidate)
     changed = sorted(f for f in fields if before.get(f, []) != after.get(f, []))
     if changed:
-        raise ValueError(_("The operation would change a protected field ({fields}): {name}. Unlock it first.", fields=", ".join(changed), name=Path(file).name))
+        raise ValueError(
+            _(
+                "The operation would change a protected field ({fields}): {name}. Unlock it first.",
+                fields=", ".join(changed),
+                name=Path(file).name,
+            )
+        )
 
 
 def _validate(root: Path, files: list[str], fields: list[str]) -> tuple[list[str], list[str]]:

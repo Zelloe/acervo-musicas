@@ -10,13 +10,15 @@ from pathlib import Path
 from library_scan import TEMP_PREFIXES, read_track
 from messages import _, register
 
-register({
-    "A path with a line break does not fit in M3U8: {path}": "Caminho com quebra de linha não cabe em M3U8: {path}",
-    "The playlist must have the .m3u8 extension": "A playlist deve ter a extensão .m3u8",
-    "No songs selected for the playlist": "Nenhuma música selecionada para a playlist",
-    "The playlist already exists: {playlist}": "A playlist já existe: {playlist}",
-    "The saved playlist does not match the preview: {playlist}": "A playlist gravada não confere com a prévia: {playlist}",
-})
+register(
+    {
+        "A path with a line break does not fit in M3U8: {path}": "Caminho com quebra de linha não cabe em M3U8: {path}",
+        "The playlist must have the .m3u8 extension": "A playlist deve ter a extensão .m3u8",
+        "No songs selected for the playlist": "Nenhuma música selecionada para a playlist",
+        "The playlist already exists: {playlist}": "A playlist já existe: {playlist}",
+        "The saved playlist does not match the preview: {playlist}": "A playlist gravada não confere com a prévia: {playlist}",
+    }
+)
 
 
 def _text(values) -> str:
@@ -35,7 +37,11 @@ def collect(root: Path, progress=None) -> tuple[list[dict], list[dict]]:
         dirs[:] = [d for d in dirs if not (Path(folder) / d).is_symlink()]
         for name in names:
             path = Path(folder) / name
-            if path.suffix.casefold() in (".mp3", ".flac") and not name.startswith(TEMP_PREFIXES) and not path.is_symlink():
+            if (
+                path.suffix.casefold() in (".mp3", ".flac")
+                and not name.startswith(TEMP_PREFIXES)
+                and not path.is_symlink()
+            ):
                 paths.append(path)
     tracks, errors = [], []
     for index, path in enumerate(sorted(paths)):
@@ -50,7 +56,13 @@ def collect(root: Path, progress=None) -> tuple[list[dict], list[dict]]:
 
 def album_order(track: dict) -> tuple:
     artist = _text(track.get("artista_album")) or _text(track.get("artista"))
-    return (artist.casefold(), _text(track.get("album")).casefold(), _number(track.get("disco")), _number(track.get("faixa")), track["arquivo"])
+    return (
+        artist.casefold(),
+        _text(track.get("album")).casefold(),
+        _number(track.get("disco")),
+        _number(track.get("faixa")),
+        track["arquivo"],
+    )
 
 
 def matches(track: dict, field: str, wanted: str | None) -> bool:
@@ -72,7 +84,9 @@ def render(playlist: Path, tracks: list[dict], name: str | None = None) -> str:
             raise ValueError(_("A path with a line break does not fit in M3U8: {path}", path=path))
         if relative.startswith("#"):
             relative = "./" + relative  # lines starting with # are comments
-        label = " - ".join(part for part in (_text(track.get("artista")), _text(track.get("titulo"))) if part) or path.stem
+        label = (
+            " - ".join(part for part in (_text(track.get("artista")), _text(track.get("titulo"))) if part) or path.stem
+        )
         seconds = round(track["duracao_segundos"]) if track.get("duracao_segundos") else -1
         lines.append(f"#EXTINF:{seconds},{' '.join(label.split())}")
         lines.append(relative)

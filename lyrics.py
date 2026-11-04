@@ -26,34 +26,38 @@ from mutagen.id3 import ID3, USLT, ID3NoHeaderError
 from messages import _, register
 from search import normalize
 
-register({
-    "The lyrics service responded {code}; try again later": "O serviço de letras respondeu {code}; tente mais tarde",
-    "No connection to the lyrics service": "Sem conexão com o serviço de letras",
-    "Empty or invalid lyrics": "Letra vazia ou inválida",
-    "Select at least one track": "Selecione ao menos uma faixa",
-    "The selected tracks already have exactly these lyrics": "As faixas selecionadas já têm exatamente essas letras",
-    "Looking up lyrics {current} of {total}": "Buscando letras {current} de {total}",
-    "Lyrics lookup finished": "Busca de letras concluída",
-    "The track already has exactly these lyrics": "A faixa já tem exatamente essa letra",
-    "Invalid preview hash": "Hash da prévia inválido",
-})
+register(
+    {
+        "The lyrics service responded {code}; try again later": "O serviço de letras respondeu {code}; tente mais tarde",
+        "No connection to the lyrics service": "Sem conexão com o serviço de letras",
+        "Empty or invalid lyrics": "Letra vazia ou inválida",
+        "Select at least one track": "Selecione ao menos uma faixa",
+        "The selected tracks already have exactly these lyrics": "As faixas selecionadas já têm exatamente essas letras",
+        "Looking up lyrics {current} of {total}": "Buscando letras {current} de {total}",
+        "Lyrics lookup finished": "Busca de letras concluída",
+        "The track already has exactly these lyrics": "A faixa já tem exatamente essa letra",
+        "Invalid preview hash": "Hash da prévia inválido",
+    }
+)
 
 API = "https://lrclib.net/api"
 USER_AGENT = "Acervo (https://github.com/Zelloe/acervo-musicas)"
 STAMP = re.compile(r"\[(\d{1,3}):(\d{1,2}(?:[.:]\d{1,3})?)\]")
 # Credits that some sources put in as if they were verses (lyricist, composer…).
-CREDIT = re.compile(r"^\s*(作词|作曲|编曲|制作人?|监制|混音|和声|录音|出品|lyrics by|written by|composed by)\s*[:：]", re.I)
+CREDIT = re.compile(
+    r"^\s*(作词|作曲|编曲|制作人?|监制|混音|和声|录音|出品|lyrics by|written by|composed by)\s*[:：]", re.I
+)
 NOT_FOUND_DAYS = 7
 
 
 def parse_lrc(text: str) -> list[dict]:
-    """"[01:02.50]verse" becomes {"t": 62.5, "linha": "verse"}, in time order."""
+    """ "[01:02.50]verse" becomes {"t": 62.5, "linha": "verse"}, in time order."""
     lines = []
     for raw in (text or "").splitlines():
         stamps = list(STAMP.finditer(raw))
         if not stamps or stamps[0].start() != 0:
             continue
-        verse = raw[stamps[-1].end():].strip()
+        verse = raw[stamps[-1].end() :].strip()
         if CREDIT.match(verse):
             continue
         for stamp in stamps:
@@ -69,8 +73,14 @@ def _clean_plain(text: str) -> str:
 def _result(synced: str = "", plain: str = "", instrumental: bool = False, source: str = "", url: str = "") -> dict:
     lines = parse_lrc(synced)
     plain = _clean_plain(plain) or "\n".join(line["linha"] for line in lines).strip()
-    return {"encontrada": bool(lines or plain or instrumental), "sincronizada": lines, "texto": plain,
-            "instrumental": bool(instrumental), "fonte": source, "url": url}
+    return {
+        "encontrada": bool(lines or plain or instrumental),
+        "sincronizada": lines,
+        "texto": plain,
+        "instrumental": bool(instrumental),
+        "fonte": source,
+        "url": url,
+    }
 
 
 def read_embedded(path: Path) -> dict | None:
@@ -86,7 +96,13 @@ def read_embedded(path: Path) -> dict | None:
             if tags is not None:
                 texts += [frame.text for frame in tags.getall("USLT") if frame.text.strip()]
                 for frame in tags.getall("SYLT"):
-                    texts.append("\n".join(f"[{int(ms) // 60000:02d}:{int(ms) % 60000 / 1000:05.2f}]{line}" for line, ms in frame.text) if frame.format == 2 else "")
+                    texts.append(
+                        "\n".join(
+                            f"[{int(ms) // 60000:02d}:{int(ms) % 60000 / 1000:05.2f}]{line}" for line, ms in frame.text
+                        )
+                        if frame.format == 2
+                        else ""
+                    )
         elif path.suffix.casefold() == ".flac":
             audio = FLAC(path)
             for key in ("LYRICS", "UNSYNCEDLYRICS", "SYNCEDLYRICS"):
@@ -115,7 +131,9 @@ def default_cache_dir() -> Path:
 class LyricsClient:
     """LRCLIB client with an on-disk cache and one request at a time."""
 
-    def __init__(self, cache_dir: Path | None = None, opener=None, min_interval: float = 0.5, retries: int = 3, sleep=time.sleep):
+    def __init__(
+        self, cache_dir: Path | None = None, opener=None, min_interval: float = 0.5, retries: int = 3, sleep=time.sleep
+    ):
         self.cache_dir = Path(cache_dir) if cache_dir else default_cache_dir()
         self.opener = opener or (lambda request, timeout: urllib.request.urlopen(request, timeout=timeout))
         self.min_interval = min_interval
@@ -137,14 +155,18 @@ class LyricsClient:
                 self.sleep(wait)
             self.last = time.monotonic()
             try:
-                with self.opener(urllib.request.Request(url, headers={"User-Agent": USER_AGENT}), timeout=15) as response:
+                with self.opener(
+                    urllib.request.Request(url, headers={"User-Agent": USER_AGENT}), timeout=15
+                ) as response:
                     return json.load(response)
             except urllib.error.HTTPError as error:
                 error.close()
                 if error.code == 404:
                     return None
                 if error.code not in (429, 500, 502, 503, 504) or attempt == self.retries:
-                    raise RuntimeError(_("The lyrics service responded {code}; try again later", code=error.code)) from error
+                    raise RuntimeError(
+                        _("The lyrics service responded {code}; try again later", code=error.code)
+                    ) from error
             except (urllib.error.URLError, TimeoutError, OSError) as error:
                 if attempt == self.retries:
                     raise RuntimeError(_("No connection to the lyrics service")) from error
@@ -152,20 +174,37 @@ class LyricsClient:
             delay *= 2
 
     def _lookup(self, artist, title, album, duration) -> dict:
-        exact = self._get("get", {"artist_name": artist, "track_name": title, "album_name": album, "duration": round(duration) if duration else None})
+        exact = self._get(
+            "get",
+            {
+                "artist_name": artist,
+                "track_name": title,
+                "album_name": album,
+                "duration": round(duration) if duration else None,
+            },
+        )
         if exact is None:
             # No exact match: search by name and require a close duration.
             found = self._get("search", {"artist_name": artist, "track_name": title}) or []
-            candidates = [r for r in found if isinstance(r, dict)
-                          and normalize(r.get("trackName", "")) == normalize(title)
-                          and normalize(r.get("artistName", "")) == normalize(artist)
-                          and (not duration or abs((r.get("duration") or 0) - duration) <= 3)]
+            candidates = [
+                r
+                for r in found
+                if isinstance(r, dict)
+                and normalize(r.get("trackName", "")) == normalize(title)
+                and normalize(r.get("artistName", "")) == normalize(artist)
+                and (not duration or abs((r.get("duration") or 0) - duration) <= 3)
+            ]
             candidates.sort(key=lambda r: (not r.get("syncedLyrics"), abs((r.get("duration") or 0) - (duration or 0))))
             exact = candidates[0] if candidates else None
         if not exact:
             return {"encontrada": False}
-        return _result(exact.get("syncedLyrics") or "", exact.get("plainLyrics") or "", exact.get("instrumental"),
-                       "lrclib", f"https://lrclib.net/api/get/{exact['id']}" if exact.get("id") else "")
+        return _result(
+            exact.get("syncedLyrics") or "",
+            exact.get("plainLyrics") or "",
+            exact.get("instrumental"),
+            "lrclib",
+            f"https://lrclib.net/api/get/{exact['id']}" if exact.get("id") else "",
+        )
 
     def lookup(self, artist: str, title: str, album: str = "", duration: float | None = None) -> dict:
         if not (artist or "").strip() or not (title or "").strip():
@@ -190,7 +229,9 @@ class LyricsClient:
         return result
 
 
-def lyrics_for_track(path: Path, artist: str, title: str, album: str, duration: float | None, client: LyricsClient) -> dict:
+def lyrics_for_track(
+    path: Path, artist: str, title: str, album: str, duration: float | None, client: LyricsClient
+) -> dict:
     """The file's lyrics take priority; otherwise LRCLIB's (without writing anything)."""
     return read_embedded(path) or client.lookup(artist, title, album, duration)
 
@@ -261,8 +302,12 @@ def _operation(root: Path, file: str, text: str, previous_sha256: str | None) ->
         return None
     if previous_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", str(previous_sha256)):
         raise ValueError(_("Invalid preview hash"))
-    return {"acao": "metadados", "arquivo": str(path), "antes_sha256": previous_sha256 or sha256(path),
-            "alteracoes": {"letra": {"atual": current, "proposto": [text]}}}
+    return {
+        "acao": "metadados",
+        "arquivo": str(path),
+        "antes_sha256": previous_sha256 or sha256(path),
+        "alteracoes": {"letra": {"atual": current, "proposto": [text]}},
+    }
 
 
 def save_lyrics(root: Path, storage: Path, file: str, text: str, previous_sha256: str | None = None) -> dict:
@@ -308,7 +353,9 @@ def save_lyrics_batch(root: Path, storage: Path, items: list[dict]) -> dict:
     return {**result, "skipped": skipped}
 
 
-def bulk_lookup(tracks: list[dict], client: LyricsClient, progress=None, cancel=None, max_failures: int = 5) -> list[dict]:
+def bulk_lookup(
+    tracks: list[dict], client: LyricsClient, progress=None, cancel=None, max_failures: int = 5
+) -> list[dict]:
     """Looks up lyrics for many tracks without writing anything.
 
     Each result: {"id", "file", "status", "text", "current"} where status is
@@ -327,7 +374,10 @@ def bulk_lookup(tracks: list[dict], client: LyricsClient, progress=None, cancel=
         if (cancel is not None and cancel.is_set()) or failures >= max_failures:
             results.append({**base, "status": "not_checked"})
             continue
-        progress(_("Looking up lyrics {current} of {total}", current=index + 1, total=len(tracks)), round(index / max(len(tracks), 1) * 100))
+        progress(
+            _("Looking up lyrics {current} of {total}", current=index + 1, total=len(tracks)),
+            round(index / max(len(tracks), 1) * 100),
+        )
         path = Path(file) if file else None
         in_tag = [text for text in (current_lyrics(path) if path and path.is_file() else []) if text.strip()]
         if any(parse_lrc(text) for text in in_tag):
@@ -337,7 +387,9 @@ def bulk_lookup(tracks: list[dict], client: LyricsClient, progress=None, cancel=
         embedded = read_embedded(path) if path else None
         if embedded and embedded["sincronizada"]:
             # Timed lyrics only in a .lrc next to the track: offer to store them inside the file.
-            results.append({**base, "status": "synced", "text": format_lrc(embedded["sincronizada"]), "source": "lrc_file"})
+            results.append(
+                {**base, "status": "synced", "text": format_lrc(embedded["sincronizada"]), "source": "lrc_file"}
+            )
             continue
         artist = " / ".join(v for v in track.get("artista") or [] if v.strip())
         title = " / ".join(v for v in track.get("titulo") or [] if v.strip())
