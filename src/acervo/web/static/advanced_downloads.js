@@ -137,16 +137,40 @@ async function openDownloadBatch(id) {
   await render();
 }
 
+function downloadBatchItem(b) {
+  return `<button class="batch-item ${downloadState.batchId === b.id ? "active" : ""}" data-batch="${b.id}"><span>${icon("disc")}</span><span><strong>${escapeHTML(b.query)}</strong><small>${escapeHTML(new Date(b.created_at).toLocaleString(uiLocale()))} · ${escapeHTML(b.tool)}</small></span><span class="chip">${escapeHTML(tr(batchLabels[b.status] || b.status))}</span>${icon("arrow")}</button>`;
+}
+
+function downloadBatchList(batches) {
+  return `<section class="download-panel"><div class="section-heading"><div><h2>${tr("Your review batches")}</h2><p>${tr("Downloads stay outside your collection until approved.")}</p></div></div>${batches.length ? `<div class="batch-list">${batches.map(downloadBatchItem).join("")}</div>` : `<p class="download-hint">${tr("Your first batch will appear here.")}</p>`}</section>`;
+}
+
+function downloadBatchHeader(b) {
+  return `<div class="section-heading"><div><span class="section-kicker">${tr("2 · LISTEN AND REVIEW")}</span><h2>${escapeHTML(join(b.tracks[0]?.metadata.album) || tr("Catalog preview"))}</h2><p>${b.tracks.length} ${tr("tracks ·")} ${b.tracks.filter((r) => r.matches.length).length} ${tr("with a local match ·")} ${b.tracks.filter((r) => r.status === "downloaded").length} ${tr("downloads ready")}</p></div><button class="text-button" data-action="catalog-log">${tr("Lookup log")}</button></div>`;
+}
+
+function downloadBatchApproval(b, busy, cancel) {
+  return !b.import
+    ? `<div class="download-panel download-batch-actions"><p>${tr("Check the credits, genre and version. Matches use tags and duration; audio fingerprint matching is not available yet.")}</p><div class="download-actions">${b.mode !== "metadata" ? `<button class="button ghost" data-action="select-downloads" ${busy ? "disabled" : ""}>${tr("Select for download")}</button><button class="button primary" data-action="fetch-downloads" ${busy ? "disabled" : ""}>${icon("download")} ${tr("Download selection")}</button>` : ""}<button class="button secondary" data-action="review-import" ${busy ? "disabled" : ""}>${tr("Review approval")} ${icon("arrow")}</button>${cancel ? `<button class="button ghost" data-action="cancel-downloads">${tr("Cancel download")}</button>` : ""}</div></div>`
+    : '<div class="review-summary">' +
+        icon("check") +
+        `<p><strong>${tr("Batch imported.")}</strong>${tr("The backup and undo option are in History. Prepare a new preview for further changes.")}</p></div>`;
+}
+
+function downloadBatchDetail(b, busy, cancel) {
+  return `<section class="section">${downloadBatchHeader(b)}${b.error ? `<div class="error-box">${escapeHTML(b.error)}</div>` : ""}${b.warnings.map((v) => `<div class="error-box">${escapeHTML(v)}</div>`).join("")}${downloadBatchApproval(b, busy, cancel)}<div class="download-track-list">${b.tracks.map((r, i) => downloadRow(b, r, i)).join("")}</div></section>`;
+}
+
 async function renderDownloads() {
   const info = await api("/api/downloads");
-  const list = `<section class="download-panel"><div class="section-heading"><div><h2>${tr("Your review batches")}</h2><p>${tr("Downloads stay outside your collection until approved.")}</p></div></div>${info.batches.length ? `<div class="batch-list">${info.batches.map((b) => `<button class="batch-item ${downloadState.batchId === b.id ? "active" : ""}" data-batch="${b.id}"><span>${icon("disc")}</span><span><strong>${escapeHTML(b.query)}</strong><small>${escapeHTML(new Date(b.created_at).toLocaleString(uiLocale()))} · ${escapeHTML(b.tool)}</small></span><span class="chip">${escapeHTML(tr(batchLabels[b.status] || b.status))}</span>${icon("arrow")}</button>`).join("")}</div>` : `<p class="download-hint">${tr("Your first batch will appear here.")}</p>`}</section>`;
+  const list = downloadBatchList(info.batches);
   let detail = "";
   if (downloadState.batchId) {
     const b = await api(`/api/downloads/batch?id=${downloadState.batchId}`);
     downloadState.batch = b;
     const busy = state.summary.job?.status === "running";
     const cancel = busy && ["download", "catalog"].includes(state.summary.job.type);
-    detail = `<section class="section"><div class="section-heading"><div><span class="section-kicker">${tr("2 · LISTEN AND REVIEW")}</span><h2>${escapeHTML(join(b.tracks[0]?.metadata.album) || tr("Catalog preview"))}</h2><p>${b.tracks.length} ${tr("tracks ·")} ${b.tracks.filter((r) => r.matches.length).length} ${tr("with a local match ·")} ${b.tracks.filter((r) => r.status === "downloaded").length} ${tr("downloads ready")}</p></div><button class="text-button" data-action="catalog-log">${tr("Lookup log")}</button></div>${b.error ? `<div class="error-box">${escapeHTML(b.error)}</div>` : ""}${b.warnings.map((v) => `<div class="error-box">${escapeHTML(v)}</div>`).join("")}${!b.import ? `<div class="download-panel download-batch-actions"><p>${tr("Check the credits, genre and version. Matches use tags and duration; audio fingerprint matching is not available yet.")}</p><div class="download-actions">${b.mode !== "metadata" ? `<button class="button ghost" data-action="select-downloads" ${busy ? "disabled" : ""}>${tr("Select for download")}</button><button class="button primary" data-action="fetch-downloads" ${busy ? "disabled" : ""}>${icon("download")} ${tr("Download selection")}</button>` : ""}<button class="button secondary" data-action="review-import" ${busy ? "disabled" : ""}>${tr("Review approval")} ${icon("arrow")}</button>${cancel ? `<button class="button ghost" data-action="cancel-downloads">${tr("Cancel download")}</button>` : ""}</div></div>` : '<div class="review-summary">' + icon("check") + `<p><strong>${tr("Batch imported.")}</strong>${tr("The backup and undo option are in History. Prepare a new preview for further changes.")}</p></div>`}<div class="download-track-list">${b.tracks.map((r, i) => downloadRow(b, r, i)).join("")}</div></section>`;
+    detail = downloadBatchDetail(b, busy, cancel);
   }
   return `${heading(tr("DISCOVER, COMPLETE, ORGANIZE"), tr("Downloads and metadata"), tr("Full albums, new tracks and genres in your files."))}${downloadForm(info)}${list}${detail}`;
 }
