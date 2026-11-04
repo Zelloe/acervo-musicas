@@ -1,8 +1,8 @@
 """An artist's exact name is not enough to assign a genre to a namesake."""
 
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from musicbrainz_client import MusicBrainz

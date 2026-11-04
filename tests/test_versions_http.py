@@ -1,11 +1,11 @@
 """Recording types in the library, playlists and remote catalog metadata."""
 
-from http.server import ThreadingHTTPServer
 import json
-from pathlib import Path
 import tempfile
 import threading
 import unittest
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.parse import urlencode

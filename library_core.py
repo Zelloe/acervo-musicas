@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 import csv
 import fcntl
 import hashlib
 import json
 import os
-from pathlib import Path
 import shutil
 import tempfile
 import uuid
+from contextlib import contextmanager
+from pathlib import Path
 
 from mutagen.flac import FLAC
-from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, TPE2, TDRC, TYER, TRCK, TPOS, TXXX, USLT
+from mutagen.id3 import ID3, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX, TYER, USLT
+
 from messages import _, register
 
 register({

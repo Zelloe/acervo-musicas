@@ -1,39 +1,45 @@
 """Local Acervo interface, listening exclusively on the loopback address."""
 
-from messages import _, current_language, language, normalize_language, register
-
-from collections import Counter, defaultdict
 import csv
-from datetime import datetime, timezone
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
 import json
 import os
-import mimetypes
-from pathlib import Path
 import re
 import secrets
 import threading
 import time
+from collections import Counter, defaultdict
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
-
-from api_contract import from_api, to_api
 
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3
 
+import protections
+from api_contract import from_api, to_api
+from download_picker import DownloadPicker
 from library_core import apply_plan, atomic_json, durable_copy, library_lock, load_plan, restore, secure_file, sha256
-from staged_downloads import Downloads, clean_log, tool_status
 from library_plan import BASE, create_plan
 from library_scan import read_track, signature
+from lyrics import (
+    LyricsClient,
+    bulk_lookup,
+    current_lyrics,
+    lyrics_for_track,
+    parse_lrc,
+    prepare_text,
+    save_lyrics,
+    save_lyrics_batch,
+)
+from messages import _, current_language, language, normalize_language, register
 from musicbrainz_client import MusicBrainz
-from lyrics import LyricsClient, save_lyrics, save_lyrics_batch, bulk_lookup, prepare_text, current_lyrics, lyrics_for_track, parse_lrc
+from playlists import album_order, write_m3u8
+from playlists import render as render_m3u8
 from search import GlobalSearch, LibraryIndex, normalize
-from playlists import album_order, render as render_m3u8, write_m3u8
-from download_picker import DownloadPicker
-import protections
+from staged_downloads import Downloads, clean_log, tool_status
 from versions import classify
-
 
 register({
     "Library: {folder}": "Biblioteca: {folder}",

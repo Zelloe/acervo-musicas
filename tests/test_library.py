@@ -1,21 +1,21 @@
 import csv
 import json
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import threading
 import time
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from mutagen.flac import FLAC, Picture
-from mutagen.id3 import ID3, APIC, TALB, TCON, TIT2, TPE1, TPOS, TRCK, TXXX, TYER
+from mutagen.id3 import APIC, ID3, TALB, TCON, TIT2, TPE1, TPOS, TRCK, TXXX, TYER
 
 from library_core import apply_plan, integrity, restore, sha256, write_validated
-from library_plan import create_plan, propose, rules, BASE
+from library_plan import BASE, create_plan, propose, rules
 from library_scan import read_track
 
 
@@ -238,6 +238,7 @@ class LibraryTest(unittest.TestCase):
 
     def test_http_approval_restore_and_origin_validation(self):
         from http.server import ThreadingHTTPServer
+
         from server import App, Handler
         files = [self.music(), self.music("teste.flac")]
         before = {str(p): sha256(p) for p in files}

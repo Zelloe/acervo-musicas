@@ -1,13 +1,13 @@
 """Adapter run on spotDL's Python; queries the catalog without fetching audio/lyrics."""
 
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 
 def main():
-    from spotdl.utils.spotify import SpotifyClient
     from spotdl.utils.search import get_simple_songs
+    from spotdl.utils.spotify import SpotifyClient
     SpotifyClient.init(client_id="", client_secret="", headless=True, max_retries=1, use_official_api=False)
     songs = get_simple_songs([sys.argv[1]])
     if not songs or len(songs) > 200:

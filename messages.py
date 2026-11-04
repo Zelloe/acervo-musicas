@@ -8,9 +8,9 @@ command line from the usual locale variables via `use_environment_language()`.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 import contextvars
 import os
+from contextlib import contextmanager
 
 SUPPORTED = ("en", "pt-BR")
 _current: contextvars.ContextVar[str | None] = contextvars.ContextVar("acervo_language", default=None)

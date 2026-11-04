@@ -1,24 +1,23 @@
 """Browser selection uses server-owned IDs without passing arbitrary spotDL commands."""
 
-from http.server import ThreadingHTTPServer
 import json
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import threading
 import time
-import time
 import unittest
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from mutagen.id3 import APIC, ID3, TALB, TIT2, TPE1
 
+from api_contract import to_api
 from library_core import sha256
 from library_plan import create_plan
-from api_contract import to_api
 from server import App, Handler
 
 
@@ -334,7 +333,7 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         return app
 
     def test_finished_job_is_seen_before_the_next_batch_replaces_it(self):
-        app = self.queue_behind_a_job()
+        self.queue_behind_a_job()
         first = self.request("/api/state")
         self.assertEqual((first["job"]["type"], first["job"]["status"]), ("lyrics_lookup", "completed"))
         self.assertEqual(first["download_queue"][0]["status"], "waiting")
@@ -350,7 +349,7 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
 
     def test_queue_continues_without_any_open_page(self):
         with patch("server.FINISHED_JOB_SECONDS", 0.05):
-            app = self.queue_behind_a_job()
+            self.queue_behind_a_job()
             for _ in range(200):
                 if self.mock_download.called:
                     break

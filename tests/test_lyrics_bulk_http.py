@@ -1,13 +1,13 @@
 """Bulk lyrics are looked up without writes, then saved in one reviewed transaction."""
 
-from http.server import ThreadingHTTPServer
 import json
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import threading
 import unittest
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -15,11 +15,11 @@ from urllib.request import Request, urlopen
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, USLT
 
+import protections
+import server as server_module
 from library_core import integrity, sha256
 from library_plan import create_plan
 from lyrics import current_lyrics
-import protections
-import server as server_module
 from server import App, Handler
 
 
@@ -134,7 +134,9 @@ class BulkLyricsHTTPTest(unittest.TestCase):
         self.assertEqual((self.app.plan_path.parent / "inventario.json").read_bytes(), inventory)
 
     def test_state_revision_changes_only_when_lookup_results_change(self):
-        revision = lambda: self.request("/api/state")["bulk_lyrics_revision"]
+        def revision():
+            return self.request("/api/state")["bulk_lyrics_revision"]
+
         empty = revision()
         self.assertEqual(revision(), empty)
         preview = self.review()

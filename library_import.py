@@ -1,20 +1,27 @@
 """Reviewed import of downloads, replacements and album fixes."""
 
-from copy import deepcopy
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from pathlib import Path
 import shutil
 import tempfile
 import uuid
+from copy import deepcopy
+from datetime import datetime, timezone
+from pathlib import Path
 
 from mutagen.id3 import ID3
 
 from library_core import (
-    atomic_json, durable_copy, id3_size, integrity, library_lock,
-    secure_file, sha256, sync_dir, write_validated,
+    atomic_json,
+    durable_copy,
+    id3_size,
+    integrity,
+    library_lock,
+    secure_file,
+    sha256,
+    sync_dir,
+    write_validated,
 )
 from messages import _, register
 

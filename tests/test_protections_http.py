@@ -1,24 +1,24 @@
 """Persistent preferences, known IDs and validation through the local API."""
 
-from http.server import ThreadingHTTPServer
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import threading
 import unittest
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from mutagen.id3 import ID3, TALB, TIT2, TPE1
 
-from library_core import library_lock, metadata_values, sha256
-from library_plan import create_plan
 import protections
 from api_contract import to_api
+from library_core import library_lock, metadata_values, sha256
+from library_plan import create_plan
 from server import App, Handler
 
 

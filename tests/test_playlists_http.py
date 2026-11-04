@@ -1,15 +1,15 @@
 """Portable playlists are reviewed, exported and backed up through the local API."""
 
-from http.server import ThreadingHTTPServer
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import threading
 import time
 import unittest
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.parse import urlencode
@@ -17,10 +17,10 @@ from urllib.request import Request, urlopen
 
 from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, TRCK
 
+from api_contract import to_api
 from library_core import library_lock, sha256
 from library_plan import create_plan
 from playlists import validate_m3u8
-from api_contract import to_api
 from server import App, Handler
 
 

@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from collections import Counter
 import csv
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
+from collections import Counter
+from datetime import datetime, timezone
+from pathlib import Path
 
-from library_core import atomic_json, integrity, previous_album, sha256
 import protections
-from library_scan import album_base, normalized, read_track, signature, write_csv, TEMP_PREFIXES, VERSION
+from library_core import atomic_json, integrity, previous_album, sha256
+from library_scan import TEMP_PREFIXES, album_base, normalized, read_track, signature, write_csv
 from messages import _, register
 
 register({

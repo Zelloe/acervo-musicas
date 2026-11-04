@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import stat
+from datetime import datetime, timezone
+from pathlib import Path
 
 from library_core import TAG_FIELDS, atomic_json, library_lock, metadata_values
 from messages import _, register

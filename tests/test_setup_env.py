@@ -1,11 +1,11 @@
 """Startup failures must not delete the user's previous environment."""
 
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import unittest
+from pathlib import Path
 
 
 @unittest.skipUnless(shutil.which("bash"), "O inicializador usa bash")

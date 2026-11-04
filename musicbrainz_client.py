@@ -5,15 +5,15 @@ from __future__ import annotations
 import fcntl
 import hashlib
 import json
-from pathlib import Path
 import re
 import time
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from library_scan import album_base, normalized
 from library_core import atomic_json
+from library_scan import album_base, normalized
 from messages import _, register
 
 register({

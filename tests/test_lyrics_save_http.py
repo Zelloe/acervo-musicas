@@ -1,22 +1,22 @@
 """Review and save lyrics with backups and protection against stale previews."""
 
-from http.server import ThreadingHTTPServer
 import json
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import threading
 import time
 import unittest
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from mutagen.id3 import ID3, TALB, TCON, TIT2, TPE1, USLT
 
+from api_contract import to_api
 from library_core import integrity, sha256
 from library_plan import create_plan
-from api_contract import to_api
 from server import App, Handler
 
 

@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from messages import _, register
-
-from collections import OrderedDict
-from pathlib import Path
 import secrets
 import threading
 import time
+from collections import OrderedDict
+from pathlib import Path
 
 import downloader
-
+from messages import _, register
 
 register({
     "Looking up edition tracks…": "Consultando as faixas da edição…",

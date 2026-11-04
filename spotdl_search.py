@@ -7,8 +7,8 @@ Does not use the official Spotify API and does not download audio.
 """
 
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 NOISE = ("karaoke", "in the style of", "tribute", "made famous", "instrumental covers", "as made famous")
 

@@ -1,9 +1,9 @@
 """Rules a linter cannot check, because it does not know a variable holds a Path."""
 
 import ast
-from pathlib import Path
 import re
 import unittest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 NOT_FILES = {"os", "tarfile", "zipfile", "gzip"}

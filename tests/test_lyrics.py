@@ -1,12 +1,12 @@
 import io
 import json
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import threading
 import unittest
 import urllib.error
+from pathlib import Path
 from unittest.mock import patch
 
 from mutagen.flac import FLAC
@@ -14,8 +14,18 @@ from mutagen.id3 import ID3, TIT2, TPE1, USLT
 
 import downloader
 from library_import import restore_import
+from lyrics import (
+    LyricsClient,
+    bulk_lookup,
+    current_lyrics,
+    embed_lyrics,
+    parse_lrc,
+    prepare_text,
+    read_embedded,
+    save_lyrics,
+    save_lyrics_batch,
+)
 from messages import language
-from lyrics import bulk_lookup, prepare_text, save_lyrics_batch, LyricsClient, embed_lyrics, save_lyrics, current_lyrics, read_embedded, parse_lrc
 
 LRC = "[00:00.00] 作词 : Johnson\n[00:27.24]Back in black\n[00:31.00][01:40.50]I hit the sack\n[ar:AC/DC]\nsem tempo\n"
 

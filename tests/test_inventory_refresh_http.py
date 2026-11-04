@@ -1,14 +1,14 @@
 """An old inventory must not hide tags edited through another library root."""
 
-from http.server import ThreadingHTTPServer
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import threading
 import unittest
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 from unittest.mock import patch
 from urllib.request import urlopen
 

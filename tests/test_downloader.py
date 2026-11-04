@@ -1,18 +1,18 @@
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tempfile
 import threading
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from mutagen.id3 import ID3, TIT2, TPE1
 
 import downloader
+import spotdl_search
 from download_menu import parse_selection
 from messages import language
-import spotdl_search
 
 ITEMS = [{"titulo": "A", "ja_tenho": True}, {"titulo": "B", "ja_tenho": False}, {"titulo": "C", "ja_tenho": False}]
 RULES = [

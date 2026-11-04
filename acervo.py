@@ -2,17 +2,16 @@
 """Acervo command line: analyze, approve, apply with backup, restore and export playlists."""
 
 import argparse
-from datetime import datetime
 import json
-from pathlib import Path
 import sys
+from datetime import datetime
+from pathlib import Path
 
+from folders import default_music_folder, require_folder
 from library_core import apply_plan, restore
 from library_plan import create_plan
 from messages import _, register, use_environment_language
 from musicbrainz_client import MusicBrainz
-from folders import require_folder, default_music_folder
-
 
 PROGRAM = Path(__file__).resolve().parent
 

@@ -8,16 +8,16 @@ variant candidates. Has no tag-writing function and never uses the network.
 from __future__ import annotations
 
 import argparse
-from collections import Counter, defaultdict
 import csv
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import sys
 import unicodedata
+from collections import Counter, defaultdict
+from datetime import datetime, timezone
+from pathlib import Path
 
 from mutagen import File
 from mutagen.flac import FLAC

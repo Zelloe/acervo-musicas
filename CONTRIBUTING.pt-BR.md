@@ -31,6 +31,9 @@ Requisitos: Python 3.10 ou superior e `ffmpeg` (usado pelos testes para gerar
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m unittest discover -s tests -v
+.venv/bin/pip install "ruff==0.17.3"
+.venv/bin/ruff check .
+.venv/bin/ruff format .
 ```
 
 A interface é HTML, CSS e JavaScript puros, sem npm e sem etapa de compilação.

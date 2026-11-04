@@ -1,9 +1,9 @@
 import json
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from mutagen.id3 import ID3, TIT2, TLEN, TPE1

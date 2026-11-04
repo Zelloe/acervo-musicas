@@ -1,18 +1,18 @@
 """English HTTP fields preserve legacy storage schemas and user metadata."""
 
-from copy import deepcopy
-from http.server import ThreadingHTTPServer
 import json
-from pathlib import Path
 import tempfile
 import threading
 import unittest
+from copy import deepcopy
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from library_core import sha256
 import protections
+from library_core import sha256
 from server import App, Handler
 
 

@@ -1,9 +1,9 @@
-from pathlib import Path
 import sys
 import tempfile
 import textwrap
 import time
 import unittest
+from pathlib import Path
 
 from search import GlobalSearch, LibraryIndex, normalize
 

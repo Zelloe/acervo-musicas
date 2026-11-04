@@ -6,16 +6,16 @@ import atexit
 import errno
 import json
 import os
-from pathlib import Path
 import re
 import shlex
 import shutil
 import subprocess
 import tempfile
 import threading
+from pathlib import Path
 
 from mutagen import File as MutagenFile
-from mutagen.id3 import ID3, ID3NoHeaderError, TCON
+from mutagen.id3 import ID3, TCON, ID3NoHeaderError
 
 from library_plan import BASE, rules
 from library_scan import TEMP_PREFIXES, album_base, normalized
@@ -209,7 +209,7 @@ def _key(artist: str, title: str) -> str:
 def local_index(root_folder: Path) -> set[str]:
     """Artist + title of everything already in the folder, to mark "already owned"."""
     keys = set()
-    for folder, dirs, names in os.walk(root_folder, followlinks=False):
+    for folder, _dirs, names in os.walk(root_folder, followlinks=False):
         for name in names:
             path = Path(folder) / name
             if path.suffix.casefold() not in (".mp3", ".flac") or name.startswith(TEMP_PREFIXES):

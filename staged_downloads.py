@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-from collections import Counter
-from datetime import datetime, timezone
 import json
 import os
-from pathlib import Path
 import re
 import shlex
 import shutil
@@ -14,14 +11,17 @@ import signal
 import subprocess
 import threading
 import time
-from urllib.parse import urlsplit
 import uuid
+from collections import Counter
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import urlsplit
 
 from mutagen.id3 import ID3, ID3NoHeaderError
 
+import protections
 from library_core import atomic_json, metadata_values, secure_file, sha256, write_validated
 from library_import import import_reviewed, new_destination
-import protections
 from library_plan import BASE, propose, rules
 from library_scan import album_base, normalized, read_track
 from messages import _, register

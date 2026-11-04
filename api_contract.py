@@ -24,7 +24,7 @@ KEYS = {
     "arquivos_com_propostas": "files_with_proposals", "artista": "artist", "artista_album": "album_artist",
     "artista_grupo": "group_artist", "artistas": "artists", "assinatura_antes": "before_signature",
     "atual": "current", "atualizado_em": "updated_at", "ausentes": "missing", "avisos": "warnings",
-    "baixadas": "downloaded", "erros": "errors", "pasta_fixa": "fixed_folder", "revisao_letras_lote": "bulk_lyrics_revision", "tem_capa": "has_cover", "fila_download": "download_queue", "biblioteca": "library", "biblioteca_revisao": "library_revision",
+    "baixadas": "downloaded", "pasta_fixa": "fixed_folder", "revisao_letras_lote": "bulk_lyrics_revision", "tem_capa": "has_cover", "fila_download": "download_queue", "biblioteca": "library", "biblioteca_revisao": "library_revision",
     "bits_por_amostra": "bits_per_sample", "campo": "field", "campos": "fields",
     "campos_ausentes": "missing_fields", "campos_protegidos": "protected_fields",
     "canais": "channels", "cancelamento_solicitado": "cancellation_requested", "capas": "covers", "capa": "cover",

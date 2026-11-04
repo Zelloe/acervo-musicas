@@ -8,20 +8,20 @@ folder.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
 
 from mutagen.flac import FLAC
-from mutagen.id3 import ID3, ID3NoHeaderError, USLT
+from mutagen.id3 import ID3, USLT, ID3NoHeaderError
 
 from messages import _, register
 from search import normalize

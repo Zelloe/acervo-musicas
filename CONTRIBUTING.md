@@ -32,6 +32,9 @@ temporary audio).
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m unittest discover -s tests -v
+.venv/bin/pip install "ruff==0.17.3"
+.venv/bin/ruff check .
+.venv/bin/ruff format .
 ```
 
 The interface is plain HTML, CSS and JavaScript, with no npm and no build step.

@@ -4,14 +4,13 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import re
 import sys
+from pathlib import Path
 
 import downloader
+from folders import default_music_folder, require_folder
 from messages import _, register, use_environment_language
-from folders import require_folder, default_music_folder
-
 
 register({
     'Could not understand “{part}”. Use numbers such as 1-3,5': 'Não entendi “{part}”. Use números como 1-3,5',
@@ -72,7 +71,7 @@ def ask(prompt: str) -> str:
     try:
         return input(prompt)
     except EOFError:
-        raise SystemExit(0)
+        raise SystemExit(0) from None
 
 
 def choose_one(items: list[dict], show) -> dict | None:

@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict
 import json
-from pathlib import Path
-import re
 import queue
+import re
 import subprocess
 import threading
 import time
 import unicodedata
+from collections import OrderedDict
+from pathlib import Path
 
 from messages import _, register
 
@@ -153,7 +153,7 @@ class LibraryIndex:
         artists = [self.artists[i] for _, i, _ in self.artist_matcher.rank(query, limit)]
         albums = [self.albums[i] for _, i, _ in self.album_matcher.rank(query, limit)]
         songs = []
-        for score, index, _ in self.songs.rank(query, limit):
+        for _score, index, _matched in self.songs.rank(query, limit):
             track = self.tracks[index]
             songs.append({"id": track.get("id"), "titulo": _join(track.get("titulo")), "artista": _join(track.get("artista"))})
         return {"artistas": artists[:4], "albuns": albums[:4], "musicas": songs[:limit]}
@@ -168,7 +168,9 @@ class GlobalSearch:
     def __init__(self, command_factory=None, timeout: float = 15.0, cache_size: int = 200):
         if command_factory is None:
             import downloader
-            command_factory = lambda: [*downloader.spotdl_python(), "-I", str(Path(downloader.ADAPTER)), "servir"]
+
+            def command_factory():
+                return [*downloader.spotdl_python(), "-I", str(Path(downloader.ADAPTER)), "servir"]
         self.command_factory = command_factory
         self.timeout = timeout
         self.cache: OrderedDict[str, dict] = OrderedDict()
