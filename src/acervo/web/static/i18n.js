@@ -3,6 +3,11 @@
 const portugueseMessages = {
   "Keyboard shortcuts": "Atalhos de teclado",
   "They work anywhere except while typing.": "Funcionam em qualquer tela, menos enquanto você digita.",
+  "Inspired by Spotify. Single-key shortcuts also work.":
+    "Inspirados no Spotify. Os atalhos de uma tecla também funcionam.",
+  "Maximum volume": "Volume máximo",
+  "Minimum volume": "Volume mínimo",
+  Home: "Início",
   Space: "Espaço",
   "Play or pause": "Tocar ou pausar",
   "Back or forward 5 seconds": "Voltar ou avançar 5 segundos",

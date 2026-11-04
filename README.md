@@ -184,7 +184,8 @@ start Acervo with `--folder`.
 
 Keyboard: `Space` plays or pauses, `←`/`→` move 5 seconds, `N`/`P` change track, `+`/`-`
 set the volume, `M` mutes, `S` shuffles, `R` repeats, `F` opens now playing and `L` the
-lyrics. Press `?` for the full list.
+lyrics. Spotify-style combinations also work, such as `Ctrl`+`→`/`←` to change track and
+`Ctrl`+`K` to search (`⌘` on a Mac). Press `?` for the full list.
 
 Without opening the browser automatically, or on another port:
 

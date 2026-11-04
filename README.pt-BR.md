@@ -186,7 +186,8 @@ iniciar o Acervo com `--folder`.
 
 Teclado: `Espaço` toca ou pausa, `←`/`→` movem 5 segundos, `N`/`P` trocam de faixa, `+`/`-`
 ajustam o volume, `M` tira o som, `S` liga o aleatório, `R` a repetição, `F` abre o tocando
-agora e `L` a letra. Aperte `?` para ver a lista completa.
+agora e `L` a letra. Combinações no estilo do Spotify também funcionam, como `Ctrl`+`→`/`←`
+para trocar de faixa e `Ctrl`+`K` para buscar (`⌘` no Mac). Aperte `?` para ver a lista completa.
 
 Sem abrir o navegador automaticamente, ou com outra porta:
 

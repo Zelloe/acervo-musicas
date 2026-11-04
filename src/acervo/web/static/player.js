@@ -379,24 +379,32 @@ document.addEventListener(
   true,
 );
 
+const SHORTCUT_MODIFIER = /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? "⌘" : "Ctrl";
 const SHORTCUTS = [
-  ["Space", "Play or pause"],
-  ["← →", "Back or forward 5 seconds"],
-  ["N", "Next track"],
-  ["P", "Previous track"],
-  ["+ −", "Volume"],
+  ["Space K", "Play or pause"],
+  [`${SHORTCUT_MODIFIER}+→ N`, "Next track"],
+  [`${SHORTCUT_MODIFIER}+← P`, "Previous track"],
+  [`${SHORTCUT_MODIFIER}+Shift+← ${SHORTCUT_MODIFIER}+Shift+→`, "Back or forward 5 seconds"],
+  [`${SHORTCUT_MODIFIER}+↑ ${SHORTCUT_MODIFIER}+↓ + −`, "Volume"],
+  [`${SHORTCUT_MODIFIER}+Shift+↑`, "Maximum volume"],
+  [`${SHORTCUT_MODIFIER}+Shift+↓`, "Minimum volume"],
   ["M", "Mute"],
-  ["S", "Shuffle"],
-  ["R", "Repeat"],
-  ["F", "Now playing"],
+  ["Alt+S S", "Shuffle"],
+  ["Alt+R R", "Repeat"],
+  [`${SHORTCUT_MODIFIER}+K /`, "Search"],
+  ["Alt+Shift+H", "Home"],
+  ["Alt+Shift+0", "Library"],
+  ["Alt+Shift+4", "Albums"],
+  ["Alt+Shift+J F", "Now playing"],
+  ["Alt+Shift+Q", "Queue"],
   ["L", "Lyrics"],
-  ["/", "Search"],
-  ["?", "Keyboard shortcuts"],
+  [`${SHORTCUT_MODIFIER}+,`, "Preferences"],
+  [`${SHORTCUT_MODIFIER}+/ ?`, "Keyboard shortcuts"],
 ];
 
 function showShortcuts() {
   modal(
-    `${modalHead(tr("Keyboard shortcuts"), tr("They work anywhere except while typing."))}<div class="modal-body"><dl class="shortcut-list">${SHORTCUTS.map(
+    `${modalHead(tr("Keyboard shortcuts"), tr("They work anywhere except while typing."))}<div class="modal-body"><p class="download-hint">${tr("Inspired by Spotify. Single-key shortcuts also work.")}</p><dl class="shortcut-list">${SHORTCUTS.map(
       ([keys, label]) =>
         `<div><dt>${keys
           .split(" ")
@@ -419,6 +427,12 @@ function seekBy(seconds) {
     audio.currentTime = Math.min(audio.duration, Math.max(0, audio.currentTime + seconds));
 }
 
+function shortcutNavigate(view) {
+  if (!state.summary) return;
+  if (!$("#now-view").hidden) closeNowView();
+  navigate(view).catch((error) => toast(error.message));
+}
+
 const PLAYER_KEYS = {
   " ": () => $("#play-toggle").click(),
   k: () => $("#play-toggle").click(),
@@ -429,6 +443,8 @@ const PLAYER_KEYS = {
   "+": () => changeVolume(5),
   "=": () => changeVolume(5),
   "-": () => changeVolume(-5),
+  "maximum-volume": () => changeVolume(100),
+  "minimum-volume": () => changeVolume(-100),
   m: () => {
     audio.muted = !audio.muted;
     toast(tr(audio.muted ? "Muted" : "Sound on"));
@@ -443,8 +459,68 @@ const PLAYER_KEYS = {
   },
   f: () => $("#now-toggle").click(),
   l: () => $("#lyrics-toggle").click(),
+  search: () => {
+    if (!$("#now-view").hidden) closeNowView();
+    $("#search").focus();
+    $("#search").select();
+  },
+  "/": () => PLAYER_KEYS.search(),
+  home: () => shortcutNavigate("home"),
+  library: () => shortcutNavigate("library"),
+  albums: () => shortcutNavigate("albums"),
+  now: openNowView,
+  queue: () => {
+    if (!state.current) return;
+    openNowView();
+    setNowTab("queue");
+  },
+  preferences: () => {
+    if (state.summary) showSettings();
+  },
   "?": showShortcuts,
 };
+
+const PRIMARY_KEYS = {
+  ArrowRight: "n",
+  ArrowLeft: "p",
+  ArrowUp: "+",
+  ArrowDown: "-",
+  "Shift+ArrowRight": "ArrowRight",
+  "Shift+ArrowLeft": "ArrowLeft",
+  "Shift+ArrowUp": "maximum-volume",
+  "Shift+ArrowDown": "minimum-volume",
+  k: "search",
+  ",": "preferences",
+  "/": "?",
+  "?": "?",
+  "Shift+/": "?",
+  "Shift+?": "?",
+};
+const ALT_KEYS = {
+  s: "s",
+  r: "r",
+  "Shift+h": "home",
+  "Shift+0": "library",
+  "Shift+4": "albums",
+  "Shift+j": "now",
+  "Shift+q": "queue",
+};
+
+function playerShortcut(event) {
+  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  if ((event.ctrlKey && event.metaKey) || ((event.ctrlKey || event.metaKey) && event.altKey)) return;
+  const prefix = event.shiftKey ? "Shift+" : "";
+  if (event.ctrlKey || event.metaKey) return PRIMARY_KEYS[prefix + key];
+  if (event.altKey) {
+    // Option changes the character on macOS; Shift also changes the number keys.
+    const physical = /^(Key[A-Z]|Digit[0-9])$/.test(event.code)
+      ? event.code.replace(/^(Key|Digit)/, "").toLowerCase()
+      : key;
+    return ALT_KEYS[prefix + physical];
+  }
+  return key;
+}
+
 const SYNC_KEYS = new Set([" ", "k", "ArrowLeft", "ArrowRight"]);
 const REPEATING_KEYS = new Set(["ArrowLeft", "ArrowRight", "+", "=", "-"]);
 const shortcutFocus = { keyboard: false, spaceUsed: false };
@@ -472,19 +548,18 @@ document.addEventListener("keyup", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing || event.defaultPrevented || $("#modal").open)
-    return;
+  if (event.isComposing || event.getModifierState("AltGraph") || event.defaultPrevented || $("#modal").open) return;
   const target = event.target;
   if (
-    target.matches?.("textarea,select,[contenteditable],input:not([type=range])") ||
+    target.closest?.("textarea,select,[contenteditable],input:not([type=range])") ||
     target.closest?.('[role="listbox"]')
   )
     return;
-  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  const key = playerShortcut(event);
   const action = PLAYER_KEYS[key];
   if (!action || (event.repeat && !REPEATING_KEYS.has(key))) return;
   // Sliders use the arrows themselves, and manual sync keeps its own keys.
-  if (target.matches?.("input[type=range]") && key.startsWith("Arrow")) return;
+  if (target.matches?.("input[type=range]") && event.key.startsWith("Arrow")) return;
   if (lyricsState.manual && !SYNC_KEYS.has(key)) return;
   // A control reached with Tab answers to Space itself; one just clicked must not repeat its action.
   if (key === " " && shortcutFocus.keyboard && target.matches?.("button,a")) return;

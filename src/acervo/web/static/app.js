@@ -826,12 +826,6 @@ document.addEventListener("change", (event) => {
 });
 $("#settings").addEventListener("click", showSettings);
 $("#top-refresh").addEventListener("click", () => analyze().catch((e) => toast(e.message)));
-document.addEventListener("keydown", (event) => {
-  if (event.key === "/" && !event.target.matches("input,textarea")) {
-    event.preventDefault();
-    $("#search").focus();
-  }
-});
 window.addEventListener("hashchange", () => routeFromHash());
 
 document.addEventListener("languagechange", async () => {
