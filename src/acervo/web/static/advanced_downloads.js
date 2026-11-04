@@ -80,6 +80,27 @@ function diffHTML(changes) {
     .join("");
 }
 
+function downloadRowHeader(row, metadata, index, art, available) {
+  return `<div class="download-track-head"><div class="download-cover">${art}</div><div class="download-title"><span class="section-kicker">${tr("TRACK")} ${escapeHTML(join(metadata.track) || index + 1)} ${tr("· DISC")} ${escapeHTML(join(metadata.disc))}</span><h3>${escapeHTML(join(metadata.title))}</h3><p>${escapeHTML(join(metadata.artist))} · ${escapeHTML(join(metadata.album) || tr("Album not specified"))}</p></div><span class="chip ${row.status === "error" ? "amber" : ""}">${available ? tr("Audio ready") : row.matches.length ? `${row.matches.length} ${tr("local version")}` : row.status === "error" ? tr("Failed") : tr("New track")}</span></div><div class="download-tags"><span>${icon("tag")}${escapeHTML(join(metadata.genre) || tr("Genre missing"))}</span><span>${escapeHTML(join(metadata.year) || tr("Year missing"))}</span><span>${duration(row.source.duration)}</span></div><p class="source">${tr("Genre:")} ${escapeHTML(row.genre_source)}</p>`;
+}
+
+function downloadLocalMatches(matches) {
+  return matches
+    .map(
+      (m) =>
+        `<div class="local-match"><span class="format ${m.format === "FLAC" ? "flac" : ""}">${m.format}</span><span>${escapeHTML(m.file.split("/").pop())}</span><span>${duration(m.duration_seconds)}</span></div>`,
+    )
+    .join("");
+}
+
+function downloadRowActions(row, canFetch, available, busy) {
+  return `<div class="download-row-actions">${canFetch ? `<label><input class="check download-check" type="checkbox" data-id="${row.id}" ${downloadState.fetchIds.has(row.id) ? "checked" : ""} ${busy ? "disabled" : ""}> ${tr("Download for review")}</label>` : ""}${available ? `<button class="button small ghost" data-stage-play="${row.id}">${icon("play")} ${tr("Listen to download")}</button>` : ""}${row.status === "error" ? `<button class="text-button" data-download-log="${row.id}">${tr("View log")}</button>` : ""}</div>`;
+}
+
+function downloadImportChoice(row, choice, options, changes, busy) {
+  return `<label class="import-choice">${tr("When approved")}<select class="field import-action" data-id="${row.id}" ${busy ? "disabled" : ""}>${options.map(([value, label]) => `<option value="${value}" ${choice.action === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>${choice.action && choice.action !== "add" && row.matches.length > 1 ? `<label class="import-choice">${tr("Local file to change")}<select class="field import-target" data-id="${row.id}"><option value="">${tr("Choose a version…")}</option>${row.matches.map((m) => `<option value="${m.id}" ${choice.target === m.id ? "selected" : ""}>${escapeHTML(m.format + " · " + m.file.split("/").pop())}</option>`).join("")}</select></label>` : ""}${changes ? `<div class="download-diffs">${diffHTML(changes)}</div>` : ""}${choice.action === "add" ? `<p class="source">${tr("New file:")} ${escapeHTML(row.new_file.split("/").pop())}</p>` : ""}`;
+}
+
 function downloadRow(batch, row, index) {
   const choice = downloadState.choices.get(row.id) || {};
   const local = selectedLocal(row, choice);
@@ -101,7 +122,7 @@ function downloadRow(batch, row, index) {
     options.push(["replace", tr("Replace an MP3 · with backup")]);
   const changes =
     choice.action === "metadata" ? local?.changes : choice.action === "replace" ? local?.replacement_changes : null;
-  return `<article class="download-track" data-row="${row.id}"><div class="download-track-head"><div class="download-cover">${art}</div><div class="download-title"><span class="section-kicker">${tr("TRACK")} ${escapeHTML(join(metadata.track) || index + 1)} ${tr("· DISC")} ${escapeHTML(join(metadata.disc))}</span><h3>${escapeHTML(join(metadata.title))}</h3><p>${escapeHTML(join(metadata.artist))} · ${escapeHTML(join(metadata.album) || tr("Album not specified"))}</p></div><span class="chip ${row.status === "error" ? "amber" : ""}">${available ? tr("Audio ready") : row.matches.length ? `${row.matches.length} ${tr("local version")}` : row.status === "error" ? tr("Failed") : tr("New track")}</span></div><div class="download-tags"><span>${icon("tag")}${escapeHTML(join(metadata.genre) || tr("Genre missing"))}</span><span>${escapeHTML(join(metadata.year) || tr("Year missing"))}</span><span>${duration(row.source.duration)}</span></div><p class="source">${tr("Genre:")} ${escapeHTML(row.genre_source)}</p>${row.matches.map((m) => `<div class="local-match"><span class="format ${m.format === "FLAC" ? "flac" : ""}">${m.format}</span><span>${escapeHTML(m.file.split("/").pop())}</span><span>${duration(m.duration_seconds)}</span></div>`).join("")}${[...new Set(row.warnings)].map((v) => `<p class="download-warning">${escapeHTML(v)}</p>`).join("")}${row.error ? `<p class="download-warning">${escapeHTML(row.error)}</p>` : ""}<div class="download-row-actions">${canFetch ? `<label><input class="check download-check" type="checkbox" data-id="${row.id}" ${downloadState.fetchIds.has(row.id) ? "checked" : ""} ${busy ? "disabled" : ""}> ${tr("Download for review")}</label>` : ""}${available ? `<button class="button small ghost" data-stage-play="${row.id}">${icon("play")} ${tr("Listen to download")}</button>` : ""}${row.status === "error" ? `<button class="text-button" data-download-log="${row.id}">${tr("View log")}</button>` : ""}</div>${!imported ? `<label class="import-choice">${tr("When approved")}<select class="field import-action" data-id="${row.id}" ${busy ? "disabled" : ""}>${options.map(([value, label]) => `<option value="${value}" ${choice.action === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>${choice.action && choice.action !== "add" && row.matches.length > 1 ? `<label class="import-choice">${tr("Local file to change")}<select class="field import-target" data-id="${row.id}"><option value="">${tr("Choose a version…")}</option>${row.matches.map((m) => `<option value="${m.id}" ${choice.target === m.id ? "selected" : ""}>${escapeHTML(m.format + " · " + m.file.split("/").pop())}</option>`).join("")}</select></label>` : ""}${changes ? `<div class="download-diffs">${diffHTML(changes)}</div>` : ""}${choice.action === "add" ? `<p class="source">${tr("New file:")} ${escapeHTML(row.new_file.split("/").pop())}</p>` : ""}` : ""}</article>`;
+  return `<article class="download-track" data-row="${row.id}">${downloadRowHeader(row, metadata, index, art, available)}${downloadLocalMatches(row.matches)}${[...new Set(row.warnings)].map((v) => `<p class="download-warning">${escapeHTML(v)}</p>`).join("")}${row.error ? `<p class="download-warning">${escapeHTML(row.error)}</p>` : ""}${downloadRowActions(row, canFetch, available, busy)}${!imported ? downloadImportChoice(row, choice, options, changes, busy) : ""}</article>`;
 }
 
 async function openDownloadBatch(id) {
