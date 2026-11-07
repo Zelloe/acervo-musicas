@@ -241,7 +241,9 @@ class DownloadTest(unittest.TestCase):
 
 
 class ParallelDownloadTest(unittest.TestCase):
-    ITEMS = [{"titulo": f"Track {n}", "artista": "Band", "url": f"https://open.spotify.com/track/t{n}"} for n in range(6)]
+    ITEMS = [
+        {"titulo": f"Track {n}", "artista": "Band", "url": f"https://open.spotify.com/track/t{n}"} for n in range(6)
+    ]
 
     def test_parallel_messages_keep_the_request_language(self):
         def fetch(item):

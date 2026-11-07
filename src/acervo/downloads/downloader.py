@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import atexit
-from concurrent.futures import ThreadPoolExecutor
 import errno
 import json
 import os
@@ -13,6 +12,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from mutagen import File as MutagenFile
@@ -466,7 +466,12 @@ def download(
             counts["started"] += 1
             label = f"{item.get('artista', '')} - {item.get('titulo', '')}"
             progress(
-                _("Downloading {current} of {total} · {label}", current=counts["started"], total=len(items), label=label),
+                _(
+                    "Downloading {current} of {total} · {label}",
+                    current=counts["started"],
+                    total=len(items),
+                    label=label,
+                ),
                 round(counts["finished"] / len(items) * 100),
             )
         try:
