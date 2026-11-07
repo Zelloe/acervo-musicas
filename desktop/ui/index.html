@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Acervo</title>
+  <style>
+    body { margin: 0; height: 100vh; display: grid; place-items: center; background: #111312; color: #f4f6f4; font: 15px Inter, "Segoe UI", Arial, sans-serif; }
+    main { text-align: center; max-width: 520px; padding: 24px; }
+    .disc { width: 54px; height: 54px; color: #1ed760; animation: spin 1.6s linear infinite; }
+    .error .disc { animation: none; color: #d9b65e; }
+    p { color: #8c958f; overflow-wrap: anywhere; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .disc { animation-duration: 6s; } }
+  </style>
+</head>
+<body>
+  <main id="state">
+    <svg class="disc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M5 10a7 7 0 0 1 5-5m4 14a7 7 0 0 0 5-5"/></svg>
+    <h1 id="title">Opening your library…</h1>
+    <p id="detail">Acervo is starting.</p>
+  </main>
+  <script>
+    const portuguese = navigator.language.toLowerCase().startsWith("pt");
+    if (portuguese) {
+      document.documentElement.lang = "pt-BR";
+      document.getElementById("title").textContent = "Abrindo sua biblioteca…";
+      document.getElementById("detail").textContent = "O Acervo está iniciando.";
+    }
+    window.showError = (message) => {
+      document.getElementById("state").classList.add("error");
+      document.getElementById("title").textContent = portuguese ? "Não foi possível abrir o Acervo" : "Could not open Acervo";
+      document.getElementById("detail").textContent = message;
+    };
+  </script>
+</body>
+</html>

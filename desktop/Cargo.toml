@@ -1,0 +1,18 @@
+[package]
+name = "acervo-desktop"
+version = "0.1.0"
+description = "Desktop window for Acervo"
+license = "MIT"
+edition = "2021"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde_json = "1"
+libc = "0.2"
+
+[profile.release]
+strip = true
