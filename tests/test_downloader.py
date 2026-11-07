@@ -3,6 +3,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -192,7 +193,7 @@ class DownloadTest(unittest.TestCase):
             patch.object(downloader, "_publish", side_effect=publish),
             patch.object(downloader.subprocess, "run", side_effect=self.wrap(run)),
         ):
-            results = downloader.download([self.item, other, third, fourth], self.folder, lyrics=False)
+            results = downloader.download([self.item, other, third, fourth], self.folder, lyrics=False, workers=1)
         self.assertEqual([r["estado"] for r in results], ["baixado", "erro", "erro", "nao_baixado"])
         self.assertEqual(self.listing(), ["ACDC - Back In Black.mp3"])
 
@@ -237,6 +238,64 @@ class DownloadTest(unittest.TestCase):
         run.assert_not_called()
         self.assertEqual(result[0]["mensagem"], "Link de faixa inválido")
         self.assertEqual(progress, ["Baixando 1 de 1 · AC/DC - Back In Black", "Downloads concluídos"])
+
+
+class ParallelDownloadTest(unittest.TestCase):
+    ITEMS = [{"titulo": f"Track {n}", "artista": "Band", "url": f"https://open.spotify.com/track/t{n}"} for n in range(6)]
+
+    def test_parallel_messages_keep_the_request_language(self):
+        def fetch(item):
+            return {**item, "estado": "erro", "mensagem": downloader._("Invalid track link")}
+
+        with language("pt-BR"):
+            results = self.run_download(fetch)
+        self.assertEqual({r["mensagem"] for r in results}, {"Link de faixa inválido"})
+
+    def run_download(self, fetch, workers=3):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        with (
+            patch.object(downloader, "spotdl_executable", return_value="spotdl"),
+            patch.object(downloader, "rules", return_value=[]),
+            patch.object(downloader, "_download_one", side_effect=lambda item, *args: fetch(item)),
+        ):
+            return downloader.download(list(self.ITEMS), Path(temp.name), lyrics=False, workers=workers)
+
+    def test_tracks_download_at_the_same_time_and_results_keep_their_order(self):
+        running, peak, lock = [0], [0], threading.Lock()
+        together = threading.Barrier(3, timeout=5)
+
+        def fetch(item):
+            with lock:
+                running[0] += 1
+                peak[0] = max(peak[0], running[0])
+            if item["titulo"] in ("Track 0", "Track 1", "Track 2"):
+                together.wait()
+            time.sleep(0.01 * (6 - int(item["titulo"][-1])))
+            with lock:
+                running[0] -= 1
+            return {**item, "estado": "baixado"}
+
+        results = self.run_download(fetch)
+        self.assertEqual(peak[0], 3)
+        self.assertEqual([r["titulo"] for r in results], [i["titulo"] for i in self.ITEMS])
+
+    def test_a_fatal_error_stops_the_tracks_that_have_not_started(self):
+        second_started = threading.Event()
+
+        def fetch(item):
+            if item["titulo"] == "Track 0":
+                self.assertTrue(second_started.wait(5))
+                raise OSError(28, "No space left on device")
+            second_started.set()
+            time.sleep(0.05)
+            return {**item, "estado": "baixado"}
+
+        results = self.run_download(fetch, workers=2)
+        states = [r["estado"] for r in results]
+        self.assertEqual(states[0], "erro")
+        self.assertEqual(states[1], "baixado")
+        self.assertEqual(states[2:], ["nao_baixado"] * 4)
 
 
 class AlbumListTest(unittest.TestCase):

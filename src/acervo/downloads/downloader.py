@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import atexit
+from concurrent.futures import ThreadPoolExecutor
 import errno
 import json
 import os
@@ -22,7 +23,7 @@ from acervo.library.plan import rules
 from acervo.library.scan import TEMP_PREFIXES, album_base, normalized
 from acervo.library.versions import classify, replace_studio
 from acervo.lyrics import LyricsClient, embed_lyrics
-from acervo.messages import _, register
+from acervo.messages import _, current_language, language, register
 from acervo.paths import DATA, RULES
 from acervo.search import normalize
 
@@ -415,14 +416,30 @@ def _download_one(
         }
 
 
+DOWNLOAD_WORKERS = 3
+
+
+def _fatal(error: Exception) -> bool:
+    # Without ffmpeg, or without space/write access at the destination, the next ones would fail the same way.
+    return isinstance(error, RuntimeError) or (
+        isinstance(error, OSError) and error.errno in (errno.ENOSPC, errno.EROFS, errno.EDQUOT, errno.EACCES)
+    )
+
+
 def download(
-    items: list[dict], folder: Path, progress=None, bitrate: str = "320k", lyrics: LyricsClient | bool | None = True
+    items: list[dict],
+    folder: Path,
+    progress=None,
+    bitrate: str = "320k",
+    lyrics: LyricsClient | bool | None = True,
+    workers: int = DOWNLOAD_WORKERS,
 ) -> list[dict]:
     """Download each track straight into `pasta`, never replacing an existing file.
 
     spotDL works in a temporary folder outside the collection; the file only shows
     up at the destination after spotDL finishes successfully and the audio is validated.
     Errors are recorded per track and the partial result is always returned.
+    Several tracks download at once; each one works in its own temporary folder.
     """
     folder = Path(folder).expanduser()
     if not folder.is_dir():
@@ -433,25 +450,37 @@ def download(
     genre_rules = rules(RULES / "genre_rules.csv")
     executable = spotdl_executable()
     lyrics = LyricsClient() if lyrics is True else (lyrics or None)
-    results = []
-    for index, item in enumerate(items):
-        label = f"{item.get('artista', '')} - {item.get('titulo', '')}"
-        progress(
-            _("Downloading {current} of {total} · {label}", current=index + 1, total=len(items), label=label),
-            round(index / len(items) * 100),
-        )
+    lock = threading.Lock()
+    counts = {"started": 0, "finished": 0, "stopped": False}
+    request_language = current_language()
+
+    def fetch(item):
+        # Messages are translated per thread, so each download keeps the language of the request.
+        with language(request_language):
+            return fetch_in_language(item)
+
+    def fetch_in_language(item):
+        with lock:
+            if counts["stopped"]:
+                return {**item, "estado": "nao_baixado", "mensagem": _("Stopped after the previous error")}
+            counts["started"] += 1
+            label = f"{item.get('artista', '')} - {item.get('titulo', '')}"
+            progress(
+                _("Downloading {current} of {total} · {label}", current=counts["started"], total=len(items), label=label),
+                round(counts["finished"] / len(items) * 100),
+            )
         try:
-            results.append(_download_one(item, folder, executable, genre_rules, bitrate, lyrics))
+            return _download_one(item, folder, executable, genre_rules, bitrate, lyrics)
         except Exception as error:
-            results.append({**item, "estado": "erro", "mensagem": f"{type(error).__name__}: {error}"[:300]})
-            # Without ffmpeg, or without space/write access at the destination, the next ones would fail the same way.
-            if isinstance(error, RuntimeError) or (
-                isinstance(error, OSError) and error.errno in (errno.ENOSPC, errno.EROFS, errno.EDQUOT, errno.EACCES)
-            ):
-                results.extend(
-                    {**rest, "estado": "nao_baixado", "mensagem": _("Stopped after the previous error")}
-                    for rest in items[index + 1 :]
-                )
-                break
+            if _fatal(error):
+                with lock:
+                    counts["stopped"] = True
+            return {**item, "estado": "erro", "mensagem": f"{type(error).__name__}: {error}"[:300]}
+        finally:
+            with lock:
+                counts["finished"] += 1
+
+    with ThreadPoolExecutor(max_workers=max(1, min(workers, len(items) or 1))) as pool:
+        results = list(pool.map(fetch, items))
     progress(_("Downloads finished"), 100)
     return results
