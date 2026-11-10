@@ -1,0 +1,13 @@
+[package]
+name = "acervo-core"
+version = "0.1.0"
+description = "Acervo's library core: reading, rules and plans for MP3 and FLAC collections"
+license = "MIT"
+edition = "2021"
+publish = false
+
+[dependencies]
+metaflac = "0.2"
+regex = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
