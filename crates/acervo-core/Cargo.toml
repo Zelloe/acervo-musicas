@@ -7,7 +7,9 @@ edition = "2021"
 publish = false
 
 [dependencies]
+caseless = "0.2"
 metaflac = "0.2"
 regex = "1"
 serde_json = { version = "1", features = ["preserve_order"] }
-sha2 = "0.10"
+sha2 = { version = "0.10", features = ["asm"] }
+unicode-normalization = "0.1"

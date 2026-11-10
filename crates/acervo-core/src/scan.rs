@@ -4,6 +4,7 @@ use std::fs;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
+use std::sync::OnceLock;
 
 use regex::Regex;
 use serde_json::{json, Map, Value};
@@ -35,11 +36,15 @@ pub const REQUIRED: [&str; 8] = [
     "genero",
 ];
 
-fn version_pattern() -> Regex {
-    Regex::new(
+/// Words that suggest a version other than the studio one (live, demo, remix...).
+pub fn version_pattern() -> &'static Regex {
+    static PATTERN: OnceLock<Regex> = OnceLock::new();
+    PATTERN.get_or_init(|| {
+        Regex::new(
         r"(?i)\b(live|ao vivo|demo|remix|alternate|alternative mix|mix(?:es)?|session|bonus|acoustic|ac[uú]stic[ao]|instrumental|rehearsal|ensaio|outtake|edit|version|vers[aã]o)\b",
     )
-    .expect("valid pattern")
+        .expect("valid pattern")
+    })
 }
 
 pub fn signature(path: &Path) -> std::io::Result<Value> {
@@ -68,18 +73,43 @@ enum Kind {
     Flac,
 }
 
-fn kind(path: &Path) -> std::io::Result<Option<Kind>> {
+/// Picks the reader the way `mutagen.File` scores candidates: the header and the extension
+/// both count, and a tie goes to MP3.
+fn kind(path: &Path) -> io::Result<Option<Kind>> {
     let mut head = [0u8; 4];
-    use std::io::Read;
     let read = fs::File::open(path)?.read(&mut head)?;
     let head = &head[..read];
-    if head == b"fLaC" {
-        return Ok(Some(Kind::Flac));
+    let name = path.to_string_lossy().to_lowercase();
+    let mp3 = 2 * u8::from(head.starts_with(b"ID3")) + u8::from(name.ends_with(".mp3"));
+    let flac = u8::from(head == b"fLaC") + 3 * u8::from(name.ends_with(".flac"));
+    Ok(match (mp3, flac) {
+        (0, 0) => None,
+        (m, f) if m >= f => Some(Kind::Mp3),
+        _ => Some(Kind::Flac),
+    })
+}
+
+/// mutagen's error for a FLAC file it cannot open, as "Type: message".
+fn flac_error(path: &Path) -> Option<String> {
+    let mut head = Vec::new();
+    fs::File::open(path)
+        .ok()?
+        .take(4)
+        .read_to_end(&mut head)
+        .ok()?;
+    if head.len() < 4 {
+        return Some(format!(
+            "error: file said 4 bytes, read {} bytes",
+            head.len()
+        ));
     }
-    if head.starts_with(b"ID3") || (head.len() >= 2 && head[0] == 0xFF && head[1] & 0xE0 == 0xE0) {
-        return Ok(Some(Kind::Mp3));
+    if head != b"fLaC" && !head.starts_with(b"ID3") {
+        return Some(format!(
+            "FLACNoHeaderError: '{}' is not a valid FLAC file",
+            path.display()
+        ));
     }
-    Ok(None)
+    None
 }
 
 /// One frame, decoded far enough to read the inventory fields.
@@ -236,7 +266,8 @@ pub fn read_track(path: &Path) -> Result<Value, String> {
     let (format, tag_format, covers, ids, keys, length, bitrate, sample_rate, channels, bits);
     match kind {
         Kind::Mp3 => {
-            let info = mp3info::read(path).map_err(|e| e.to_string())?;
+            let info = mp3info::read(path)
+                .map_err(|_| "HeaderNotFoundError: can't sync to MPEG frame".to_string())?;
             let tag = id3v2::read(path).map_err(|e| e.to_string())?;
             let frames = tag.as_ref().map(frames_v24).unwrap_or_default();
             for (field, frame_id, _) in FIELDS {
@@ -294,7 +325,10 @@ pub fn read_track(path: &Path) -> Result<Value, String> {
             bits = None;
         }
         Kind::Flac => {
-            let tag = metaflac::Tag::read_from_path(path).map_err(|e| e.to_string())?;
+            if let Some(error) = flac_error(path) {
+                return Err(error);
+            }
+            let tag = metaflac::Tag::read_from_path(path).map_err(|e| format!("error: {e}"))?;
             let info = tag.get_streaminfo().ok_or("FLAC without STREAMINFO")?;
             let comments = tag.vorbis_comments();
             let lookup = |name: &str| -> Vec<String> {
