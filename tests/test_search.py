@@ -57,6 +57,21 @@ class LibrarySearchTest(unittest.TestCase):
         self.assertEqual(self.ids("pink floyd battery"), [])
         self.assertEqual(self.ids("back in black")[0], "1")
 
+    def test_weak_matches_only_when_the_word_is_missing(self):
+        index = LibraryIndex(
+            [
+                track("1", "One", "Metallica", "...And Justice for All"),
+                track("2", "Alone", "Pantera", "Far Beyond Driven"),
+                track("3", "Back In Black", "AC/DC", "Back In Black"),
+                track("4", "I Am The Black Wizards", "Emperor", "In The Nightside Eclipse", "Black Metal"),
+            ]
+        )
+        found = lambda query: sorted(r["id"] for r in index.search(query, 10))  # noqa: E731
+        self.assertEqual(found("one"), ["1"])
+        self.assertEqual(found("back in black"), ["3"])
+        self.assertIn("2", found("lone"))  # no word "lone": inside "Alone" still counts
+        self.assertEqual(found("emperror"), ["4"])  # typos still work
+
     def test_genre_search_and_reason(self):
         result = self.index.search("thrash", 5)
         self.assertEqual([r["id"] for r in result], ["4"])

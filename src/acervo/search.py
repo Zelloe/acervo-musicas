@@ -103,11 +103,13 @@ class _Matcher:
             return []
         best: dict[int, list[tuple[float, str]]] = {}
         for position, term in enumerate(terms):
-            for token, places in self.vocabulary.items():
-                score = _token_score(term, token)
-                if not score:
-                    continue
-                for index, field in places:
+            found = [(token, score) for token in self.vocabulary if (score := _token_score(term, token))]
+            # Typos and matches inside other words are only a fallback: when the word itself
+            # exists, "one" must not bring "Alone" nor "back" bring "Black".
+            if any(score >= 0.8 for _, score in found):
+                found = [(token, score) for token, score in found if score >= 0.8]
+            for token, score in found:
+                for index, field in self.vocabulary[token]:
                     slots = best.setdefault(index, [(0.0, "")] * len(terms))
                     value = score * FIELDS[field]
                     if value > slots[position][0]:
