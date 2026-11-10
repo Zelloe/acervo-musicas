@@ -89,6 +89,31 @@ fn kind(path: &Path) -> io::Result<Option<Kind>> {
     })
 }
 
+/// `repr(str)` for the file names mutagen puts in its messages.
+fn python_repr(text: &str) -> String {
+    let quote = if text.contains('\'') && !text.contains('"') {
+        '"'
+    } else {
+        '\''
+    };
+    let mut out = String::from(quote);
+    for c in text.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c == quote => {
+                out.push('\\');
+                out.push(c);
+            }
+            c => out.push(c),
+        }
+    }
+    out.push(quote);
+    out
+}
+
 /// mutagen's error for a FLAC file it cannot open, as "Type: message".
 fn flac_error(path: &Path) -> Option<String> {
     let mut head = Vec::new();
@@ -105,8 +130,8 @@ fn flac_error(path: &Path) -> Option<String> {
     }
     if head != b"fLaC" && !head.starts_with(b"ID3") {
         return Some(format!(
-            "FLACNoHeaderError: '{}' is not a valid FLAC file",
-            path.display()
+            "FLACNoHeaderError: {} is not a valid FLAC file",
+            python_repr(&path.to_string_lossy())
         ));
     }
     None
@@ -266,6 +291,20 @@ pub fn read_track(path: &Path) -> Result<Value, String> {
     let (format, tag_format, covers, ids, keys, length, bitrate, sample_rate, channels, bits);
     match kind {
         Kind::Mp3 => {
+            // mutagen reads the ID3 header first and refuses versions other than 2.2-2.4.
+            let mut head = [0u8; 4];
+            if fs::File::open(path)
+                .and_then(|mut f| f.read_exact(&mut head))
+                .is_ok()
+                && &head[..3] == b"ID3"
+                && !(2..=4).contains(&head[3])
+            {
+                return Err(format!(
+                    "ID3UnsupportedVersionError: {} ID3v2.{} not supported",
+                    python_repr(&path.to_string_lossy()),
+                    head[3]
+                ));
+            }
             let info = mp3info::read(path)
                 .map_err(|_| "HeaderNotFoundError: can't sync to MPEG frame".to_string())?;
             let tag = id3v2::read(path).map_err(|e| e.to_string())?;

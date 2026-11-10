@@ -9,8 +9,10 @@ import unittest
 from pathlib import Path
 
 from mutagen.flac import FLAC, Picture
-from mutagen.id3 import APIC, COMM, ID3, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TRCK, TXXX, TYER, UFID, USLT
+from mutagen.id3 import APIC, COMM, ID3, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX, TYER, UFID, USLT
 
+from acervo.library import protections
+from acervo.library.plan import create_plan
 from acervo.library.scan import read_track, scan
 from acervo.messages import language
 
@@ -19,7 +21,11 @@ BINARY = Path(
 )
 
 
-@unittest.skipUnless(BINARY.is_file() and shutil.which("ffmpeg"), "Build crates/acervo-core with cargo to compare")
+# CI sets ACERVO_SCAN_BIN, so a missing build fails there instead of being skipped.
+@unittest.skipUnless(
+    "ACERVO_SCAN_BIN" in os.environ or (BINARY.is_file() and shutil.which("ffmpeg")),
+    "Build crates/acervo-core with cargo to compare",
+)
 class RustScanParityTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -155,3 +161,85 @@ class RustScanParityTest(unittest.TestCase):
                 self.assertEqual(len(summary["erros"]), 2)
                 self.assertEqual(len(summary["ignorados"]), 3)
                 self.assertEqual(summary["grupos_candidatos_de_album"], 1)
+
+    def tagged(self, path, title=None, artist=None, album=None, track=None, disc=None, previous=None):
+        tags = ID3()
+        for frame, value in ((TIT2, title), (TPE1, artist), (TALB, album), (TRCK, track), (TPOS, disc)):
+            if value:
+                tags.add(frame(encoding=3, text=[value]))
+        if previous:
+            tags.add(TXXX(encoding=3, desc="BibliotecaMusical:AlbumAnterior", text=[previous]))
+        tags.save(path)
+        return path
+
+    def test_both_plans_agree(self):
+        library, storage = self.root / "library", self.root / "data"
+        library.mkdir()
+        storage.mkdir()
+        mp3 = self.audio("source.mp3", "libmp3lame").read_bytes()
+
+        def track(name, **tags):
+            path = library / name
+            path.write_bytes(mp3)
+            return self.tagged(path, **tags)
+
+        track("a.mp3", title="Thunder", artist="AC/DC")
+        track("b.mp3", title="One", artist="Banda", album="Disco (Deluxe Edition)")
+        track("c.mp3", title="Two", artist="Conflito")
+        track("d.mp3", title="Song - Remastered 2011", artist="Metal Band", album="Old Name", track="2/9", disc="1")
+        track("e.mp3", title="Other Song", artist="Metal Band", album="Old Name", track="2", disc="1")
+        track("f.mp3", title="Song", artist="Metal Band", album="Old Name", track="2", disc="1", previous="Older")
+        track("h.mp3", title="Kept", artist="AC/DC")
+        os.link(track("i.mp3", title="Linked", artist="AC/DC"), library / "j.mp3")
+        flac = self.audio("g.flac", "flac")
+        audio = FLAC(flac)
+        audio["artist"], audio["title"] = "AC/DC", "Flac"
+        audio.save()
+        flac.rename(library / "g.flac")
+        (library / "broken.mp3").write_bytes(b"ID3" + b"\x00" * 50)
+        genres = self.root / "genres.csv"
+        genres.write_text(
+            "\ufeffartista,album,genero,origem\nAC/DC,,Hard Rock,user\nBanda,,Rock,local\nBanda,Disco,Metal,album rule\n"
+            "Conflito,,Pop,x\nConflito,,Jazz,y\nMetal Band,,Heavy Metal,z\n",
+            encoding="utf-8",
+        )
+        albums = self.root / "albums.csv"
+        albums.write_text(
+            "artista,album_atual,album_padrao,disco,faixas_json,fonte\n"
+            'Metal Band,Old Name,New Name,1,"{""2"": ""Song""}",https://musicbrainz.org/release-group/x\n',
+            encoding="utf-8",
+        )
+        policy = protections.policy_path(storage, library)
+        policy.parent.mkdir(parents=True)
+        policy.write_text(
+            json.dumps(
+                {"schema": 1, "biblioteca": str(library.resolve()), "faixas": {"h.mp3": {"campos": ["genero"]}}}
+            ),
+            encoding="utf-8",
+        )
+        for code, lang in (("pt-BR", "pt_BR.UTF-8"), ("en", "C")):
+            with self.subTest(language=code):
+                python, rust = self.root / f"plan-py-{code}", self.root / f"plan-rs-{code}"
+                with language(code):
+                    create_plan(library, python, True, genres, albums, None, None, storage)
+                env = {**os.environ, "LANG": lang, "LANGUAGE": "", "LC_ALL": "", "LC_MESSAGES": ""}
+                command = [str(BINARY.with_name("plano")), "--folder", str(library), "--output", str(rust)]
+                command += ["--normalize-albums", "--genre-rules", str(genres), "--album-rules", str(albums)]
+                done = subprocess.run([*command, "--data", str(storage)], capture_output=True, env=env)
+                self.assertEqual(done.returncode, 2, done.stderr)
+                for name in ("alteracoes.csv", "revisao.csv", "erros.csv"):
+                    self.assertEqual(
+                        (rust / name).read_text(encoding="utf-8"), (python / name).read_text(encoding="utf-8"), name
+                    )
+                for name in ("plano.json", "inventario.json", "resumo.json"):
+                    expected, found = (
+                        (folder / name).read_text(encoding="utf-8").splitlines() for folder in (python, rust)
+                    )
+                    for i, line in enumerate(expected):
+                        if '"criado_em"' in line:
+                            expected[i] = found[i]
+                    self.assertEqual(found, expected, name)
+                plan = json.loads((rust / "plano.json").read_text(encoding="utf-8"))
+                fields = sorted(c["campo"] for f in plan["arquivos"] for c in f["alteracoes"])
+                self.assertEqual(fields, ["album"] + ["genero"] * 6)
+                self.assertEqual(len(plan["resumo"]["erros"]), 3)

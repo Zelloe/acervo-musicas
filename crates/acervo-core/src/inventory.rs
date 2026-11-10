@@ -81,14 +81,38 @@ fn walk_error(path: &Path, error: &io::Error) -> String {
     }
 }
 
-struct Walk {
-    files: Vec<PathBuf>,
-    skipped: Vec<Value>,
-    errors: Vec<Value>,
+/// Files to read, paths left out with the reason (English source text) and folders that failed.
+/// A `read_track` error as Python reports it, with the exception name first.
+pub(crate) fn read_error(language: Language, error: String) -> String {
+    match error.as_str() {
+        "File not recognized as MP3/FLAC" => {
+            format!(
+                "ValueError: {}",
+                tr(language, "File not recognized as MP3/FLAC")
+            )
+        }
+        _ => error,
+    }
+}
+
+/// `f"{type(error).__name__}: {error}"` for an OSError about one path.
+pub(crate) fn os_error(path: &Path, error: &io::Error) -> String {
+    let name = match error.kind() {
+        io::ErrorKind::NotFound => "FileNotFoundError",
+        io::ErrorKind::PermissionDenied => "PermissionError",
+        _ => "OSError",
+    };
+    format!("{name}: {}", walk_error(path, error))
+}
+
+pub(crate) struct Walk {
+    pub files: Vec<PathBuf>,
+    pub skipped: Vec<(PathBuf, &'static str)>,
+    pub errors: Vec<Value>,
 }
 
 /// Top-down walk in directory order, like `os.walk(root, followlinks=False)`.
-fn walk(folder: &Path, language: Language, found: &mut Walk) {
+pub(crate) fn walk(folder: &Path, found: &mut Walk) {
     let entries = match fs::read_dir(folder) {
         Ok(entries) => entries,
         Err(error) => {
@@ -111,9 +135,14 @@ fn walk(folder: &Path, language: Language, found: &mut Walk) {
         }
     }
     dirs.retain(|directory| {
-        let link = directory.symlink_metadata().map(|m| m.file_type().is_symlink()).unwrap_or(false);
+        let link = directory
+            .symlink_metadata()
+            .map(|m| m.file_type().is_symlink())
+            .unwrap_or(false);
         if link {
-            found.skipped.push(json!({"arquivo": directory.to_string_lossy(), "motivo": tr(language, "symbolic link to a folder")}));
+            found
+                .skipped
+                .push((directory.clone(), "symbolic link to a folder"));
         }
         !link
     });
@@ -123,23 +152,23 @@ fn walk(folder: &Path, language: Language, found: &mut Walk) {
             continue;
         }
         if TEMP_PREFIXES.iter().any(|prefix| name.starts_with(prefix)) {
-            found.skipped.push(json!({"arquivo": path.to_string_lossy(), "motivo": tr(language, "Acervo temporary copy")}));
+            found.skipped.push((path, "Acervo temporary copy"));
         } else if path
             .symlink_metadata()
             .map(|m| m.file_type().is_symlink())
             .unwrap_or(false)
         {
-            found.skipped.push(json!({"arquivo": path.to_string_lossy(), "motivo": tr(language, "symbolic link to a file")}));
+            found.skipped.push((path, "symbolic link to a file"));
         } else {
             found.files.push(path);
         }
     }
     for directory in dirs {
-        walk(&directory, language, found);
+        walk(&directory, found);
     }
 }
 
-fn strings(value: &Value) -> Vec<String> {
+pub(crate) fn strings(value: &Value) -> Vec<String> {
     value
         .as_array()
         .map(|items| {
@@ -152,7 +181,7 @@ fn strings(value: &Value) -> Vec<String> {
 }
 
 /// `datetime.now(timezone.utc).isoformat()`.
-fn now_iso() -> String {
+pub(crate) fn now_iso() -> String {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default();
@@ -182,7 +211,7 @@ fn now_iso() -> String {
 }
 
 /// `repr(float)`: shortest round trip, always with a dot or an exponent.
-fn python_float(value: f64) -> String {
+pub(crate) fn python_float(value: f64) -> String {
     if value.is_finite() && value != 0.0 && (value.abs() >= 1e16 || value.abs() < 1e-4) {
         let text = format!("{value:e}");
         let (mantissa, exponent) = text.split_once('e').unwrap();
@@ -195,7 +224,7 @@ fn python_float(value: f64) -> String {
 }
 
 /// `json.dumps(value, ensure_ascii=False)`, with Python's ", " and ": " separators.
-fn python_json(value: &Value) -> String {
+pub(crate) fn python_json(value: &Value) -> String {
     match value {
         Value::Array(items) => format!(
             "[{}]",
@@ -291,7 +320,7 @@ impl From<io::Error> for ScanError {
 }
 
 /// Reads every file, several at a time, keeping the results in the order of `files`.
-fn read_all(files: &[PathBuf]) -> Vec<Result<Value, String>> {
+pub(crate) fn read_all(files: &[PathBuf]) -> Vec<Result<Value, String>> {
     let workers = std::thread::available_parallelism()
         .map_or(1, |n| n.get())
         .min(8);
@@ -330,29 +359,25 @@ pub fn scan(root: &Path, output: &Path, language: Language) -> Result<Value, Sca
         skipped: Vec::new(),
         errors: Vec::new(),
     };
-    walk(root, language, &mut found);
+    walk(root, &mut found);
     let Walk {
         mut files,
         skipped,
         mut errors,
     } = found;
     files.sort();
+    let skipped: Vec<Value> = skipped
+        .into_iter()
+        .map(|(path, reason)| json!({"arquivo": path.to_string_lossy(), "motivo": tr(language, reason)}))
+        .collect();
     let mut tracks = Vec::new();
     for (path, result) in files.iter().zip(read_all(&files)) {
         match result {
             Ok(row) => tracks.push(row),
             Err(error) => {
-                // Python names the exception before the message.
-                let error = match error.as_str() {
-                    "File not recognized as MP3/FLAC" => {
-                        format!(
-                            "ValueError: {}",
-                            tr(language, "File not recognized as MP3/FLAC")
-                        )
-                    }
-                    other => other.to_string(),
-                };
-                errors.push(json!({"arquivo": path.to_string_lossy(), "erro": error}));
+                errors.push(
+                    json!({"arquivo": path.to_string_lossy(), "erro": read_error(language, error)}),
+                );
             }
         }
     }
