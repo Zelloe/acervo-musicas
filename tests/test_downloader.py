@@ -341,6 +341,31 @@ class AlbumListTest(unittest.TestCase):
         self.assertEqual(result[-1]["versao"]["marcas"], ["nao_confirmado"])
         self.assertTrue(all("_sem_confirmacao" not in r for r in result))
 
+    def test_editions_of_one_album_are_listed_once(self):
+        rows = [
+            {"titulo": "Load", "ano": "1996", "tipo": "Album"},
+            {"titulo": "Load (Remastered Deluxe Box Set)", "ano": "2026", "tipo": "Album"},
+            {"titulo": "ReLoad (Remastered Deluxe Box Set)", "ano": "2026", "tipo": "Album"},
+            {"titulo": "Live After Death (1998 Remaster)", "ano": "1985", "tipo": "Album"},
+            {"titulo": "Live After Death", "ano": "2010", "tipo": "Album"},
+            {"titulo": "Rock in Rio (Live)", "ano": "2002", "tipo": "Album"},
+            {"titulo": "Rock in Rio", "ano": "2001", "tipo": "Album"},
+        ]
+        with (
+            patch("acervo.downloads.downloader._adapter", return_value=rows),
+            patch("acervo.downloads.downloader.MusicBrainz") as client,
+        ):
+            client.return_value.release_groups.return_value = None
+            result = {r["titulo"]: r for r in downloader.search_albums("Band")}
+        self.assertEqual(
+            set(result),
+            {"Load", "ReLoad (Remastered Deluxe Box Set)", "Live After Death", "Rock in Rio (Live)", "Rock in Rio"},
+        )
+        self.assertEqual((result["Load"]["edicoes_encontradas"], result["Load"]["busca_edicoes"]), (2, "Load"))
+        self.assertEqual(result["Live After Death"]["ano"], "1985")  # the first release, not the reissue
+        self.assertEqual(result["ReLoad (Remastered Deluxe Box Set)"]["busca_edicoes"], "ReLoad")
+        self.assertEqual(result["Rock in Rio"]["edicoes_encontradas"], 1)  # a live recording is not an edition
+
     def test_without_an_answer_the_estimate_from_names_stays(self):
         for groups in (None, [], ValueError("offline"), OSError("cache")):
             with self.subTest(groups=groups):

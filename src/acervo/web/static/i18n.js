@@ -578,6 +578,7 @@ const portugueseMessages = {
   "yt-dlp · direct YouTube link": "yt-dlp · link direto do YouTube",
   track: "faixa",
   tracks: "faixas",
+  editions: "edições",
   of: "de",
   in: "em",
   by: "por",

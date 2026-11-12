@@ -27,6 +27,7 @@ register(
         "Choose an album or edition from the search": "Escolha um álbum ou uma edição da busca",
         "The result does not belong to this search": "O resultado não pertence a esta busca",
         "Finding album editions…": "Buscando as edições do álbum…",
+        "Too many results ({count}); search for something more specific": "Resultados demais ({count}); busque algo mais específico",
         "Select tracks from the search to download": "Selecione faixas da busca para baixar",
         "The selection does not belong to this search; search again": "A seleção não pertence à busca; procure novamente",
         "Invalid MP3 bitrate": "Taxa MP3 inválida",
@@ -124,12 +125,13 @@ class DownloadPicker:
             return catalog
 
     def _remember(self, kind, title, rows, folder, artist=""):
-        if (
-            not isinstance(rows, list)
-            or len(rows) > 300
-            or any(not isinstance(row, dict) or not isinstance(row.get("titulo"), str) for row in rows)
+        if not isinstance(rows, list) or any(
+            not isinstance(row, dict) or not isinstance(row.get("titulo"), str) for row in rows
         ):
             raise ValueError(_("The search returned invalid results"))
+        # Prolific artists list hundreds of albums; a download takes at most 300 tracks.
+        if len(rows) > (300 if kind == "faixas" else 1000):
+            raise ValueError(_("Too many results ({count}); search for something more specific", count=len(rows)))
         rows = [{**row, "id": secrets.token_hex(12)} for row in rows]
         if kind == "faixas":
             self._say(_("Checking tracks already in the folder…"))
@@ -184,7 +186,9 @@ class DownloadPicker:
         catalog, item, folder = self.open_options(data)
         if catalog["tipo"] == "albuns":
             self._say(_("Finding album editions…"))
-            rows = self._lookup("edicoes", downloader.editions, catalog["artista"], item["titulo"])
+            # Grouped albums search by their base title so every edition comes back.
+            title = item.get("busca_edicoes") or item["titulo"]
+            rows = self._lookup("edicoes", downloader.editions, catalog["artista"], title)
             if len(rows) == 1:
                 self._say(_("Looking up edition tracks…"))
                 return self._remember(

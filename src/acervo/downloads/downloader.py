@@ -20,7 +20,7 @@ from mutagen.id3 import ID3, TCON, ID3NoHeaderError
 
 from acervo.library.musicbrainz import MusicBrainz
 from acervo.library.plan import rules
-from acervo.library.scan import TEMP_PREFIXES, album_base, normalized
+from acervo.library.scan import TEMP_PREFIXES, VERSION, album_base, normalized
 from acervo.library.versions import classify, replace_studio
 from acervo.lyrics import LyricsClient, embed_lyrics
 from acervo.messages import _, current_language, language, register
@@ -59,6 +59,41 @@ TEMPLATE = "{artist} - {title}.{output-ext}"
 REMASTER = re.compile(
     r"\s*(?:-\s*|\(|\[)\s*(?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?(?:\s+version)?\s*[\])]?\s*$", re.I
 )
+
+# Words that make a listing another edition of the same album, not a different recording.
+EDITION = re.compile(r"\b(remaster(?:ed)?|deluxe|expanded|anniversary|box set|edition|reissue)\b", re.I)
+EDITION_SUFFIX = re.compile(r"\s*(?:[\[(]([^\[\]()]+)[\])]|\s-\s+([^-]+))\s*$")
+
+
+def edition_base(title: str) -> str:
+    """'Load (Remastered Deluxe Box Set)' -> 'Load'; '(Live)' and other recordings stay."""
+    while match := EDITION_SUFFIX.search(title):
+        label = match.group(1) or match.group(2)
+        if not EDITION.search(label) or VERSION.search(label):
+            break
+        title = title[: match.start()].strip()
+    return title
+
+
+def _group_editions(items: list[dict]) -> list[dict]:
+    """One entry per album; opening it lists every edition, so they are not shown twice."""
+    groups: dict[str, list[dict]] = {}
+    for item in items:
+        groups.setdefault(normalize(edition_base(item["titulo"])) or normalize(item["titulo"]), []).append(item)
+    result = []
+    for members in groups.values():
+        base = edition_base(members[0]["titulo"])
+        chosen = next((m for m in members if normalize(m["titulo"]) == normalize(base)), members[0])
+        years = sorted(str(m.get("ano") or "") for m in members if re.fullmatch(r"\d{4}", str(m.get("ano") or "")))
+        result.append(
+            {
+                **chosen,
+                "ano": years[0] if years else chosen.get("ano", ""),
+                "busca_edicoes": base,
+                "edicoes_encontradas": len(members),
+            }
+        )
+    return result
 
 
 def spotdl_executable() -> str:
@@ -208,7 +243,7 @@ def search_albums(artist: str) -> list[dict]:
             item["versao"] = replace_studio(item["versao"], "remix")
         elif secondary & {"Compilation", "Soundtrack"}:
             item["versao"] = replace_studio(item["versao"], "coletanea")
-    return sorted(items, key=_album_rank)
+    return _group_editions(sorted(items, key=_album_rank))
 
 
 def editions(artist: str, album: str) -> list[dict]:

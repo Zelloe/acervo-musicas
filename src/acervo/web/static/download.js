@@ -130,7 +130,7 @@ function captureSimpleDownloadJob(job) {
 }
 
 function catalogChoice(catalog, row, page) {
-  return `<button class="simple-choice version-filtered" ${simpleVersionAttributes(row)} ${page ? `data-page-catalog="${escapeHTML(catalog.id)}" data-page-item="${escapeHTML(row.id)}"` : `data-simple-open="${escapeHTML(row.id)}"`}>${catalogPhoto(row.cover)}<span><strong data-i18n-user="true">${escapeHTML(row.title)}</strong><small>${escapeHTML(row.year || "")}${row.track_count ? ` · ${number(row.track_count)} ${tr("tracks")}` : ""}</small>${recordingBadges(row.version)}</span>${icon("arrow")}</button>`;
+  return `<button class="simple-choice version-filtered" ${simpleVersionAttributes(row)} ${page ? `data-page-catalog="${escapeHTML(catalog.id)}" data-page-item="${escapeHTML(row.id)}"` : `data-simple-open="${escapeHTML(row.id)}"`}>${catalogPhoto(row.cover)}<span><strong data-i18n-user="true">${escapeHTML(row.title)}</strong><small>${escapeHTML(row.year || "")}${row.track_count ? ` · ${number(row.track_count)} ${tr("tracks")}` : ""}${row.editions_found > 1 ? ` · ${number(row.editions_found)} ${tr("editions")}` : ""}</small>${recordingBadges(row.version)}</span>${icon("arrow")}</button>`;
 }
 
 function catalogChoices(catalog, page = false) {

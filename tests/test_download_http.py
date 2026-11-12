@@ -90,7 +90,9 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         self.mock_tracks = patch("acervo.downloads.picker.downloader.tracks", return_value=self.songs).start()
         self.mock_albums = patch(
             "acervo.downloads.picker.downloader.search_albums",
-            return_value=[{"titulo": "Álbum", "artista": "Banda Teste", "ano": "2026"}],
+            return_value=[
+                {"titulo": "Álbum (Deluxe)", "artista": "Banda Teste", "ano": "2026", "busca_edicoes": "Álbum"}
+            ],
         ).start()
         self.mock_editions = patch(
             "acervo.downloads.picker.downloader.editions",
@@ -132,6 +134,16 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
     def search(self, kind="musica", text="Banda Teste"):
         self.request("/api/download/search", {"tipo": kind, "consulta": text, "pasta": str(self.lib)}, status=202)
         return self.wait_job()
+
+    def test_prolific_artists_list_more_than_300_albums(self):
+        many = [{"titulo": f"Álbum {i}", "artista": "Banda Teste", "ano": "2026"} for i in range(700)]
+        self.mock_albums.return_value = many
+        self.assertEqual(len(self.search("artista")["items"]), 700)
+        self.mock_albums.return_value = many * 2
+        self.request(
+            "/api/download/search", {"tipo": "artista", "consulta": "Outra", "pasta": str(self.lib)}, status=202
+        )
+        self.wait_job("error")
 
     def test_artist_album_edition_tracks_and_cached_back_navigation(self):
         self.assertIsNone(self.request("/api/download")["catalog"])
