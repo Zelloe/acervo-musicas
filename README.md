@@ -117,6 +117,13 @@ Downloads go into a queue that runs one batch at a time, so you can keep browsin
 batches that have not started can be removed. Keep Acervo open until it finishes:
 the queue is lost if the server restarts.
 
+**Internet Archive (FLAC):** the Internet Archive tab searches
+[archive.org](https://archive.org) for items with FLAC files (live recordings,
+netlabels, old 78s and more) and needs only `ffmpeg`, not spotDL. Each file is
+checked against the size and MD5 the Archive lists, resumed if the connection
+drops, validated with ffmpeg and given its missing title, artist, album and track
+tags. Rights vary per item: the collection and license are shown next to each one.
+
 **In the terminal:**
 
 ```bash

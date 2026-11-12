@@ -56,7 +56,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", extra.pop("Cache-Control", "no-store"))
         self.send_header(
             "Content-Security-Policy",
-            "default-src 'self'; img-src 'self' data: https://*.googleusercontent.com https://i.scdn.co https://mosaic.scdn.co https://*.spotifycdn.com; media-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; connect-src 'self'",
+            "default-src 'self'; img-src 'self' data: https://*.googleusercontent.com https://i.scdn.co https://mosaic.scdn.co https://*.spotifycdn.com https://archive.org https://*.archive.org; media-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; connect-src 'self'",
         )
         for key, value in extra.items():
             self.send_header(key, value)

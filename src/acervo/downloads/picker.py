@@ -27,6 +27,8 @@ register(
         "Choose an album or edition from the search": "Escolha um álbum ou uma edição da busca",
         "The result does not belong to this search": "O resultado não pertence a esta busca",
         "Finding album editions…": "Buscando as edições do álbum…",
+        "Searching the Internet Archive…": "Buscando no Internet Archive…",
+        "Looking up the FLAC files of the item…": "Buscando os arquivos FLAC do item…",
         "Too many results ({count}); search for something more specific": "Resultados demais ({count}); busque algo mais específico",
         "Select tracks from the search to download": "Selecione faixas da busca para baixar",
         "The selection does not belong to this search; search again": "A seleção não pertence à busca; procure novamente",
@@ -153,7 +155,7 @@ class DownloadPicker:
     def search_options(self, data):
         kind, text = data.get("tipo"), data.get("consulta")
         if (
-            kind not in ("artista", "musica", "link")
+            kind not in ("artista", "musica", "link", "internet_archive")
             or not isinstance(text, str)
             or not text.strip()
             or len(text) > 1200
@@ -165,6 +167,10 @@ class DownloadPicker:
 
     def search(self, data):
         kind, text, folder = self.search_options(data)
+        if kind == "internet_archive":
+            self._say(_("Searching the Internet Archive…"))
+            rows = self._lookup("ia_itens", downloader.search_archive, text)
+            return self._remember("albuns", text, rows, folder)
         if kind == "artista":
             self._say(_("Finding artist albums…"))
             return self._remember("albuns", text, self._lookup("albuns", downloader.search_albums, text), folder, text)
@@ -184,6 +190,10 @@ class DownloadPicker:
 
     def open(self, data):
         catalog, item, folder = self.open_options(data)
+        if item.get("provedor") == "internet_archive":
+            self._say(_("Looking up the FLAC files of the item…"))
+            rows = self._lookup("ia_faixas", downloader.archive_tracks, item["ia_item"])
+            return self._remember("faixas", item["titulo"], rows, folder, item.get("artista", ""))
         if catalog["tipo"] == "albuns":
             self._say(_("Finding album editions…"))
             # Grouped albums search by their base title so every edition comes back.

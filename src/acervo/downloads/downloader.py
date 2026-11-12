@@ -18,6 +18,7 @@ from pathlib import Path
 from mutagen import File as MutagenFile
 from mutagen.id3 import ID3, TCON, ID3NoHeaderError
 
+from acervo.downloads import archive
 from acervo.library.musicbrainz import MusicBrainz
 from acervo.library.plan import rules
 from acervo.library.scan import TEMP_PREFIXES, VERSION, album_base, normalized
@@ -172,7 +173,8 @@ def _text(value: str, message: str) -> str:
 
 # Only images from cover CDNs; no arbitrary URLs coming from the search.
 PHOTO_HOSTS = re.compile(
-    r"https://(?:[a-z0-9-]+\.googleusercontent\.com|i\.scdn\.co|mosaic\.scdn\.co|image-cdn-[a-z0-9-]+\.spotifycdn\.com)/[^\s\"'<>]+"
+    r"https://(?:[a-z0-9-]+\.googleusercontent\.com|i\.scdn\.co|mosaic\.scdn\.co|image-cdn-[a-z0-9-]+\.spotifycdn\.com"
+    r"|archive\.org/services/img)/[^\s\"'<>]+"
 )
 
 
@@ -266,6 +268,15 @@ def tracks(url: str) -> list[dict]:
     ):
         raise ValueError(_("Use a Spotify track, album or playlist link"))
     return _enrich(_adapter("faixas", url, timeout=300), "titulo", "album", "tipo_album")
+
+
+def search_archive(text: str) -> list[dict]:
+    """Internet Archive items with FLAC files, most downloaded first."""
+    return _enrich(archive.search(_text(text, _("Enter what to search for"))), None, "titulo", "tipo")
+
+
+def archive_tracks(identifier: str) -> list[dict]:
+    return _enrich(archive.tracks(identifier), "titulo", "album", "tipo_album")
 
 
 def _key(artist: str, title: str) -> str:
@@ -377,6 +388,8 @@ def _download_one(
     lyrics_client: LyricsClient | None = None,
 ) -> dict:
     url = item.get("url", "")
+    if item.get("provedor") == archive.PROVIDER:
+        return _download_archive(item, folder, genre_rules)
     if not re.fullmatch(r"https://open\.spotify\.com/track/[A-Za-z0-9]+", url.split("?")[0]):
         return {**item, "estado": "erro", "mensagem": _("Invalid track link")}
     with tempfile.TemporaryDirectory(prefix="acervo-download-") as work:
@@ -451,6 +464,34 @@ def _download_one(
         }
 
 
+def _download_archive(item: dict, folder: Path, genre_rules: list[dict]) -> dict:
+    """FLAC straight from archive.org: listed size and MD5, ffmpeg check, then an exclusive publish."""
+    if not re.fullmatch(r"https://archive\.org/download/[A-Za-z0-9][A-Za-z0-9._-]*/\S+", item.get("url", "")) or not (
+        re.fullmatch(r"[0-9a-f]{32}", str(item.get("md5", ""))) and isinstance(item.get("tamanho_bytes"), int)
+    ):
+        return {**item, "estado": "erro", "mensagem": _("Invalid track link")}
+    work = archive.work_file(folder)
+    try:
+        archive.fetch(item, work)
+        if not _valid_audio(work):
+            return {**item, "estado": "erro", "mensagem": _("The downloaded audio is corrupted or incomplete")}
+        genre = genre_from_rules(item.get("artista", ""), item.get("album", ""), genre_rules)
+        filled = archive.fill_tags(work, item, genre)
+        final = folder / archive.safe_name(item.get("artista", ""), item.get("titulo", ""))
+        try:
+            _publish(work, final)
+        except FileExistsError:
+            return {
+                **item,
+                "estado": "ja_existia",
+                "arquivo": str(final),
+                "mensagem": _("A file with this name already exists in the folder"),
+            }
+        return {**item, "estado": "baixado", "arquivo": str(final), "genero_preenchido": filled, "letra": False}
+    finally:
+        work.unlink(missing_ok=True)
+
+
 DOWNLOAD_WORKERS = 3
 
 
@@ -483,7 +524,8 @@ def download(
         raise ValueError(_("Invalid bitrate"))
     progress = progress or (lambda *args: None)
     genre_rules = rules(RULES / "genre_rules.csv")
-    executable = spotdl_executable()
+    # Internet Archive tracks are plain HTTP downloads; only the others need spotDL.
+    executable = spotdl_executable() if any(i.get("provedor") != archive.PROVIDER for i in items) else ""
     lyrics = LyricsClient() if lyrics is True else (lyrics or None)
     lock = threading.Lock()
     counts = {"started": 0, "finished": 0, "stopped": False}

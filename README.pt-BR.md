@@ -118,6 +118,14 @@ Os downloads entram em uma fila, um lote de cada vez, então você pode continua
 navegando; lotes que ainda não começaram podem ser removidos. Mantenha o Acervo
 aberto até terminar: a fila se perde se o servidor reiniciar.
 
+**Internet Archive (FLAC):** a aba Internet Archive busca no
+[archive.org](https://archive.org) itens com arquivos FLAC (gravações ao vivo,
+netlabels, discos 78 rpm antigos e outros) e precisa só do `ffmpeg`, não do spotDL.
+Cada arquivo é conferido com o tamanho e o MD5 informados pelo Archive, retomado se a
+conexão cair, validado com o ffmpeg e recebe as tags de título, artista, álbum e
+faixa que faltarem. Os direitos variam por item: a coleção e a licença aparecem ao
+lado de cada um.
+
 **No terminal:**
 
 ```bash

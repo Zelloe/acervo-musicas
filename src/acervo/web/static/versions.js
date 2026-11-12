@@ -41,7 +41,7 @@ function versionBadges(version) {
 
 function safePhoto(url) {
   return typeof url === "string" &&
-    /^https:\/\/(?:[a-z0-9-]+\.googleusercontent\.com|i\.scdn\.co|mosaic\.scdn\.co|image-cdn-[a-z0-9-]+\.spotifycdn\.com)\/[^\s"'<>]+$/.test(
+    /^https:\/\/(?:[a-z0-9-]+\.googleusercontent\.com|i\.scdn\.co|mosaic\.scdn\.co|image-cdn-[a-z0-9-]+\.spotifycdn\.com|archive\.org\/services\/img)\/[^\s"'<>]+$/.test(
       url,
     )
     ? url

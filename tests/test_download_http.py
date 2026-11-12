@@ -135,6 +135,31 @@ class SimpleDownloadHTTPTest(unittest.TestCase):
         self.request("/api/download/search", {"tipo": kind, "consulta": text, "pasta": str(self.lib)}, status=202)
         return self.wait_job()
 
+    def test_internet_archive_items_open_their_flac_files(self):
+        item = {
+            "titulo": "Live at Barton Hall",
+            "artista": "Grateful Dead",
+            "ano": "1977",
+            "provedor": "internet_archive",
+            "ia_item": "gd1977-05-08",
+            "colecao": "GratefulDead",
+            "licenca": "",
+        }
+        track = {**self.songs[1], "provedor": "internet_archive", "md5": "0" * 32, "tamanho_bytes": 10}
+        with (
+            patch("acervo.downloads.picker.downloader.search_archive", return_value=[item]) as search,
+            patch("acervo.downloads.picker.downloader.archive_tracks", return_value=[track]) as listing,
+        ):
+            items = self.search("internet_archive", "Grateful Dead 1977")
+            self.assertEqual((items["type"], items["items"][0]["provider"]), ("albums", "internet_archive"))
+            self.assertEqual(items["items"][0]["collection"], "GratefulDead")
+            self.request("/api/download/open", {"catalogo": items["id"], "item": items["items"][0]["id"]}, status=202)
+            tracks = self.wait_job()
+        search.assert_called_once_with("Grateful Dead 1977")
+        listing.assert_called_once_with("gd1977-05-08")
+        self.mock_editions.assert_not_called()  # an Archive item is not looked up on Spotify
+        self.assertEqual((tracks["type"], tracks["items"][0]["provider"]), ("tracks", "internet_archive"))
+
     def test_prolific_artists_list_more_than_300_albums(self):
         many = [{"titulo": f"Álbum {i}", "artista": "Banda Teste", "ano": "2026"} for i in range(700)]
         self.mock_albums.return_value = many
