@@ -238,7 +238,10 @@ def import_reviewed(
                     "backup": str(backup.relative_to(transaction)) if backup else None,
                     "pronto": str(ready.relative_to(transaction)),
                     "retirada": f"retiradas/{index:06d}{target.suffix}",
-                    "alteracoes": op.get("alteracoes", {}),
+                    "alteracoes": {
+                        field: change if field != "capa" else {"atual": [], "proposto": ["embedded cover"]}
+                        for field, change in op.get("alteracoes", {}).items()
+                    },
                     "estado": "preparado",
                 }
                 manifest["arquivos"].append(entry)

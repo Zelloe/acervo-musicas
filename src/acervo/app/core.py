@@ -12,6 +12,7 @@ from acervo.app.collection import CollectionOperations
 from acervo.app.common import readable_music
 from acervo.app.downloads import DownloadQueue
 from acervo.app.lyrics import LyricsOperations
+from acervo.app.manual import ManualOperations
 from acervo.downloads.picker import DownloadPicker
 from acervo.downloads.staged import Downloads
 from acervo.library import protections
@@ -46,7 +47,7 @@ def restart_required():
         return True
 
 
-class App(DownloadQueue, LyricsOperations, CollectionOperations):
+class App(DownloadQueue, LyricsOperations, CollectionOperations, ManualOperations):
     def __init__(self, root: Path, storage: Path | None = None):
         self.root = root.expanduser().resolve(strict=True)
         if not self.root.is_dir():
@@ -78,6 +79,7 @@ class App(DownloadQueue, LyricsOperations, CollectionOperations):
         self.global_search = GlobalSearch()
         self.lyrics_client = LyricsClient(self.state_dir / "letras")
         self.lyrics_previews = {}
+        self.manual_previews = {}
         self.bulk_lyrics = None
         self.bulk_lyrics_hashes = {}
         self.bulk_lyrics_previews = {}
@@ -102,14 +104,20 @@ class App(DownloadQueue, LyricsOperations, CollectionOperations):
         self.load_download_cache()
 
     def load(self, path: Path):
+        from acervo.library.manual import archived_files
+
         plan = load_plan(path)
         tracks = json.loads((path.parent / "inventario.json").read_text(encoding="utf-8"))["musicas"]
         root = Path(plan["biblioteca"])
+        archived = archived_files(root, self.storage)
         refreshed, changed, notices = [], set(), []
         # Saved inventories may predate edits made with a different library root.
         # Refresh changed files and withhold their old write proposals until a scan.
         for track in tracks:
             file = track["arquivo"]
+            if file in archived and not Path(file).exists():
+                changed.add(file)
+                continue
             try:
                 music = readable_music(root, file)
                 if signature(music) != track.get("assinatura_antes"):

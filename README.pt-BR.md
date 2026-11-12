@@ -81,6 +81,28 @@ Sem `--folder`, o Acervo usa a pasta de músicas do sistema, a mesma que o
 gerenciador de arquivos mostra (por exemplo `~/Música` no Linux em português ou
 `~/Music` em inglês). Se ela não existir, o programa avisa e pede `--folder`.
 
+## Controle manual das músicas
+
+O menu **⋯** de cada faixa permite tocar a seguir, adicionar à fila,
+**Editar tags**, **Adicionar capa ausente**, ver detalhes e **Apagar faixa**.
+A edição funciona mesmo em MP3/FLAC sem nenhuma tag. Enquanto não tiverem
+título, essas músicas aparecem e podem ser buscadas pelo nome do arquivo;
+isso não grava dados automaticamente. Use uma linha por valor no editor;
+deixar um campo vazio apaga aquela tag. Desbloqueie campos protegidos nos
+detalhes da faixa antes de editá-los.
+
+Para colocar uma capa, escolha um JPEG ou PNG de até 5 MB (requer `ffmpeg`).
+A imagem é gravada dentro do arquivo de áudio. Também é possível preencher as
+capas ausentes do mesmo álbum e artista; as capas existentes são preservadas.
+Revise a prévia antes de confirmar. Os originais completos ficam em backup fora
+da pasta de músicas e podem ser restaurados pelo **Histórico**, byte por byte.
+
+Apagar exige uma confirmação própria: somente o arquivo de áudio selecionado
+sai da pasta de músicas, e o original recuperável fica em `backups/` nos dados
+do aplicativo. Use **Histórico → Restaurar faixa** para recuperá-lo.
+A restauração recusa sobrescrever um caminho ocupado. Guarde essa pasta de
+backup enquanto precisar desfazer; a exclusão mantém o espaço do original salvo.
+
 ## Baixar músicas
 
 Requer [spotDL](https://github.com/spotDL/spotify-downloader) (`pipx install spotdl`)

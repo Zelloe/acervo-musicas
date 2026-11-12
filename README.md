@@ -81,6 +81,27 @@ Without `--folder`, Acervo uses the system music folder, the same one your file
 manager shows (for example `~/Music`, or `~/Música` on a Portuguese system). If
 it does not exist, the program says so and asks for `--folder`.
 
+## Managing individual tracks
+
+Use a track's **⋯** menu to play it next, add it to the queue, **Edit tags**,
+**Add missing cover**, view details or **Delete track**. Tag editing also works
+on MP3/FLAC files without metadata. Such tracks use their filename in the list
+and search until you give them a title; this fallback does not write tags.
+The editor accepts one value per line and an empty field clears that tag.
+Unlock protected fields in Track details before editing them.
+
+For covers, choose a JPEG or PNG up to 5 MB (`ffmpeg` must be installed).
+The image is embedded in the audio file. You can fill missing covers across the
+same album and artist; files that already have artwork are preserved.
+Review the preview before confirming any write. Full originals are backed up
+outside the music folder and can be restored byte for byte from **History**.
+
+Deleting requires a separate confirmation: only the selected audio file leaves
+the music folder, and its recoverable original remains in the application data's
+`backups/` folder. **History → Restore track** puts it back. Restoration refuses
+to overwrite an occupied path. Keep that backup folder while you need undo;
+deletion does not free the space used by its saved original.
+
 ## Downloading music
 
 Requires [spotDL](https://github.com/spotDL/spotify-downloader)

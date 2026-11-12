@@ -142,7 +142,7 @@ class LibraryIndex:
         self.songs = _Matcher(
             [
                 {
-                    "titulo": _join(t.get("titulo")),
+                    "titulo": _join(t.get("titulo")) or Path(t.get("arquivo", "")).name,
                     "artista": " ".join([_join(t.get("artista")), _join(t.get("artista_album"))]),
                     "album": _join(t.get("album")),
                     "genero": _join(t.get("genero")),
@@ -185,7 +185,11 @@ class LibraryIndex:
         for _score, index, _matched in self.songs.rank(query, limit):
             track = self.tracks[index]
             songs.append(
-                {"id": track.get("id"), "titulo": _join(track.get("titulo")), "artista": _join(track.get("artista"))}
+                {
+                    "id": track.get("id"),
+                    "titulo": _join(track.get("titulo")) or Path(track.get("arquivo", "")).name,
+                    "artista": _join(track.get("artista")),
+                }
             )
         return {"artistas": artists[:4], "albuns": albums[:4], "musicas": songs[:limit]}
 

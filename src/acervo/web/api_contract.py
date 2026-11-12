@@ -177,6 +177,7 @@ KEYS = {
 }
 
 ENUMS = {
+    "exclusao": "deletion",
     "acustico": "acoustic",
     "adicionar": "add",
     "aguardando": "waiting",

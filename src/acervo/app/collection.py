@@ -288,7 +288,11 @@ class CollectionOperations:
                         {
                             "id": path.parent.name,
                             "tipo": manifest.get("tipo", "metadados"),
-                            "categoria": "letra" if str(manifest.get("lote", "")).startswith("letra-") else "",
+                            "categoria": "letra"
+                            if str(manifest.get("lote", "")).startswith("letra-")
+                            else manifest.get("lote", "")
+                            if str(manifest.get("lote", "")).startswith("manual-")
+                            else "",
                             "estado": manifest["estado"],
                             "data": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(),
                             "arquivos": len(manifest["arquivos"]),

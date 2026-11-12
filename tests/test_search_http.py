@@ -122,7 +122,7 @@ class SearchHTTPTest(unittest.TestCase):
         queue = self.request("/api/queue", {"q": "coracao", "sort": "title"})
         self.assertEqual(queue["total"], 2)
         self.assertEqual([t["id"] for t in queue["tracks"]], ["1", "2"])
-        self.assertEqual(set(queue["tracks"][0]), {"id", "title", "artist", "album", "duration_seconds"})
+        self.assertEqual(set(queue["tracks"][0]), {"id", "file", "title", "artist", "album", "duration_seconds"})
         for params in ({"sort": "file"}, {"sort": "title", "direction": "sideways"}):
             self.assertIn("error", self.request("/api/search", params, status=400))
 

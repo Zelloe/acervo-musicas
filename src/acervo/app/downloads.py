@@ -163,7 +163,8 @@ class DownloadQueue:
             self.tracks = [t for t in self.tracks if t["id"] not in updates] + list(updates.values())
             self.by_id.update(updates)
             self.library_revision = secrets.token_hex(8)
-            cached = sorted(self.incremental_paths)
+            # Removed tracks can remain here to suppress proposals from an older plan.
+            cached = sorted(p for p in self.incremental_paths if Path(p).is_file())
         if persist:
             try:
                 atomic_json(self.download_cache, {"biblioteca": str(self.root), "arquivos": cached})

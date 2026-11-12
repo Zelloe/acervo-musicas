@@ -168,7 +168,7 @@ function downloadQueueHTML(rows) {
     completed: tr("Completed"),
     error: tr("Failed"),
   };
-  return `<div class="section-heading"><div><h2>${tr("Download queue")}</h2><p>${tr("Downloads run one at a time. You can keep browsing. Keep Acervo open until the queue finishes.")}</p></div></div>${rows.length ? `<ol class="download-queue-list">${rows.map((row) => downloadQueueItem(row, labels)).join("")}</ol>` : `<p class="download-hint">${tr("Your download queue is empty.")}</p>`}`;
+  return `<div class="section-heading"><div><h2>${tr("Download queue")}</h2><p>${tr("Queued batches run one at a time, with tracks downloading in parallel. You can keep browsing. Keep Acervo open until the queue finishes.")}</p></div></div>${rows.length ? `<ol class="download-queue-list">${rows.map((row) => downloadQueueItem(row, labels)).join("")}</ol>` : `<p class="download-hint">${tr("Your download queue is empty.")}</p>`}`;
 }
 
 function updateDownloadQueue() {

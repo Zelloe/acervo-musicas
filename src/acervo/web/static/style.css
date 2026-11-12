@@ -4189,3 +4189,89 @@ kbd {
   border-bottom-width: 2px;
   border-radius: 5px;
 }
+/* Manual track controls */
+table:has([data-track-menu]) :is(th, td):last-child {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--panel);
+}
+.track-menu {
+  position: fixed;
+  z-index: 100;
+  width: min(260px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #454a47;
+  border-radius: 10px;
+  background: #242825;
+  box-shadow: 0 12px 36px #0008;
+}
+.track-menu button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.track-menu button:focus,
+.track-menu button:hover {
+  background: #ffffff12;
+}
+.track-menu svg {
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+}
+.track-menu .danger-text {
+  color: #ffa8a8;
+}
+.button.danger {
+  background: #b83030;
+  color: white;
+}
+.manual-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.manual-fields label {
+  display: block;
+  margin-bottom: 5px;
+}
+.manual-fields textarea {
+  width: 100%;
+  resize: vertical;
+}
+.manual-cover-preview {
+  display: block;
+  width: 190px;
+  height: 190px;
+  max-width: 100%;
+  object-fit: contain;
+  margin: 18px auto;
+  border-radius: 8px;
+}
+.manual-cover-preview[hidden] {
+  display: none;
+}
+.manual-file {
+  overflow-wrap: anywhere;
+}
+.manual-album-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+@media (max-width: 600px) {
+  .manual-fields {
+    grid-template-columns: 1fr;
+  }
+}

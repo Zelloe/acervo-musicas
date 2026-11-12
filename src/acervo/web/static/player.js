@@ -156,7 +156,7 @@ function renderQueue() {
     .map((id) => {
       const track = playback.tracks.get(id);
       if (!track) return "";
-      return `<li><button class="queue-row" data-queue-play="${escapeHTML(id)}">${trackArtwork(track, "queue-cover")}<span class="queue-text"><strong>${escapeHTML(join(track.title))}</strong><span>${escapeHTML(join(track.artist))}</span></span><span class="queue-time">${duration(track.duration_seconds)}</span></button></li>`;
+      return `<li><button class="queue-row" data-queue-play="${escapeHTML(id)}">${trackArtwork(track, "queue-cover")}<span class="queue-text"><strong>${escapeHTML(trackTitle(track))}</strong><span>${escapeHTML(join(track.artist))}</span></span><span class="queue-time">${duration(track.duration_seconds)}</span></button></li>`;
     })
     .join("");
   const more = upcoming.length - visible.length;
@@ -166,12 +166,12 @@ function renderQueue() {
 
 function renderNowView() {
   const track = state.current;
-  const title = [join(track?.title), join(track?.artist)].filter(Boolean).join(" — ");
+  const title = [track ? trackTitle(track) : "", join(track?.artist)].filter(Boolean).join(" — ");
   document.title = title ? `${title} | Acervo` : tr("Acervo — Your music library");
   if ($("#now-view").hidden || !track) return;
   const real = playback.index >= 0 && !track.id.startsWith("stage-");
   $("#now-title").dataset.i18nUser = "true";
-  $("#now-title").textContent = join(track.title);
+  $("#now-title").textContent = trackTitle(track);
   $("#now-artist").dataset.i18nUser = "true";
   $("#now-artist").innerHTML = artistLinks(track.artist);
   $("#now-album").dataset.i18nUser = "true";
@@ -487,12 +487,13 @@ const PLAYER_KEYS = {
   },
   details: () => {
     const target = document.activeElement;
-    const control = target.closest("[data-info],[data-play],[data-queue-play]");
+    const control = target.closest("[data-info],[data-track-menu],[data-play],[data-queue-play]");
     const id =
       control?.dataset.info ||
+      control?.dataset.trackMenu ||
       control?.dataset.play ||
       control?.dataset.queuePlay ||
-      target.closest("tr")?.querySelector("[data-info]")?.dataset.info ||
+      target.closest("tr")?.querySelector("[data-track-menu]")?.dataset.trackMenu ||
       state.current?.id;
     if (id && !id.startsWith("stage-")) showDetails(id).catch((error) => toast(error.message));
   },
@@ -575,6 +576,7 @@ document.addEventListener(
     }
     if (event.isComposing || event.getModifierState("AltGraph") || event.defaultPrevented) return;
     const target = event.target;
+    if (target.closest?.('[role="menu"]') && event.key !== " ") return;
     if (
       target.closest?.("textarea,select,[contenteditable],input:not([type=range])") ||
       target.closest?.('[role="listbox"]')

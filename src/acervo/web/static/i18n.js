@@ -1,6 +1,44 @@
 "use strict";
 
 const portugueseMessages = {
+  "Changes saved. You can undo them from History.": "Alterações salvas. Você pode desfazê-las pelo Histórico.",
+  "Track actions": "Ações da faixa",
+  "Track actions for": "Ações da faixa",
+  "Untitled track": "Faixa sem título",
+  "Unknown artist": "Artista desconhecido",
+  "Play next": "Tocar a seguir",
+  "Add to queue": "Adicionar à fila",
+  "Edit tags": "Editar tags",
+  "Add missing cover": "Adicionar capa ausente",
+  "Delete track": "Apagar faixa",
+  "Tags are optional. You can fill in empty fields. Use one line per value; leave a field empty to clear it.":
+    "Você pode preencher os campos mesmo quando o arquivo não tem tags. Use uma linha por valor; deixe um campo vazio para apagá-lo.",
+  Protected: "Protegido",
+  "Protected fields can be unlocked in Track details.":
+    "Os campos protegidos podem ser desbloqueados nos detalhes da faixa.",
+  "Choose a JPEG or PNG image up to 5 MB": "Escolha uma imagem JPEG ou PNG de até 5 MB",
+  "Selected cover": "Capa selecionada",
+  "Also fill missing covers in this album": "Preencher também as capas ausentes deste álbum",
+  "The image will be embedded in the audio file. Existing covers are preserved.":
+    "A imagem será gravada dentro do arquivo de áudio. As capas existentes serão preservadas.",
+  "Delete this track?": "Apagar esta faixa?",
+  "Review cover": "Revisar capa",
+  "Review tag changes": "Revisar alterações das tags",
+  "The audio file will leave your music folder. Its original will be kept outside the library; restore it from History.":
+    "O arquivo de áudio será retirado da sua pasta de músicas. O original ficará guardado fora da biblioteca; restaure-o pelo Histórico.",
+  "A full original backup will be kept. You can undo this operation from History.":
+    "Uma cópia completa do original será guardada. Você pode desfazer esta operação pelo Histórico.",
+  "existing covers preserved": "capas existentes preservadas",
+  "Backup size": "Tamanho do backup",
+  "Back up and save": "Fazer backup e salvar",
+  "Track will play next.": "A faixa tocará a seguir.",
+  "Track added to queue.": "Faixa adicionada à fila.",
+  "Saving changes. Follow progress at the top.": "Salvando alterações. Acompanhe o progresso no topo.",
+  "Could not read this image": "Não foi possível ler esta imagem",
+  "track deletion": "exclusão de faixa",
+  "track artwork": "capa de faixa",
+  "manual tag edit": "edição manual de tags",
+  "Restore track": "Restaurar faixa",
   "Keyboard shortcuts": "Atalhos de teclado",
   "They work anywhere except while typing.": "Funcionam em qualquer tela, menos enquanto você digita.",
   "Space controls playback, including in dialogs. Enter activates the focused button. Text and selection fields keep their own keys.":
@@ -35,8 +73,8 @@ const portugueseMessages = {
   "No artists found": "Nenhum artista encontrado",
   Discography: "Discografia",
   "Download queue": "Fila de downloads",
-  "Downloads run one at a time. You can keep browsing. Keep Acervo open until the queue finishes.":
-    "Os downloads são feitos um por vez. Você pode continuar navegando. Mantenha o Acervo aberto até a fila terminar.",
+  "Queued batches run one at a time, with tracks downloading in parallel. You can keep browsing. Keep Acervo open until the queue finishes.":
+    "Os lotes da fila são feitos um por vez, com faixas baixadas em paralelo. Você pode continuar navegando. Mantenha o Acervo aberto até a fila terminar.",
   "Your download queue is empty.": "Sua fila de downloads está vazia.",
   "Add to queue (": "Adicionar à fila (",
   "Added to the download queue.": "Adicionado à fila de downloads.",

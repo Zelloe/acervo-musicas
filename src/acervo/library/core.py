@@ -14,8 +14,9 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from mutagen.flac import FLAC
-from mutagen.id3 import ID3, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX, TYER, USLT
+from mutagen.id3 import ID3, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX, TYER, USLT, ID3NoHeaderError
 
+from acervo.library.artwork import add_cover, decode_cover
 from acervo.messages import _, register
 
 register(
@@ -72,7 +73,17 @@ TAG_FIELDS = {
 }
 
 # Fields written only on explicit request (outside the metadata analysis).
-EXTRA_FIELDS = {"letra": "lyrics"}  # FLAC: LYRICS; MP3: USLT
+EXTRA_FIELDS = {"letra": "lyrics", "capa": "cover"}
+
+
+def read_id3(path):
+    try:
+        return ID3(path, translate=False)
+    except ID3NoHeaderError:
+        with path.open("rb") as handle:
+            if handle.read(3) == b"ID3":
+                raise ValueError(_("Invalid ID3 header")) from None
+        return ID3()
 
 
 def id3_field(field: str, version: int):
@@ -83,7 +94,7 @@ def id3_field(field: str, version: int):
 
 def metadata_values(path: Path) -> dict:
     if path.suffix.casefold() == ".mp3":
-        tags = ID3(path, translate=False)
+        tags = read_id3(path)
         result = {}
         for field in TAG_FIELDS:
             key = id3_field(field, tags.version[1])[0]
@@ -151,7 +162,7 @@ def freeze(value):
 def integrity(path: Path) -> dict:
     """Full semantic state of the tags and hash of the original compressed stream."""
     if path.suffix.casefold() == ".mp3":
-        tags = ID3(path, translate=False)
+        tags = read_id3(path)
         if tags.version[:2] not in ((2, 3), (2, 4)):
             raise ValueError(_("Writing is limited to ID3v2.3/v2.4; file sent for review"))
         with path.open("rb") as handle:
@@ -201,7 +212,7 @@ def integrity(path: Path) -> dict:
 
 def previous_album(path: Path) -> list[str]:
     if path.suffix.casefold() == ".mp3":
-        tags = ID3(path, translate=False)
+        tags = read_id3(path)
         return [str(v) for f in tags.getall("TXXX:" + ORIGINAL_MP3) for v in f.text]
     return list(FLAC(path).get(ORIGINAL_FLAC, []))
 
@@ -210,11 +221,11 @@ def write_validated(path: Path, changes: dict) -> dict:
     """Must only receive a temporary copy. Aborts if anything unapproved changes."""
     if not changes or set(changes) - TAG_FIELDS.keys() - EXTRA_FIELDS.keys():
         raise ValueError(_("Unsupported change fields"))
-    for change in changes.values():
+    for field, change in changes.items():
         proposed = change["proposto"]
         if (
             not isinstance(proposed, list)
-            or not proposed
+            or (not proposed and field in EXTRA_FIELDS)
             or any(not isinstance(v, str) or not v.strip() or "\x00" in v for v in proposed)
         ):
             raise ValueError(_("Invalid proposed value"))
@@ -223,12 +234,18 @@ def write_validated(path: Path, changes: dict) -> dict:
     album_history = previous_album(path)
     expected_history = list(album_history)
     if before["formato"] == "MP3":
-        tags = ID3(path, translate=False)
+        tags = read_id3(path)
         with path.open("rb") as handle:
             handle.seek(max(0, path.stat().st_size - 128))
             tail = handle.read()
         v1 = tail if len(tail) == 128 and tail[:3] == b"TAG" else b""
         for field, change in changes.items():
+            if field == "capa":
+                if change["atual"] or len(change["proposto"]) != 1:
+                    raise ValueError(_("Invalid proposed value"))
+                add_cover(tags, change["proposto"][0], True)
+                allowed.add("APIC:Cover")
+                continue
             if field == "letra":
                 old = [f.text for f in tags.getall("USLT")]
                 if old != change["atual"]:
@@ -244,7 +261,9 @@ def write_validated(path: Path, changes: dict) -> dict:
             old = [str(v) for f in tags.getall(key) for v in (f.genres if field == "genero" else f.text)]
             if old != change["atual"]:
                 raise ValueError(_("Current value of {field} differs from the plan", field=field))
-            tags.add(frame(encoding=1 if tags.version[1] == 3 else 3, text=change["proposto"]))
+            tags.delall(key)
+            if change["proposto"]:
+                tags.add(frame(encoding=1 if tags.version[1] == 3 else 3, text=change["proposto"]))
             allowed.add(key)
             if field == "album" and old:
                 companion = "TXXX:" + ORIGINAL_MP3
@@ -260,11 +279,19 @@ def write_validated(path: Path, changes: dict) -> dict:
         if audio.tags is None:
             audio.add_tags()
         for field, change in changes.items():
+            if field == "capa":
+                if change["atual"] or len(change["proposto"]) != 1:
+                    raise ValueError(_("Invalid proposed value"))
+                add_cover(audio, change["proposto"][0], False)
+                continue
             key = EXTRA_FIELDS[field] if field in EXTRA_FIELDS else TAG_FIELDS[field][2]
             old = list(audio.get(key, []))
             if old != change["atual"]:
                 raise ValueError(_("Current value of {field} differs from the plan", field=field))
-            audio[key] = change["proposto"]
+            if change["proposto"]:
+                audio[key] = change["proposto"]
+            else:
+                audio.pop(key, None)
             allowed.add(key)
             if field == "album" and old:
                 expected_history = list(dict.fromkeys(album_history + old))
@@ -272,16 +299,26 @@ def write_validated(path: Path, changes: dict) -> dict:
                 allowed.add(ORIGINAL_FLAC.lower())
         audio.save(path, deleteid3=False)
     after = integrity(path)
+    if "capa" in changes and before["formato"] == "FLAC":
+        if [b for b in before["blocos"] if b[0] != 6] != [b for b in after["blocos"] if b[0] != 6]:
+            raise ValueError(_("Validation rejected a change to {field}", field="FLAC blocks"))
     for field in before.keys() | after.keys():
-        if field != "tags" and before.get(field) != after.get(field):
+        if field == "vendor" and before[field] is None:
+            continue  # A FLAC without a comment block needs a vendor when its first tags are added.
+        if field != "tags" and not (field == "blocos" and "capa" in changes) and before.get(field) != after.get(field):
             raise ValueError(_("Validation rejected a change to {field}", field=field))
     for key in before["tags"].keys() | after["tags"].keys():
         if key not in allowed and before["tags"].get(key) != after["tags"].get(key):
             raise ValueError(_("Validation rejected a change to tag {key}", key=key))
     # Checks the written values, including the preserved edition.
     if after["formato"] == "MP3":
-        saved = ID3(path, translate=False)
+        saved = read_id3(path)
         for field, change in changes.items():
+            if field == "capa":
+                expected = decode_cover(change["proposto"][0])[0]
+                if [frame.data for frame in saved.getall("APIC")] != [expected]:
+                    raise ValueError(_("Could not confirm that {field} was written", field="cover"))
+                continue
             if field == "letra":
                 if [f.text for f in saved.getall("USLT")] != change["proposto"]:
                     raise ValueError(_("Could not confirm that the lyrics were written"))
@@ -293,6 +330,11 @@ def write_validated(path: Path, changes: dict) -> dict:
     else:
         saved = FLAC(path)
         for field, change in changes.items():
+            if field == "capa":
+                expected = decode_cover(change["proposto"][0])[0]
+                if [p.data for p in saved.pictures] != [expected]:
+                    raise ValueError(_("Could not confirm that {field} was written", field="cover"))
+                continue
             key = EXTRA_FIELDS[field] if field in EXTRA_FIELDS else TAG_FIELDS[field][2]
             if list(saved.get(key, [])) != change["proposto"]:
                 raise ValueError(_("Could not confirm that {field} was written", field=field))
@@ -482,6 +524,10 @@ def restore(manifest_path: Path, storage: Path | None = None) -> dict:
         from acervo.library.importer import restore_import
 
         return restore_import(manifest_path, storage)
+    if manifest.get("tipo") == "exclusao":
+        from acervo.library.manual import restore_deleted
+
+        return restore_deleted(manifest_path)
     if manifest.get("schema") != 1:
         raise ValueError(_("Incompatible manifest"))
     transaction = manifest_path.parent

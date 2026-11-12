@@ -11,12 +11,15 @@ const escapeHTML = (value) =>
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
   );
 const join = (values) => (values || []).join(" / ");
+const trackTitle = (track) => join(track?.title).trim() || track?.file?.split(/[\\/]/).pop() || tr("Untitled track");
+const trackArtist = (track) => join(track?.artist).trim() || tr("Unknown artist");
 const number = (value) => new Intl.NumberFormat(uiLocale()).format(value || 0);
 const duration = (value) => {
   const seconds = Math.max(0, Math.floor(Number(value) || 0));
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 };
-const cover = (id) => `/api/cover?id=${encodeURIComponent(id)}`;
+const cover = (id) =>
+  `/api/cover?id=${encodeURIComponent(id)}&v=${encodeURIComponent(state.summary?.library_revision || "")}`;
 function trackArtwork(track, className = "", alt = "") {
   const missing = track.has_cover === false || (Array.isArray(track.covers) && !track.covers.length);
   return missing
@@ -178,7 +181,7 @@ function setWriteControls() {
   $("#top-refresh").disabled = blocked;
   document
     .querySelectorAll(
-      '[data-action="analyze"], [data-action="confirm-apply"], [data-action="confirm-restore"], [data-action="fetch-downloads"], [data-action="review-import"], [data-action="confirm-import"], [data-action="export-playlist"], [data-action="confirm-playlist"], [data-playlist-album], [data-track-protection], [data-protection-album], [data-action="protect-album"], [data-action="unprotect-album"], [data-action="preview-lyrics"], [data-action="confirm-lyrics"], [data-action="bulk-review"], [data-action="bulk-confirm"], [data-action="sync-review"], #lyrics-editor, #playlist-form [type="submit"], #download-form [type="submit"]',
+      '[data-manual-write], [data-action="analyze"], [data-action="confirm-apply"], [data-action="confirm-restore"], [data-action="fetch-downloads"], [data-action="review-import"], [data-action="confirm-import"], [data-action="export-playlist"], [data-action="confirm-playlist"], [data-playlist-album], [data-track-protection], [data-protection-album], [data-action="protect-album"], [data-action="unprotect-album"], [data-action="preview-lyrics"], [data-action="confirm-lyrics"], [data-action="bulk-review"], [data-action="bulk-confirm"], [data-action="sync-review"], #lyrics-editor, #playlist-form [type="submit"], #download-form [type="submit"]',
     )
     .forEach((el) => {
       el.disabled = blocked;
@@ -204,7 +207,7 @@ function trackRows(tracks, offset = 0) {
   return tracks
     .map(
       (t, i) =>
-        `<tr><td class="num row-number"><span>${offset + i + 1}</span><button class="icon-button row-play" data-play="${t.id}" aria-label="${tr("Listen")} ${escapeHTML(join(t.title))}">${icon("play")}</button></td><td><div class="track-info">${trackArtwork(t, "track-cover")}<div class="track-text"><span class="track-name" title="${escapeHTML(join(t.title))}">${escapeHTML(join(t.title))}</span><span class="track-artist">${artistLinks(t.artist)}</span>${t.version ? recordingBadges(t.version) : ""}</div></div></td><td class="album-cell" title="${escapeHTML(join(t.album))}">${albumLink(join(t.album), t.id)}</td><td>${t.genre.length ? `<span class="source">${escapeHTML(join(t.genre))}</span>` : `<span class="missing">${tr("Not set")}</span>`}</td><td><span class="format ${t.format === "FLAC" ? "flac" : ""}">${t.format}</span></td><td class="time-cell">${duration(t.duration_seconds)}</td><td><button class="icon-button" data-info="${t.id}" aria-label="${tr("View metadata for")} ${escapeHTML(join(t.title))}">${icon("more")}</button></td></tr>`,
+        `<tr><td class="num row-number"><span>${offset + i + 1}</span><button class="icon-button row-play" data-play="${t.id}" aria-label="${tr("Listen")} ${escapeHTML(trackTitle(t))}">${icon("play")}</button></td><td><div class="track-info">${trackArtwork(t, "track-cover")}<div class="track-text"><span class="track-name" title="${escapeHTML(trackTitle(t))}">${escapeHTML(trackTitle(t))}</span><span class="track-artist">${t.artist.some((value) => value.trim()) ? artistLinks(t.artist) : escapeHTML(trackArtist(t))}</span>${t.version ? recordingBadges(t.version) : ""}</div></div></td><td class="album-cell" title="${escapeHTML(join(t.album))}">${albumLink(join(t.album), t.id)}</td><td>${t.genre.length ? `<span class="source">${escapeHTML(join(t.genre))}</span>` : `<span class="missing">${tr("Not set")}</span>`}</td><td><span class="format ${t.format === "FLAC" ? "flac" : ""}">${t.format}</span></td><td class="time-cell">${duration(t.duration_seconds)}</td><td><button class="icon-button" data-track-menu="${t.id}" aria-haspopup="menu" aria-expanded="false" aria-label="${tr("Track actions for")} ${escapeHTML(trackTitle(t))}">${icon("more")}</button></td></tr>`,
     )
     .join("");
 }
@@ -448,7 +451,7 @@ async function renderAlbums() {
 }
 
 function historyRow(r, labels) {
-  return `<article class="history-row"><span class="history-icon">${icon("history")}</span><div class="history-text"><strong>${number(r.files)} ${r.files === 1 ? tr("file") : tr("files")} · ${r.category === "lyrics" ? tr(r.files > 1 ? "lyrics batch" : "track lyrics") : r.type === "downloads" ? tr("download import") : tr("metadata update")}</strong><p>${escapeHTML(new Date(r.date).toLocaleString(uiLocale()))} · ${r.type === "downloads" ? tr("originals backed up · additions can be archived when undoing") : tr("full backup")}${r.error ? " · " + escapeHTML(r.error) : ""}</p></div><span class="chip ${r.status === "interrupted" ? "amber" : ""}">${escapeHTML(labels[r.status] || r.status)}</span><button class="button small ghost" data-restore="${r.id}" data-restore-kind="${r.category === "lyrics" ? "metadata" : r.type === "downloads" ? "downloads" : "metadata"}" ${r.status === "restored" ? "disabled" : ""}>${icon("history")} ${r.category === "lyrics" ? tr("Restore lyrics") : r.type === "downloads" ? tr("Undo import") : tr("Restore")}</button></article>`;
+  return `<article class="history-row"><span class="history-icon">${icon("history")}</span><div class="history-text"><strong>${number(r.files)} ${r.files === 1 ? tr("file") : tr("files")} · ${r.category === "lyrics" ? tr(r.files > 1 ? "lyrics batch" : "track lyrics") : r.type === "deletion" ? tr("track deletion") : r.category === "manual-cover" ? tr("track artwork") : r.category === "manual-edit" ? tr("manual tag edit") : r.type === "downloads" ? tr("download import") : tr("metadata update")}</strong><p>${escapeHTML(new Date(r.date).toLocaleString(uiLocale()))} · ${r.type === "downloads" ? tr("originals backed up · additions can be archived when undoing") : tr("full backup")}${r.error ? " · " + escapeHTML(r.error) : ""}</p></div><span class="chip ${r.status === "interrupted" ? "amber" : ""}">${escapeHTML(labels[r.status] || r.status)}</span><button class="button small ghost" data-restore="${r.id}" data-restore-kind="${r.category === "lyrics" || r.category.startsWith("manual-") ? "metadata" : r.type === "downloads" ? "downloads" : "metadata"}" ${r.status === "restored" ? "disabled" : ""}>${icon("history")} ${r.category === "lyrics" ? tr("Restore lyrics") : r.type === "deletion" ? tr("Restore track") : r.category.startsWith("manual-") ? tr("Restore") : r.type === "downloads" ? tr("Undo import") : tr("Restore")}</button></article>`;
 }
 
 async function renderHistory() {
@@ -593,7 +596,7 @@ document.addEventListener("submit", async (event) => {
     playlistState.pending = { ...data, previous_sha256: result.previous_sha256 };
     playlistState.exists = result.exists;
     modal(
-      `${modalHead(tr("Review playlist"), `${number(result.tracks)} ${tr("tracks ordered by artist, album, disc and track number.")}`)}<div class="modal-body"><dl class="details-list"><div><dt>${tr("Destination")}</dt><dd>${escapeHTML(result.playlist)}</dd></div><div><dt>${tr("Format")}</dt><dd>${tr("M3U8 · UTF-8 · relative paths")}</dd></div></dl>${result.exists ? `<div class="form-row"><label><input class="check" id="playlist-overwrite" type="checkbox"> ${tr("Replace the existing playlist")}</label><p>${tr("The previous version will be backed up. To keep both in your collection, go back and choose another name.")}</p></div>` : ""}<ul class="confirm-list">${result.sample.map((t) => `<li><strong>${escapeHTML(join(t.title))}</strong><span>${escapeHTML(join(t.artist))}</span></li>`).join("")}</ul>${result.tracks > result.sample.length ? `<p class="download-hint">${tr("And")} ${number(result.tracks - result.sample.length)} ${tr("more tracks in the selection.")}</p>` : ""}</div><div class="modal-actions"><button class="button ghost" data-action="edit-playlist">${tr("Change name")}</button><button class="button primary" data-action="confirm-playlist">${icon("download")} ${tr("Save playlist")}</button></div>`,
+      `${modalHead(tr("Review playlist"), `${number(result.tracks)} ${tr("tracks ordered by artist, album, disc and track number.")}`)}<div class="modal-body"><dl class="details-list"><div><dt>${tr("Destination")}</dt><dd>${escapeHTML(result.playlist)}</dd></div><div><dt>${tr("Format")}</dt><dd>${tr("M3U8 · UTF-8 · relative paths")}</dd></div></dl>${result.exists ? `<div class="form-row"><label><input class="check" id="playlist-overwrite" type="checkbox"> ${tr("Replace the existing playlist")}</label><p>${tr("The previous version will be backed up. To keep both in your collection, go back and choose another name.")}</p></div>` : ""}<ul class="confirm-list">${result.sample.map((t) => `<li><strong>${escapeHTML(trackTitle(t))}</strong><span>${escapeHTML(join(t.artist))}</span></li>`).join("")}</ul>${result.tracks > result.sample.length ? `<p class="download-hint">${tr("And")} ${number(result.tracks - result.sample.length)} ${tr("more tracks in the selection.")}</p>` : ""}</div><div class="modal-actions"><button class="button ghost" data-action="edit-playlist">${tr("Change name")}</button><button class="button primary" data-action="confirm-playlist">${icon("download")} ${tr("Save playlist")}</button></div>`,
     );
   } catch (error) {
     submit.disabled = false;
@@ -631,7 +634,7 @@ async function showDetails(id) {
     [null, tr("File"), track.file],
   ];
   modal(
-    `${modalHead(tr("Track details"), tr("Metadata read from your file. Protect fields to preserve your choices."))}<div class="detail-hero"><img src="${cover(id)}" alt="${tr("Album cover")}"><div><h3>${escapeHTML(join(track.title))}</h3><p>${escapeHTML(join(track.artist))}</p><button class="button small primary" data-play="${id}">${icon("play")} ${tr("Listen")}</button><button class="button small ghost" data-lyrics="${escapeHTML(id)}">${icon("lyrics")} ${tr("Lyrics")}</button></div></div><div class="modal-body">${track.protection_error ? `<div class="error-box">${escapeHTML(track.protection_error)}</div>` : ""}<dl class="details-list">${pairs.map(([field, k, v]) => `<div><dt>${k}</dt><dd>${escapeHTML(v || tr("Not set"))}${field ? protectionControl(track, field) : ""}</dd></div>`).join("")}</dl></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${tr("Close")}</button></div>`,
+    `${modalHead(tr("Track details"), tr("Metadata read from your file. Protect fields to preserve your choices."))}<div class="detail-hero"><img src="${cover(id)}" alt="${tr("Album cover")}"><div><h3>${escapeHTML(trackTitle(track))}</h3><p>${escapeHTML(join(track.artist))}</p><button class="button small primary" data-play="${id}">${icon("play")} ${tr("Listen")}</button><button class="button small ghost" data-lyrics="${escapeHTML(id)}">${icon("lyrics")} ${tr("Lyrics")}</button></div></div><div class="modal-body">${track.protection_error ? `<div class="error-box">${escapeHTML(track.protection_error)}</div>` : ""}<dl class="details-list">${pairs.map(([field, k, v]) => `<div><dt>${k}</dt><dd>${escapeHTML(v || tr("Not set"))}${field ? protectionControl(track, field) : ""}</dd></div>`).join("")}</dl></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${tr("Close")}</button></div>`,
   );
 }
 
@@ -667,9 +670,9 @@ async function play(id, serial = ++playback.serial) {
   state.current = track;
   if (typeof setLyricsTrack === "function") setLyricsTrack(track);
   $("#player-title").dataset.i18nUser = "true";
-  $("#player-title").textContent = join(track.title);
+  $("#player-title").textContent = trackTitle(track);
   $("#player-artist").dataset.i18nUser = "true";
-  $("#player-artist").textContent = join(track.artist);
+  $("#player-artist").textContent = trackArtist(track);
   $("#player-cover").innerHTML = trackArtwork(track);
   $("#audio-quality").textContent = `${track.format} · ${Math.round((track.bitrate_bps || 0) / 1000)} KBPS`;
   audio.src = `/api/audio?id=${encodeURIComponent(id)}`;
@@ -873,6 +876,12 @@ async function poll() {
     if (typeof captureLyricsJob === "function") await captureLyricsJob(job);
     const bulkChanged = typeof captureBulkLyricsJob === "function" ? await captureBulkLyricsJob(job) : false;
     const simpleChanged = captureSimpleDownloadJob(job);
+    if (job?.result?.manual_kind && job.status === "completed" && state.lastJob !== jobKey)
+      toast(
+        job.result.warnings?.length
+          ? job.result.warnings.join(" ")
+          : tr("Changes saved. You can undo them from History."),
+      );
     if (state.view === "downloads" && simpleChanged) await render();
     if (
       job?.type === "direct_download" &&
@@ -890,6 +899,11 @@ async function poll() {
       state.lastJob !== jobKey &&
       ["completed", "error"].includes(job.status) &&
       ["analysis", "apply", "restore", "import"].includes(job.type);
+    if (
+      (finishedLibraryJob || previousLibrary !== state.summary.library_revision) &&
+      typeof refreshManualPlayback === "function"
+    )
+      await refreshManualPlayback();
     if (
       finishedLibraryJob ||
       previous !== state.summary.analyzed_at ||

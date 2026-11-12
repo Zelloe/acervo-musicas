@@ -157,7 +157,8 @@ class Handler(BaseHTTPRequestHandler):
                     {
                         "total": len(rows),
                         "musicas": [
-                            {k: t[k] for k in ("id", "titulo", "artista", "album", "duracao_segundos")} for t in rows
+                            {k: t[k] for k in ("id", "arquivo", "titulo", "artista", "album", "duracao_segundos")}
+                            for t in rows
                         ],
                     }
                 )
@@ -173,6 +174,7 @@ class Handler(BaseHTTPRequestHandler):
                                 k: t[k]
                                 for k in (
                                     "id",
+                                    "arquivo",
                                     "titulo",
                                     "artista",
                                     "album",
@@ -235,6 +237,8 @@ class Handler(BaseHTTPRequestHandler):
                 sorted(protections.protected(policy, self.app.root, track["arquivo"])) if policy is not None else None
             )
             self.json({**track, "campos_protegidos": fields, "erro_protecoes": error})
+        elif url.path == "/api/tracks/editor":
+            self.json(self.app.manual_editor(query.get("id", [""])[0]))
         elif url.path in ("/api/cover", "/api/downloads/cover"):
             path = (
                 self.app.downloads.file(query.get("id", [""])[0], query.get("faixa", [""])[0])
@@ -329,14 +333,26 @@ class Handler(BaseHTTPRequestHandler):
             self.json({"erro": _("Unauthorized request")}, 403)
             return
         try:
+            route = urlsplit(self.path).path
             size = int(self.headers.get("Content-Length", 0))
-            if size < 0 or size > 1024 * 1024 or self.headers.get_content_type() != "application/json":
+            limit = 8 * 1024 * 1024 if route == "/api/tracks/cover/preview" else 1024 * 1024
+            if size < 0 or size > limit or self.headers.get_content_type() != "application/json":
                 raise ValueError(_("Invalid request"))
             data = from_api(json.loads(self.rfile.read(size)))
             if not isinstance(data, dict):
                 raise ValueError(_("The request body must be a JSON object"))
             route = urlsplit(self.path).path
-            if route == "/api/analyze":
+            if route in ("/api/tracks/edit/preview", "/api/tracks/cover/preview", "/api/tracks/delete/preview"):
+                method = {
+                    "/api/tracks/edit/preview": self.app.preview_manual_edit,
+                    "/api/tracks/cover/preview": self.app.preview_manual_cover,
+                    "/api/tracks/delete/preview": self.app.preview_manual_delete,
+                }[route]
+                self.json(method(data))
+                return
+            elif route == "/api/tracks/save":
+                self.app.save_manual(data)
+            elif route == "/api/analyze":
                 online = (
                     MusicBrainz(self.app.state_dir / "cache/musicbrainz", data.get("contato", ""), 200)
                     if data.get("musicbrainz")
