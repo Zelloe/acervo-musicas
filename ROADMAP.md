@@ -6,10 +6,11 @@ The 15 features below are part of the project's planned scope.
 The checkboxes indicate that each item has been fully delivered and validated;
 existing partial support should be reused and extended.
 
-**Current priority (2026-10-29):** after completing items 6 and 13, pause new
-items on this roadmap. The user prioritised a simple music picker using spotDL,
-in the terminal and browser, saving directly to the chosen folder.
-Metadata management for existing files remains available.
+**Current priority (2026-11-12):** plan packaging for Windows, macOS and Android,
+following the [complete packaging plan in Portuguese](ROADMAP.pt-BR.md#empacotamento-multiplataforma).
+The plan guides implementation; installers have not been delivered yet.
+The 15 features below remain a reference rather than extra packaging scope.
+Desktop spotDL downloads and management of existing files must remain available.
 
 ## Rules for every stage
 
@@ -142,3 +143,33 @@ and limitations, and validating relevant cases in a test library. Workflows
 that write files must demonstrate preservation of data not approved for change
 and restoration of the originals. Demo mode must not include personal files,
 credentials or reports.
+
+## Packaging for Windows, macOS and Android
+
+The [complete plan](ROADMAP.pt-BR.md#empacotamento-multiplataforma), dated
+2026-11-12 and based on `b81425a`, covers source-level portability blockers,
+architecture, dependencies, storage guarantees, migration, installers, signing,
+updates, CI, validation, milestones and distribution costs. Implementation
+milestones remain open.
+
+Proposed targets are Windows 11 x64 (NSIS), macOS 14+ Apple Silicon and Intel
+(separate signed/notarized DMGs), and Android 10+ arm64 (APK, then Play AAB).
+Minimum versions require native validation before being advertised.
+
+Desktop keeps Tauri and ships a frozen Python backend, providers and media
+tools, so users need no Python installation or terminal setup. Android reuses
+the interface and Rust core, with Kotlin storage adapters and Media3 background
+playback. It does not depend on a desktop server. The current Rust core also
+needs Unix dependencies removed and transactional writes/restoration ported.
+
+Delivery proceeds through architecture proofs, OS portability, complete
+runtime, Windows/macOS betas, signed desktop releases, Android playback beta,
+Android writing/recovery and Android distribution. Desktop need not wait for
+the entire Rust port. Android downloads and additional stores/architectures
+are separate milestones, not implied features of the first APK. The Play
+Store build does not download from YouTube; the Internet Archive source, plain
+HTTP with checked MD5, is the candidate there.
+
+The detailed plan links dated official requirements. Publication, certificate
+purchases and paid developer accounts are subsequent decisions on concrete
+release artifacts; this planning work does not perform those actions.
