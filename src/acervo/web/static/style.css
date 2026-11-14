@@ -2472,6 +2472,9 @@ select.field {
   gap: 16px;
   margin-top: 20px;
 }
+.simple-settings:has(> label[hidden]) {
+  grid-template-columns: minmax(0, 1fr);
+}
 .simple-settings label,
 .simple-search-fields label {
   font-size: 12px;

@@ -272,7 +272,12 @@ def tracks(url: str) -> list[dict]:
 
 def search_archive(text: str) -> list[dict]:
     """Internet Archive items with FLAC files, most downloaded first."""
-    return _enrich(archive.search(_text(text, _("Enter what to search for"))), None, "titulo", "tipo")
+    items = _enrich(archive.search(_text(text, _("Enter what to search for"))), None, "titulo", "tipo")
+    for item in items:
+        # Uploads rarely say what they are; a title without "live" or "demo" proves nothing.
+        if item["versao"]["tipo"] == "estudio":
+            item["versao"] = replace_studio(item["versao"], "nao_confirmado")
+    return items
 
 
 def archive_tracks(identifier: str) -> list[dict]:
@@ -477,7 +482,7 @@ def _download_archive(item: dict, folder: Path, genre_rules: list[dict]) -> dict
             return {**item, "estado": "erro", "mensagem": _("The downloaded audio is corrupted or incomplete")}
         genre = genre_from_rules(item.get("artista", ""), item.get("album", ""), genre_rules)
         filled = archive.fill_tags(work, item, genre)
-        final = folder / archive.safe_name(item.get("artista", ""), item.get("titulo", ""))
+        final = folder / archive.safe_name(item)
         try:
             _publish(work, final)
         except FileExistsError:

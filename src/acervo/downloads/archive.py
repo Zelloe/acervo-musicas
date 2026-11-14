@@ -193,8 +193,11 @@ def tracks(identifier: str) -> list[dict]:
     ]
 
 
-def safe_name(artist: str, title: str) -> str:
-    name = f"{artist} - {title}" if artist else title
+def safe_name(item: dict) -> str:
+    """'Artist - Album - 03 - Title.flac': the same song from two concerts gets two names."""
+    number = f"{item['numero']:02d}" if isinstance(item.get("numero"), int) else ""
+    parts = [item.get("artista", ""), item.get("album", ""), number, item.get("titulo", "")]
+    name = " - ".join(str(p).strip() for p in parts if str(p).strip())
     name = re.sub(r'[\x00-\x1f/\\:*?"<>|]', "_", name).strip().lstrip(".") or "track"
     while len(name.encode("utf-8")) > 200:
         name = name[:-1]

@@ -64,7 +64,8 @@ class DownloadPicker:
 
     def _lookup(self, kind, loader, *args):
         """Remote lookups take seconds, so going back to a page reuses the last answer."""
-        key = (kind, *(arg.casefold() for arg in args))
+        # Archive identifiers are case-sensitive; names and titles are not.
+        key = (kind, *(arg if kind.startswith("ia_") else arg.casefold() for arg in args))
         with self.lock:
             saved = self.lookups.get(key)
         if saved and time.monotonic() - saved[0] < LOOKUP_SECONDS:

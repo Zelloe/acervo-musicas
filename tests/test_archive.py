@@ -56,6 +56,10 @@ class ArchiveListingTest(unittest.TestCase):
         query = parse_qs(urlsplit(opened.call_args[0][0].full_url).query)["q"][0]
         self.assertEqual(query, "(Grateful Dead AND 1977 cornell) AND mediatype:(audio) AND format:(flac)")
         self.assertEqual(len(items), 1)
+        plain = {**docs[0], "title": "Barton Hall 1977"}
+        with patch.object(archive, "urlopen", return_value=json_response({"response": {"docs": [docs[0], plain]}})):
+            kinds = [item["versao"]["marcas"] for item in downloader.search_archive("Grateful Dead")]
+        self.assertEqual(kinds, [["ao_vivo"], ["nao_confirmado"]])  # no "live" in the title proves nothing
         self.assertEqual(
             {k: items[0][k] for k in ("titulo", "artista", "ano", "colecao", "provedor", "ia_item")},
             {
@@ -149,7 +153,7 @@ class ArchiveDownloadTest(unittest.TestCase):
         self.assertEqual(result["estado"], "baixado", result)
         self.assertEqual(calls, [None, f"bytes={half}-", f"bytes={half}-"])
         final = Path(result["arquivo"])
-        self.assertEqual(final.name, "Grateful Dead - Bertha.flac")
+        self.assertEqual(final.name, "Grateful Dead - Barton Hall - 01 - Bertha.flac")
         tags = FLAC(final)
         self.assertEqual((tags["title"], tags["album"], tags["tracknumber"]), (["Bertha"], ["Barton Hall"], ["1"]))
         self.assertEqual([p.name for p in self.folder.iterdir()], [final.name])  # no temporary file left
@@ -177,11 +181,18 @@ class ArchiveDownloadTest(unittest.TestCase):
                 self.assertEqual(list(self.folder.iterdir()), [])
 
     def test_existing_file_is_never_replaced(self):
-        existing = self.folder / "Grateful Dead - Bertha.flac"
+        existing = self.folder / "Grateful Dead - Barton Hall - 01 - Bertha.flac"
         existing.write_bytes(b"mine")
         result, _calls = self.download(Response(self.data, self.SERVER))
         self.assertEqual(result["estado"], "ja_existia")
         self.assertEqual(existing.read_bytes(), b"mine")
+
+    def test_the_same_song_from_two_concerts_gets_two_files(self):
+        result, _calls = self.download(Response(self.data, self.SERVER))
+        self.item["album"] = "Winterland"
+        other, _calls = self.download(Response(self.data, self.SERVER))
+        self.assertEqual((result["estado"], other["estado"]), ("baixado", "baixado"))
+        self.assertNotEqual(result["arquivo"], other["arquivo"])
 
     def test_rows_that_did_not_come_from_the_listing_are_refused(self):
         for change in ({"url": "https://example.com/x.flac"}, {"md5": "nope"}, {"tamanho_bytes": "10"}):
@@ -190,6 +201,19 @@ class ArchiveDownloadTest(unittest.TestCase):
                 result, calls = self.download()
                 self.assertEqual((result["estado"], calls), ("erro", []))
                 self.setUp()
+
+
+class ArchiveLookupCacheTest(unittest.TestCase):
+    def test_items_that_differ_only_in_case_are_not_mixed(self):
+        from acervo.downloads.picker import DownloadPicker
+
+        with tempfile.TemporaryDirectory() as folder:
+            picker = DownloadPicker(Path(folder))
+            loader = lambda identifier: [{"titulo": identifier}]  # noqa: E731
+            self.assertEqual(picker._lookup("ia_faixas", loader, "ABC"), [{"titulo": "ABC"}])
+            self.assertEqual(picker._lookup("ia_faixas", loader, "abc"), [{"titulo": "abc"}])
+            self.assertEqual(picker._lookup("albuns", loader, "Metallica"), [{"titulo": "Metallica"}])
+            self.assertEqual(picker._lookup("albuns", loader, "metallica"), [{"titulo": "Metallica"}])  # cached
 
 
 if __name__ == "__main__":

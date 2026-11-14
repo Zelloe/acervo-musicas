@@ -31,10 +31,19 @@ function licenseLabel(url) {
   return url ? tr("License listed on the item") : tr("No license listed");
 }
 
-function archiveDetails(row) {
-  return row.provider === "internet_archive"
-    ? ` · ${escapeHTML(row.collection || "Internet Archive")} · ${escapeHTML(licenseLabel(row.license))}`
-    : "";
+// "1977 · 12 tracks · 2 editions", without a stray separator when a value is missing.
+function catalogDetails(row) {
+  const archive = row.provider === "internet_archive";
+  return [
+    row.year,
+    row.track_count && `${number(row.track_count)} ${tr("tracks")}`,
+    row.editions_found > 1 && `${number(row.editions_found)} ${tr("editions")}`,
+    archive && (row.collection || "Internet Archive"),
+    archive && licenseLabel(row.license),
+  ]
+    .filter(Boolean)
+    .map((part) => escapeHTML(String(part)))
+    .join(" · ");
 }
 const catalogStore = new Map();
 const catalogSelections = new Map();
@@ -145,7 +154,7 @@ function captureSimpleDownloadJob(job) {
 }
 
 function catalogChoice(catalog, row, page) {
-  return `<button class="simple-choice version-filtered" ${simpleVersionAttributes(row)} ${page ? `data-page-catalog="${escapeHTML(catalog.id)}" data-page-item="${escapeHTML(row.id)}"` : `data-simple-open="${escapeHTML(row.id)}"`}>${catalogPhoto(row.cover)}<span><strong data-i18n-user="true">${escapeHTML(row.title)}</strong><small>${escapeHTML(row.year || "")}${row.track_count ? ` · ${number(row.track_count)} ${tr("tracks")}` : ""}${row.editions_found > 1 ? ` · ${number(row.editions_found)} ${tr("editions")}` : ""}${archiveDetails(row)}</small>${recordingBadges(row.version)}</span>${icon("arrow")}</button>`;
+  return `<button class="simple-choice version-filtered" ${simpleVersionAttributes(row)} ${page ? `data-page-catalog="${escapeHTML(catalog.id)}" data-page-item="${escapeHTML(row.id)}"` : `data-simple-open="${escapeHTML(row.id)}"`}>${catalogPhoto(row.cover)}<span><strong data-i18n-user="true">${escapeHTML(row.title)}</strong><small>${catalogDetails(row)}</small>${recordingBadges(row.version)}</span>${icon("arrow")}</button>`;
 }
 
 function catalogChoices(catalog, page = false) {
@@ -256,7 +265,7 @@ async function renderSimpleDownloads() {
     )
     .join(
       "",
-    )}</div><div class="simple-search-fields"><label><span id="simple-query-label">${label}</span><input class="field" name="query" value="${escapeHTML(simpleDownloadState.query)}" placeholder="${escapeHTML(placeholder)}" required maxlength="1200"></label><button class="button primary" type="submit" ${simpleDownloadState.loading ? "disabled" : ""}>${icon("search")}${tr(simpleDownloadState.loading ? "Loading…" : mode === "link" ? "View tracks" : "Search")}</button></div><div class="simple-settings"><label>${tr("Save to folder")}<input class="field" name="folder" value="${escapeHTML(simpleDownloadState.folder)}" required></label><label>MP3<select class="field" name="bitrate">${["320k", "256k", "192k", "128k"].map((value) => `<option value="${value}" ${simpleDownloadState.bitrate === value ? "selected" : ""}>${value.slice(0, -1)} kbps</option>`).join("")}</select></label></div><p class="download-hint">${tr("Files go directly to the selected folder. Existing files are preserved. The MP3 bitrate does not improve source quality.")}</p>${mode === "internet_archive" ? `<p class="download-hint">${tr("FLAC files straight from archive.org, checked against the size and MD5 the Archive lists. Rights vary per item: check the collection and license shown.")}</p>` : ""}</form>${simpleDownloadState.error ? `<p class="error-box">${escapeHTML(simpleDownloadState.error)}</p>` : ""}${simpleDownloadState.loading ? `<p role="status">${tr("Loading…")}</p>` : catalog ? catalogContent(catalog) : ""}<section class="download-panel" id="download-queue"></section>`;
+    )}</div><div class="simple-search-fields"><label><span id="simple-query-label">${label}</span><input class="field" name="query" value="${escapeHTML(simpleDownloadState.query)}" placeholder="${escapeHTML(placeholder)}" required maxlength="1200"></label><button class="button primary" type="submit" ${simpleDownloadState.loading ? "disabled" : ""}>${icon("search")}${tr(simpleDownloadState.loading ? "Loading…" : mode === "link" ? "View tracks" : "Search")}</button></div><div class="simple-settings"><label>${tr("Save to folder")}<input class="field" name="folder" value="${escapeHTML(simpleDownloadState.folder)}" required></label><label ${mode === "internet_archive" ? "hidden" : ""}>MP3<select class="field" name="bitrate">${["320k", "256k", "192k", "128k"].map((value) => `<option value="${value}" ${simpleDownloadState.bitrate === value ? "selected" : ""}>${value.slice(0, -1)} kbps</option>`).join("")}</select></label></div><p class="download-hint">${tr(mode === "internet_archive" ? "FLAC files straight from archive.org, checked against the size and MD5 the Archive lists. Rights vary per item: check the collection and license shown." : "Files go directly to the selected folder. Existing files are preserved. The MP3 bitrate does not improve source quality.")}</p></form>${simpleDownloadState.error ? `<p class="error-box">${escapeHTML(simpleDownloadState.error)}</p>` : ""}${simpleDownloadState.loading ? `<p role="status">${tr("Loading…")}</p>` : catalog ? catalogContent(catalog) : ""}<section class="download-panel" id="download-queue"></section>`;
 }
 
 async function runCatalogSearch() {
