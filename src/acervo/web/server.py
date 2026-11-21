@@ -12,9 +12,10 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from mutagen.flac import FLAC
-from mutagen.id3 import ID3
+from mutagen.id3 import ID3, ID3NoHeaderError
 
 from acervo.app import App, readable_music
+from acervo.app.session import playback_startup_root
 from acervo.downloads.staged import clean_log, tool_status
 from acervo.library import protections
 from acervo.library.core import (
@@ -108,6 +109,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send(200, asset.read_bytes(), mime)
         elif url.path == "/api/state":
             self.json(self.app.snapshot())
+        elif url.path == "/api/playback/session":
+            self.json(self.app.playback_session())
         elif url.path == "/api/lyrics/bulk":
             if set(query) - {"id"} or len(query.get("id", [None])) != 1:
                 raise ValueError(_("Select lyrics from the lookup results"))
@@ -157,7 +160,12 @@ class Handler(BaseHTTPRequestHandler):
                     {
                         "total": len(rows),
                         "musicas": [
-                            {k: t[k] for k in ("id", "arquivo", "titulo", "artista", "album", "duracao_segundos")}
+                            {
+                                **{
+                                    k: t[k] for k in ("id", "arquivo", "titulo", "artista", "album", "duracao_segundos")
+                                },
+                                "tem_capa": bool(t.get("capas")),
+                            }
                             for t in rows
                         ],
                     }
@@ -239,6 +247,8 @@ class Handler(BaseHTTPRequestHandler):
             self.json({**track, "campos_protegidos": fields, "erro_protecoes": error})
         elif url.path == "/api/tracks/editor":
             self.json(self.app.manual_editor(query.get("id", [""])[0]))
+        elif url.path == "/api/albums/editor":
+            self.json(self.app.album_editor(query.get("id", [""])[0]))
         elif url.path in ("/api/cover", "/api/downloads/cover"):
             path = (
                 self.app.downloads.file(query.get("id", [""])[0], query.get("faixa", [""])[0])
@@ -252,7 +262,10 @@ class Handler(BaseHTTPRequestHandler):
                 if self.headers.get("If-None-Match") == tag:
                     self.send(304, b"", extra={"ETag": tag, "Cache-Control": "private, max-age=60"})
                     return
-            covers = ID3(path).getall("APIC") if path.suffix.casefold() == ".mp3" else FLAC(path).pictures
+            try:
+                covers = ID3(path).getall("APIC") if path.suffix.casefold() == ".mp3" else FLAC(path).pictures
+            except ID3NoHeaderError:
+                covers = []
             if not covers:
                 self.send(404, b"")
                 return
@@ -342,11 +355,25 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(data, dict):
                 raise ValueError(_("The request body must be a JSON object"))
             route = urlsplit(self.path).path
-            if route in ("/api/tracks/edit/preview", "/api/tracks/cover/preview", "/api/tracks/delete/preview"):
+            if route == "/api/playback/session":
+                self.json(self.app.save_playback_session(data))
+                return
+            elif route == "/api/tracks/batch/editor":
+                self.json(self.app.selection_editor(data))
+                return
+            elif route in (
+                "/api/tracks/edit/preview",
+                "/api/tracks/cover/preview",
+                "/api/tracks/delete/preview",
+                "/api/albums/edit/preview",
+                "/api/tracks/batch/preview",
+            ):
                 method = {
                     "/api/tracks/edit/preview": self.app.preview_manual_edit,
                     "/api/tracks/cover/preview": self.app.preview_manual_cover,
                     "/api/tracks/delete/preview": self.app.preview_manual_delete,
+                    "/api/albums/edit/preview": self.app.preview_album_edit,
+                    "/api/tracks/batch/preview": self.app.preview_selection_edit,
                 }[route]
                 self.json(method(data))
                 return
@@ -547,7 +574,7 @@ def open_library(server, value):
 def serve(
     root: Path, port: int = 8765, storage: Path | None = None, open_browser: bool = False, fixed_folder: bool = False
 ):
-    app = App(root, storage)
+    app = App(playback_startup_root(root, storage, fixed_folder), storage)
     app.fixed_folder = fixed_folder
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     server.app = app

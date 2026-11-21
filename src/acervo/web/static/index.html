@@ -18,10 +18,13 @@
   <script src="/lyrics_bulk.js" defer></script>
   <script src="/app.js" defer></script>
   <script src="/player.js" defer></script>
+  <script src="/playback_session.js" defer></script>
   <script src="/pages.js" defer></script>
   <script src="/library_picker.js" defer></script>
   <script src="/search.js" defer></script>
   <script src="/manual.js" defer></script>
+  <script src="/album_editor.js" defer></script>
+  <script src="/track_selection.js" defer></script>
 </head>
 <body>
   <svg class="svg-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -90,6 +93,7 @@
     <div class="job-banner" id="job-banner" hidden><span class="spinner"></span><span id="job-label">Scanning library…</span><span id="job-percent"></span><div class="job-track"><div id="job-progress"></div></div></div>
     <div class="restart-notice" id="restart-notice" role="status" hidden>Acervo has been updated. Restart the server and reload this page to finish updating.</div>
     <div id="content" class="content" aria-live="polite"><div class="loading-state"><span class="spinner"></span>Loading your collection…</div></div>
+    <div id="track-selection-bar" class="selection-bar track-selection-bar" hidden></div>
     <footer class="content-footer"><span>Made for those who love listening to the whole album.</span><span>ACERVO <i class="footer-dot"></i> PERSONAL LIBRARY</span></footer>
   </main>
 

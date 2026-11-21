@@ -1513,9 +1513,10 @@ dialog::backdrop {
   align-items: center;
   padding: 3px 29px 23px;
 }
-.detail-hero img {
+.detail-hero > .detail-cover {
   height: 110px;
   width: 110px;
+  flex-shrink: 0;
   object-fit: cover;
   border-radius: 7px;
 }
@@ -2056,7 +2057,7 @@ dialog::backdrop {
     padding: 0 20px 20px;
     gap: 15px;
   }
-  .detail-hero img {
+  .detail-hero > .detail-cover {
     width: 85px;
     height: 85px;
   }
@@ -4013,8 +4014,11 @@ select.field {
 }
 
 .cover-placeholder {
-  display: inline-grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
   background: #24372a;
   color: #6e967a;
   border-radius: 4px;
@@ -4034,6 +4038,9 @@ select.field {
 .queue-row > .cover-placeholder {
   width: 38px;
   height: 38px;
+}
+.track-detail-actions {
+  flex-wrap: wrap;
 }
 
 #download-queue-count {
@@ -4239,18 +4246,96 @@ table:has([data-track-menu]) :is(th, td):last-child {
   background: #b83030;
   color: white;
 }
-.manual-fields {
+.tag-comparison {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin: 18px 0;
+}
+.tag-comparison th,
+.tag-comparison td {
+  padding: 12px 9px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid #34473b;
+  overflow-wrap: anywhere;
+}
+.tag-comparison th:first-child {
+  width: 24%;
+}
+.tag-comparison thead th {
+  color: #9fbaa8;
+  font-weight: 550;
+}
+.tag-comparison tbody th {
+  color: #b8ccbf;
+  font-weight: 500;
+  background: transparent;
+}
+.tag-comparison .tag-current {
+  white-space: pre-wrap;
+  color: #91a598;
+}
+.tag-comparison .tag-proposed {
+  white-space: pre-wrap;
+}
+.tag-comparison .tag-changed {
+  background: #203d2b;
+}
+.tag-comparison .tag-changed .tag-proposed {
+  color: #b1efc5;
+}
+.tag-comparison textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 58px;
+  resize: vertical;
+  font-size: inherit;
+}
+.tag-protected {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  margin-top: 6px;
+}
+.tag-protected svg {
+  width: 12px;
+  height: 12px;
+}
+.cover-comparison {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
+  margin: 20px 0;
 }
-.manual-fields label {
-  display: block;
-  margin-bottom: 5px;
+.cover-comparison figure {
+  margin: 0;
+  min-width: 0;
 }
-.manual-fields textarea {
+.cover-comparison figcaption {
+  color: #a6bdae;
+  font-size: 11px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+.cover-comparison-art {
+  width: min(190px, 100%);
+  aspect-ratio: 1;
+  margin: auto;
+  background: #24372a;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+}
+.cover-comparison-art > img,
+.cover-comparison-art > .cover-placeholder {
   width: 100%;
-  resize: vertical;
+  height: 100%;
+  object-fit: contain;
+  margin: 0;
 }
 .manual-cover-preview {
   display: block;
@@ -4273,8 +4358,75 @@ table:has([data-track-menu]) :is(th, td):last-child {
   gap: 8px;
   margin-top: 16px;
 }
+
+#album-edit-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.album-edit-fields th label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.album-edit-fields .check {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+.album-edit-preview {
+  border-top: 1px solid var(--line);
+  padding: 14px 0;
+}
+.album-edit-preview summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.album-edit-preview summary span {
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: 10px;
+}
+.album-edit-preview .manual-file {
+  margin: 10px 0;
+}
+.track-select-cell {
+  width: 40px;
+  padding: 4px;
+}
+.track-select-target {
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  min-height: 36px;
+  cursor: pointer;
+}
+.track-select-target .check {
+  margin: 0;
+}
+.track-row-selected td {
+  background: #1e3326;
+}
+.track-selection-bar {
+  margin: 18px 36px;
+}
 @media (max-width: 600px) {
-  .manual-fields {
-    grid-template-columns: 1fr;
+  .track-selection-bar {
+    margin: 18px 16px;
+  }
+}
+@media (max-width: 600px) {
+  .tag-comparison {
+    font-size: 10px;
+  }
+  .tag-comparison th,
+  .tag-comparison td {
+    padding: 10px 5px;
+  }
+  .tag-comparison textarea {
+    padding: 8px;
+  }
+  .tag-protected {
+    flex-wrap: wrap;
   }
 }

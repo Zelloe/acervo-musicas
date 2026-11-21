@@ -55,7 +55,8 @@ function clearPlayback() {
 
 function neighbour(delta) {
   const { order, index, repeat } = playback;
-  if (!order.length || index < 0) return null;
+  if (!order.length) return null;
+  if (index < 0) return delta > 0 && state.current?.id.startsWith("stage-") ? order[0] : null;
   const target = index + delta;
   if (target >= 0 && target < order.length) return order[target];
   return repeat === "all" ? order[(target + order.length) % order.length] : null;
@@ -145,18 +146,19 @@ function updatePlayerControls() {
 
 function upcomingTracks() {
   const { order, index, repeat } = playback;
-  if (index < 0) return [];
+  if (index < 0) return state.current?.id.startsWith("stage-") ? [...order] : [];
   return [...order.slice(index + 1), ...(repeat === "all" ? order.slice(0, index) : [])];
 }
 
 function renderQueue() {
+  if (typeof schedulePlaybackSession === "function") schedulePlaybackSession();
   const upcoming = upcomingTracks(),
     visible = upcoming.slice(0, QUEUE_PREVIEW);
   const rows = visible
     .map((id) => {
       const track = playback.tracks.get(id);
       if (!track) return "";
-      return `<li><button class="queue-row" data-queue-play="${escapeHTML(id)}">${trackArtwork(track, "queue-cover")}<span class="queue-text"><strong>${escapeHTML(trackTitle(track))}</strong><span>${escapeHTML(join(track.artist))}</span></span><span class="queue-time">${duration(track.duration_seconds)}</span></button></li>`;
+      return `<li><button class="queue-row" data-queue-play="${escapeHTML(id)}">${trackArtwork(track, "queue-cover")}<span class="queue-text"><strong>${escapeHTML(trackTitle(track))}</strong><span>${escapeHTML(trackArtist(track))}</span></span><span class="queue-time">${duration(track.duration_seconds)}</span></button></li>`;
     })
     .join("");
   const more = upcoming.length - visible.length;
@@ -165,6 +167,7 @@ function renderQueue() {
 }
 
 function renderNowView() {
+  if (typeof schedulePlaybackSession === "function") schedulePlaybackSession();
   const track = state.current;
   const title = [track ? trackTitle(track) : "", join(track?.artist)].filter(Boolean).join(" — ");
   document.title = title ? `${title} | Acervo` : tr("Acervo — Your music library");
@@ -176,7 +179,7 @@ function renderNowView() {
   $("#now-artist").innerHTML = artistLinks(track.artist);
   $("#now-album").dataset.i18nUser = "true";
   $("#now-album").innerHTML = [
-    real ? albumLink(join(track.album), track.id) : escapeHTML(join(track.album)),
+    real ? albumLink(trackAlbum(track), track.id) : escapeHTML(trackAlbum(track)),
     escapeHTML((join(track.year || []).match(/\d{4}/) || [""])[0]),
     escapeHTML(track.format),
   ]
@@ -184,7 +187,7 @@ function renderNowView() {
     .join(" · ");
   $("#now-cover").innerHTML = real ? trackArtwork(track) : icon("disc");
   const backdrop = $("#now-backdrop");
-  const hasCover = real && !(Array.isArray(track.covers) && !track.covers.length);
+  const hasCover = real && trackHasArtwork(track);
   backdrop.hidden = !hasCover;
   if (hasCover && backdrop.getAttribute("src") !== cover(track.id)) backdrop.src = cover(track.id);
   renderQueue();

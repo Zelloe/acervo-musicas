@@ -91,6 +91,43 @@ isso não grava dados automaticamente. Use uma linha por valor no editor;
 deixar um campo vazio apaga aquela tag. Desbloqueie campos protegidos nos
 detalhes da faixa antes de editá-los.
 
+No editor, **Usar nome do arquivo** sugere título, artista e número da faixa.
+Por exemplo, `02 - AC-DC - T.N.T..mp3` preenche artista `AC-DC`, título `T.N.T.`
+e faixa `2`. Também aceita `Artista - Título`, `02. Título` e `02 Título`.
+Preenche apenas tags ausentes e não protegidas, preservando o que você digitou.
+As sugestões dependem de como o arquivo foi nomeado: confira os campos e a
+prévia antes de salvar. A gravação mantém o backup e o desfazer pelo Histórico.
+
+O editor e as prévias mostram **Campo / Valor atual / Novo valor**, com destaque
+para alterações e indicação dos campos protegidos. As capas atual e candidata
+também aparecem lado a lado. Sugestões externas que sejam apenas as iniciais
+exatas de um título completo conhecido mantêm o nome completo; a edição manual
+continua disponível para escolher outro título.
+
+**Editar músicas selecionadas:** marque as caixas ao lado das faixas na biblioteca
+ou em uma lista local e clique em **Editar selecionadas** na barra da seleção. A
+caixa do cabeçalho marca as linhas já carregadas. As escolhas continuam ao filtrar
+ou carregar mais músicas; a barra informa quantas selecionadas estão fora da tela,
+e **Limpar seleção** desmarca todas. Selecione até 500 faixas por edição. Funciona
+entre álbuns e em arquivos sem nenhuma tag, permitindo preencher artista, artista
+do álbum, álbum e gênero juntos. Marque apenas os campos que deseja aplicar,
+revise cada faixa e confirme uma vez. Valores protegidos, títulos, números de faixa
+e campos desmarcados são preservados; o Histórico restaura os originais da seleção
+exatamente.
+
+**Editar um álbum inteiro:** abra o álbum e escolha **Editar tags do álbum**, ou
+use essa opção no menu **⋯** de qualquer faixa. Marque **Gênero** para preenchê-lo
+uma única vez para o álbum. Também pode marcar artista, artista do álbum, nome do
+álbum, ano e número do disco. Só os campos marcados são aplicados; um campo marcado
+vazio apaga esse valor. Valores existentes que variam entre as faixas aparecem como
+**Valores diferentes**. A prévia lista cada faixa com os valores atuais e propostos,
+incluindo os campos protegidos que serão mantidos. Títulos, números de faixa, capas
+e tags desmarcadas são preservados. Uma confirmação salva as alterações aprovadas,
+com backups completos e restauração do álbum pelo **Histórico**. O agrupamento usa
+artista do álbum (ou artista) e nome do álbum, incluindo todos os discos. Para
+arquivos sem essas tags, use **Editar selecionadas** para atribuir o artista e o
+álbum em comum primeiro.
+
 Para colocar uma capa, escolha um JPEG ou PNG de até 5 MB (requer `ffmpeg`).
 A imagem é gravada dentro do arquivo de áudio. Também é possível preencher as
 capas ausentes do mesmo álbum e artista; as capas existentes são preservadas.
@@ -213,6 +250,17 @@ Acervo, reinicie o servidor (a página avisa quando isso for necessário).
 Para abrir outra pasta, clique no lápis ao lado do caminho na barra lateral ou use
 **Preferências**. O navegador lembra da sua escolha para a próxima vez, exceto se você
 iniciar o Acervo com `--folder`.
+
+**Sessão de reprodução:** o Acervo lembra a música, posição, fila, aleatório/repetição,
+volume e estado sem som de cada biblioteca. Ao reabrir, restaura tudo **pausado**,
+inclusive quando o aplicativo desktop usa outra porta. Em **Preferências → Restaurar
+última sessão ao abrir**, você pode desativar isso e apagar a sessão salva. Prévias
+de downloads não substituem a sessão da biblioteca. Os dados ficam na pasta do Acervo,
+sem alterar as músicas. Se a última faixa foi removida, seleciona a próxima disponível
+na fila salva.
+
+O total da biblioteca inclui faixas sem gênero ou tags. Após adicionar arquivos com
+outro programa, use **Analisar biblioteca novamente** para atualizar o inventário e os contadores.
 
 Teclado: `Espaço` toca ou pausa, `←`/`→` movem 5 segundos, `N`/`P` trocam de faixa, `+`/`-`
 ajustam o volume, `M` tira o som, `S` liga o aleatório, `R` a repetição, `F` abre o tocando

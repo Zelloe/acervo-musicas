@@ -1,14 +1,65 @@
 "use strict";
 
 const portugueseMessages = {
+  "Edit selected tracks": "Editar selecionadas",
+  "Review selected track changes": "Revisar alterações das faixas selecionadas",
+  "selected tracks": "faixas selecionadas",
+  "Selected tracks: {count}": "Faixas selecionadas: {count}",
+  "{count} outside this view": "{count} fora desta tela",
+  "Select track: {title}": "Selecionar faixa: {title}",
+  "Select up to 500 tracks at a time.": "Selecione até 500 faixas por vez.",
+  "Select at least one field to change.": "Marque ao menos um campo para alterar.",
+  "Select only the fields you want to apply to the selected tracks. Titles and track numbers are kept. Protected values are preserved.":
+    "Marque apenas os campos que deseja aplicar às faixas selecionadas. Títulos e números de faixa são mantidos. Valores protegidos são preservados.",
+  "selected track tag edit": "edição de tags das faixas selecionadas",
+  "Edit album tags": "Editar tags do álbum",
+  "album tag edit": "edição de tags do álbum",
+  "Review album changes": "Revisar alterações do álbum",
+  "Select only the fields you want to apply across this album. Titles and track numbers are kept. Protected values are preserved.":
+    "Marque apenas os campos que deseja aplicar às faixas deste álbum. Títulos e números de faixa são mantidos. Valores protegidos são preservados.",
+  "Use one line per value. Leaving a selected field empty clears it on unprotected tracks. Unselected fields stay unchanged.":
+    "Use uma linha por valor. Deixar um campo marcado vazio apaga esse valor nas faixas sem proteção. Campos desmarcados permanecem como estão.",
+  "Apply field": "Aplicar campo",
+  "Multiple values": "Valores diferentes",
+  "Protected on {count} tracks": "Protegido em {count} faixas",
+  "Protected fields kept: {fields}": "Campos protegidos mantidos: {fields}",
+  "{count} of {total} tracks will change": "{count} de {total} faixas serão alteradas",
+  "Unchanged tracks: {count}": "Faixas sem alterações: {count}",
+  "Protected field changes skipped: {count}": "Alterações de campos protegidos ignoradas: {count}",
+  "fields to change": "campos para alterar",
+  "field to change": "campo para alterar",
+  "No changes": "Sem alterações",
+  "Select at least one album field to change.": "Marque ao menos um campo do álbum para alterar.",
+  "Playback and library preferences.": "Preferências de reprodução e da biblioteca.",
+  "Preferences saved.": "Preferências salvas.",
+  "Restore the last session on startup": "Restaurar última sessão ao abrir",
+  "Remembers the track, position, queue and playback controls for this library. Returns paused. Disabling clears the saved session.":
+    "Lembra a música, posição, fila e controles de reprodução desta biblioteca. Retorna pausado. Desativar apaga a sessão salva.",
+  "Could not save the playback session. Acervo will try again.":
+    "Não foi possível salvar a sessão de reprodução. O Acervo tentará novamente.",
+  "Could not restore the last playback session.": "Não foi possível restaurar a última sessão de reprodução.",
   "Changes saved. You can undo them from History.": "Alterações salvas. Você pode desfazê-las pelo Histórico.",
   "Track actions": "Ações da faixa",
   "Track actions for": "Ações da faixa",
   "Untitled track": "Faixa sem título",
   "Unknown artist": "Artista desconhecido",
+  "Unknown album": "Álbum desconhecido",
   "Play next": "Tocar a seguir",
   "Add to queue": "Adicionar à fila",
   "Edit tags": "Editar tags",
+  "Compare tags": "Comparar tags",
+  Field: "Campo",
+  "Current value": "Valor atual",
+  "New value": "Novo valor",
+  "Current cover": "Capa atual",
+  "New cover": "Nova capa",
+  "Use filename": "Usar nome do arquivo",
+  "Suggests title, artist and track number from the filename. Only missing, unprotected tags are filled; your edits are kept. Review before saving.":
+    "Sugere título, artista e número da faixa pelo nome do arquivo. Preenche apenas tags ausentes e não protegidas; mantém suas edições. Confira antes de salvar.",
+  "Missing fields filled from the filename. Review before saving.":
+    "Campos ausentes preenchidos pelo nome do arquivo. Confira antes de salvar.",
+  "There are no empty fields to fill from this filename.":
+    "Não há campos vazios para preencher com este nome de arquivo.",
   "Add missing cover": "Adicionar capa ausente",
   "Delete track": "Apagar faixa",
   "Tags are optional. You can fill in empty fields. Use one line per value; leave a field empty to clear it.":

@@ -14,6 +14,25 @@ const manualState = { editor: null, track: null, preview: null, image: null, ser
 let trackMenu = null;
 let trackMenuAnchor = null;
 
+async function manualRead(path, data) {
+  const serial = ++manualState.serial;
+  const content = $("#modal-content").firstElementChild;
+  const open = $("#modal").open;
+  const view = state.view;
+  const current = () =>
+    serial === manualState.serial &&
+    content === $("#modal-content").firstElementChild &&
+    open === $("#modal").open &&
+    view === state.view;
+  try {
+    const result = await api(path, data);
+    return current() ? result : null;
+  } catch (error) {
+    if (current()) throw error;
+    return null;
+  }
+}
+
 function closeTrackMenu(restoreFocus = false) {
   trackMenu?.remove();
   trackMenu = null;
@@ -48,6 +67,7 @@ function openTrackMenu(button) {
     ["next", "next", "Play next"],
     ["queue", "music", "Add to queue"],
     ["edit", "edit", "Edit tags"],
+    ["album-edit", "edit", "Edit album tags"],
     ["cover", "image", "Add missing cover"],
     ["details", "tag", "Track details"],
     ["delete", "trash", "Delete track"],
@@ -55,7 +75,7 @@ function openTrackMenu(button) {
   menu.innerHTML = items
     .map(
       ([action, name, label]) =>
-        `<button role="menuitem" tabindex="-1" data-manual="${action}" data-id="${escapeHTML(button.dataset.trackMenu)}" ${["edit", "cover", "delete"].includes(action) ? "data-manual-write" : ""} class="${action === "delete" ? "danger-text" : ""}">${icon(name)}${tr(label)}</button>`,
+        `<button role="menuitem" tabindex="-1" data-manual="${action}" data-id="${escapeHTML(button.dataset.trackMenu)}" ${["edit", "album-edit", "cover", "delete"].includes(action) ? "data-manual-write" : ""} class="${action === "delete" ? "danger-text" : ""}">${icon(name)}${tr(label)}</button>`,
     )
     .join("");
   document.body.append(menu);
@@ -69,30 +89,112 @@ function manualFooter(label = "Preview") {
   return `<div class="modal-actions"><button type="button" class="button ghost" data-action="close-modal">${tr("Cancel")}</button><button type="submit" class="button primary" data-manual-write>${tr(label)} ${icon("arrow")}</button></div>`;
 }
 
+function tagComparison(changes, editable = false) {
+  const text = (values) => escapeHTML((values || []).join("\n") || tr("Not set"));
+  return `<table class="tag-comparison"><caption class="sr-only">${tr("Compare tags")}</caption><thead><tr><th scope="col">${tr("Field")}</th><th scope="col">${tr("Current value")}</th><th scope="col">${tr("New value")}</th></tr></thead><tbody>${changes
+    .map((change) => {
+      const { field, current, proposed, protected: locked } = change;
+      const label = escapeHTML(tr(MANUAL_FIELDS.find(([key]) => key === field)?.[1] || field));
+      const changed = JSON.stringify(current || []) !== JSON.stringify(proposed || []);
+      return `<tr data-manual-field="${escapeHTML(field)}" class="${changed ? "tag-changed" : ""}"><th scope="row">${editable ? `<label for="manual-${field}">${label}</label>` : label}${locked ? `<span class="tag-protected">${icon("lock")}${tr("Protected")}</span>` : ""}</th><td class="tag-current">${text(current)}</td><td class="tag-proposed">${editable ? `<textarea class="field" id="manual-${field}" name="${field}" rows="2" ${locked ? "disabled" : ""}>${escapeHTML((proposed || []).join("\n"))}</textarea>` : text(proposed)}</td></tr>`;
+    })
+    .join("")}</tbody></table>`;
+}
+
+function updateManualComparison(form = $("#manual-edit-form")) {
+  if (!form) return;
+  for (const row of form.querySelectorAll("[data-manual-field]")) {
+    const field = row.dataset.manualField;
+    const input = form.elements.namedItem(field);
+    row.classList.toggle("tag-changed", input.value !== (manualState.editor.fields[field] || []).join("\n"));
+  }
+}
+
+function coverComparison(track, image = "", live = false) {
+  return `<div class="cover-comparison"><figure><figcaption>${tr("Current cover")}</figcaption><div class="cover-comparison-art">${track ? trackArtwork(track) : `<span class="cover-placeholder">${icon("disc")}</span>`}</div></figure><figure><figcaption>${tr("New cover")}</figcaption><div class="cover-comparison-art">${image || live ? `<img ${live ? 'id="manual-image-preview"' : ""} class="manual-cover-preview" ${image ? `src="${escapeHTML(image)}"` : "hidden"} alt="${tr("Selected cover")}">` : ""}${!image ? `<span ${live ? 'id="manual-cover-empty"' : ""} class="cover-placeholder">${icon("disc")}</span>` : ""}</div></figure></div>`;
+}
+
+function tagsFromFilename(file) {
+  let title = (file || "")
+    .split(/[\\/]/)
+    .pop()
+    .replace(/\.(?:mp3|flac)$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!title) return {};
+  const tags = {};
+  const numbered = title.match(/^(\d{1,3})(?:\s*[-–—]\s+|[.)]\s+)(\S.*)$/) || title.match(/^(0\d{1,2})\s+(\S.*)$/);
+  if (numbered) {
+    tags.track = String(Number(numbered[1]));
+    title = numbered[2];
+  }
+  const credited = title.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+  if (credited) {
+    tags.artist = credited[1].trim();
+    title = credited[2].trim();
+  }
+  tags.title = title;
+  return tags;
+}
+
+function fillManualFromFilename() {
+  const form = $("#manual-edit-form"),
+    editor = manualState.editor;
+  if (!form || !editor || form.dataset.manualPending) return;
+  let filled = false;
+  for (const [field, value] of Object.entries(tagsFromFilename(editor.file))) {
+    const input = form.elements.namedItem(field);
+    if (
+      !input ||
+      input.disabled ||
+      editor.protected_fields.includes(field) ||
+      (editor.fields[field] || []).some((current) => current.trim()) ||
+      input.value.trim()
+    )
+      continue;
+    input.value = value;
+    filled = true;
+  }
+  updateManualComparison(form);
+  toast(
+    tr(
+      filled
+        ? "Missing fields filled from the filename. Review before saving."
+        : "There are no empty fields to fill from this filename.",
+    ),
+  );
+}
+
 async function showManualEditor(id) {
-  const serial = ++manualState.serial;
-  const editor = await api(`/api/tracks/editor?id=${encodeURIComponent(id)}`);
-  if (serial !== manualState.serial) return;
+  const editor = await manualRead(`/api/tracks/editor?id=${encodeURIComponent(id)}`);
+  if (!editor) return;
   manualState.editor = editor;
   manualState.preview = null;
+  const rows = MANUAL_FIELDS.map(([field]) => ({
+    field,
+    current: editor.fields[field] || [],
+    proposed: editor.fields[field] || [],
+    protected: editor.protected_fields.includes(field),
+  }));
   modal(
-    `${modalHead(tr("Edit tags"), escapeHTML(editor.file.split(/[\\/]/).pop()))}<form id="manual-edit-form"><div class="modal-body"><p class="download-hint">${tr("Tags are optional. You can fill in empty fields. Use one line per value; leave a field empty to clear it.")}</p><div class="manual-fields">${MANUAL_FIELDS.map(([field, label]) => `<div><label for="manual-${field}">${tr(label)}${editor.protected_fields.includes(field) ? ` · ${tr("Protected")}` : ""}</label><textarea class="field" id="manual-${field}" name="${field}" rows="2" ${editor.protected_fields.includes(field) ? "disabled" : ""}>${escapeHTML((editor.fields[field] || []).join("\n"))}</textarea></div>`).join("")}</div><p class="download-hint">${tr("Protected fields can be unlocked in Track details.")}</p></div>${manualFooter()}</form>`,
+    `${modalHead(tr("Edit tags"), escapeHTML(editor.file.split(/[\\/]/).pop()))}<form id="manual-edit-form"><div class="modal-body"><p class="download-hint">${tr("Tags are optional. You can fill in empty fields. Use one line per value; leave a field empty to clear it.")}</p><button type="button" class="button small ghost" data-manual="filename" data-manual-write>${tr("Use filename")}</button><p class="download-hint">${tr("Suggests title, artist and track number from the filename. Only missing, unprotected tags are filled; your edits are kept. Review before saving.")}</p>${tagComparison(rows, true)}<p class="download-hint">${tr("Protected fields can be unlocked in Track details.")}</p></div>${manualFooter()}</form>`,
   );
 }
 
 async function showCoverEditor(id) {
-  const serial = ++manualState.serial;
-  const track = await api(`/api/track?id=${encodeURIComponent(id)}`);
-  if (serial !== manualState.serial) return;
+  const track = await manualRead(`/api/track?id=${encodeURIComponent(id)}`);
+  if (!track) return;
   manualState.track = track;
   manualState.image = null;
   const canAlbum = join(track.album).trim() && (join(track.album_artist).trim() || join(track.artist).trim());
   modal(
-    `${modalHead(tr("Add missing cover"), escapeHTML(trackTitle(track)))}<form id="manual-cover-form"><div class="modal-body"><label for="manual-image">${tr("Choose a JPEG or PNG image up to 5 MB")}</label><input class="field" type="file" id="manual-image" accept="image/jpeg,image/png" required><img id="manual-image-preview" class="manual-cover-preview" alt="${tr("Selected cover")}" hidden>${canAlbum ? `<label class="manual-album-option"><input type="checkbox" class="check" id="manual-cover-album"> ${tr("Also fill missing covers in this album")} · ${escapeHTML(join(track.album))}</label>` : ""}<p class="download-hint">${tr("The image will be embedded in the audio file. Existing covers are preserved.")}</p></div>${manualFooter()}</form>`,
+    `${modalHead(tr("Add missing cover"), escapeHTML(trackTitle(track)))}<form id="manual-cover-form"><div class="modal-body"><label for="manual-image">${tr("Choose a JPEG or PNG image up to 5 MB")}</label><input class="field" type="file" id="manual-image" accept="image/jpeg,image/png" required>${coverComparison(track, "", true)}${canAlbum ? `<label class="manual-album-option"><input type="checkbox" class="check" id="manual-cover-album"> ${tr("Also fill missing covers in this album")} · ${escapeHTML(join(track.album))}</label>` : ""}<p class="download-hint">${tr("The image will be embedded in the audio file. Existing covers are preserved.")}</p></div>${manualFooter()}</form>`,
   );
 }
 
-function showManualPreview(preview) {
+function showManualPreview(preview, image = "") {
+  if (!preview) return;
+  if (["album-edit", "batch-edit"].includes(preview.kind)) return showAlbumEditPreview(preview);
   manualState.preview = preview;
   const removing = preview.kind === "delete";
   const title = removing ? "Delete this track?" : preview.kind === "cover" ? "Review cover" : "Review tag changes";
@@ -100,7 +202,7 @@ function showManualPreview(preview) {
     ? "The audio file will leave your music folder. Its original will be kept outside the library; restore it from History."
     : "A full original backup will be kept. You can undo this operation from History.";
   modal(
-    `${modalHead(tr(title), tr(detail))}<div class="modal-body">${preview.kind === "cover" ? `<img class="manual-cover-preview" src="${manualState.image}" alt="${tr("Selected cover")}"><p>${number(preview.count)} ${tr("files")} · ${number(preview.skipped)} ${tr("existing covers preserved")}</p>` : ""}<p class="download-hint">${tr("Backup size")}: ${bytes(preview.size_bytes)}</p>${preview.changes ? `<dl class="details-list">${preview.changes.map((change) => `<div><dt>${tr(MANUAL_FIELDS.find(([key]) => key === change.field)?.[1] || change.field)}</dt><dd><span class="change-old">${escapeHTML(join(change.current) || tr("Not set"))}</span><span class="change-new">${escapeHTML(join(change.proposed) || tr("Not set"))}</span></dd></div>`).join("")}</dl>` : ""}<ul class="confirm-list">${preview.sample.map((track) => `<li><strong>${escapeHTML(trackTitle(track))}</strong><span class="manual-file">${escapeHTML(track.file)}</span></li>`).join("")}</ul>${preview.count > preview.sample.length ? `<p>${tr("and {count} more").replace("{count}", number(preview.count - preview.sample.length))}</p>` : ""}</div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${tr("Cancel")}</button><button class="button ${removing ? "danger" : "primary"}" data-manual="save" data-manual-write>${tr(removing ? "Delete track" : "Back up and save")}</button></div>`,
+    `${modalHead(tr(title), tr(detail))}<div class="modal-body">${preview.kind === "cover" ? `${coverComparison(manualState.track, image)}<p>${number(preview.count)} ${tr("files")} · ${number(preview.skipped)} ${tr("existing covers preserved")}</p>` : ""}<p class="download-hint">${tr("Backup size")}: ${bytes(preview.size_bytes)}</p>${preview.changes ? tagComparison(preview.changes) : ""}<ul class="confirm-list">${preview.sample.map((track) => `<li><strong>${escapeHTML(trackTitle(track))}</strong><span class="manual-file">${escapeHTML(track.file)}</span></li>`).join("")}</ul>${preview.count > preview.sample.length ? `<p>${tr("and {count} more").replace("{count}", number(preview.count - preview.sample.length))}</p>` : ""}</div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${tr("Cancel")}</button><button class="button ${removing ? "danger" : "primary"}" data-manual="save" data-manual-write>${tr(removing ? "Delete track" : "Back up and save")}</button></div>`,
   );
 }
 
@@ -140,23 +242,31 @@ document.addEventListener("click", async (event) => {
   closeTrackMenu();
   try {
     if (action === "edit") await showManualEditor(id);
+    else if (action === "album-edit") await showAlbumEditor(id);
+    else if (action === "filename") fillManualFromFilename();
     else if (action === "cover") await showCoverEditor(id);
-    else if (action === "delete") showManualPreview(await api("/api/tracks/delete/preview", { id }));
+    else if (action === "delete") showManualPreview(await manualRead("/api/tracks/delete/preview", { id }));
     else if (action === "details") await showDetails(id);
     else if (action === "play") await startPlayback({ dataset: { play: id }, closest: () => null });
     else if (action === "next" || action === "queue") await enqueueManual(id, action === "next");
     else if (action === "save" && manualState.preview) {
+      const preview = manualState.preview;
       button.disabled = true;
-      await api("/api/tracks/save", { preview: manualState.preview.preview });
-      manualState.preview = null;
-      manualState.image = null;
-      $("#modal").close();
+      button.dataset.manualPending = "true";
+      const accepted = await manualRead("/api/tracks/save", { preview: preview.preview });
+      if (accepted) {
+        manualState.preview = null;
+        manualState.image = null;
+        $("#modal").close();
+      }
       await updateState();
       toast(tr("Saving changes. Follow progress at the top."));
     }
   } catch (error) {
     button.disabled = false;
     toast(error.message);
+  } finally {
+    delete button.dataset.manualPending;
   }
 });
 
@@ -165,6 +275,7 @@ document.addEventListener("change", async (event) => {
   const file = event.target.files[0];
   manualState.image = null;
   $("#manual-image-preview").hidden = true;
+  $("#manual-cover-empty").hidden = false;
   if (!file) return;
   if (file.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png"].includes(file.type)) {
     event.target.value = "";
@@ -182,19 +293,27 @@ document.addEventListener("change", async (event) => {
     manualState.image = image;
     $("#manual-image-preview").src = image;
     $("#manual-image-preview").hidden = false;
+    $("#manual-cover-empty").hidden = true;
   } catch (error) {
     toast(error.message);
   }
+});
+
+document.addEventListener("input", (event) => {
+  if (event.target.form?.id === "manual-edit-form") updateManualComparison(event.target.form);
 });
 
 document.addEventListener("submit", async (event) => {
   if (!["manual-edit-form", "manual-cover-form"].includes(event.target.id)) return;
   event.preventDefault();
   const form = event.target;
+  if (form.dataset.manualPending) return;
   const submit = form.querySelector('[type="submit"]');
+  form.dataset.manualPending = "true";
   submit.disabled = true;
   try {
-    let preview;
+    let preview,
+      image = "";
     if (form.id === "manual-edit-form") {
       const editor = manualState.editor;
       const fields = {};
@@ -206,23 +325,27 @@ document.addEventListener("submit", async (event) => {
           .map((value) => value.trim())
           .filter(Boolean);
       }
-      preview = await api("/api/tracks/edit/preview", {
+      preview = await manualRead("/api/tracks/edit/preview", {
         id: editor.id,
         fields,
         previous_sha256: editor.previous_sha256,
       });
     } else {
       if (!manualState.image) throw new Error(tr("Choose a JPEG or PNG image up to 5 MB"));
-      preview = await api("/api/tracks/cover/preview", {
+      image = manualState.image;
+      preview = await manualRead("/api/tracks/cover/preview", {
         id: manualState.track.id,
-        image: manualState.image.split(",")[1],
+        image: image.split(",")[1],
         album: $("#manual-cover-album")?.checked || false,
       });
     }
-    showManualPreview(preview);
+    showManualPreview(preview, image);
   } catch (error) {
     submit.disabled = false;
     toast(error.message);
+  } finally {
+    delete form.dataset.manualPending;
+    if (form.isConnected) setWriteControls();
   }
 });
 
@@ -260,16 +383,25 @@ document.addEventListener("focusin", (event) => {
 async function refreshManualPlayback() {
   // Refresh the entire queue after a library revision, including jobs completed while the tab slept.
   if (!state.current && !playback.base.length) return;
+  const serial = playback.serial;
+  const base = playback.base;
+  const order = playback.order;
+  const currentId = state.current?.id;
+  const current = () =>
+    serial === playback.serial && base === playback.base && order === playback.order && currentId === state.current?.id;
   const { tracks } = await api("/api/queue");
+  if (!current()) return;
   const known = new Map(tracks.map((track) => [track.id, track]));
+  let track = null;
+  if (currentId && !currentId.startsWith("stage-") && known.has(currentId)) {
+    track = await api(`/api/track?id=${encodeURIComponent(currentId)}`);
+    if (!current()) return;
+  }
   playback.base = playback.base.filter((id) => known.has(id));
   playback.order = playback.order.filter((id) => known.has(id));
   playback.tracks = new Map(playback.base.map((id) => [id, known.get(id)]));
   state.queue = state.queue.filter((id) => known.has(id));
   if (state.current && !state.current.id.startsWith("stage-")) {
-    const currentId = state.current.id;
-    const track = known.has(currentId) ? await api(`/api/track?id=${encodeURIComponent(currentId)}`) : null;
-    if (state.current?.id !== currentId) return;
     if (track) {
       state.current = track;
       playback.tracks.set(track.id, track);

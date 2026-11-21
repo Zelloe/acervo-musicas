@@ -252,7 +252,7 @@ class CollectionOperations:
             "faixas": len(rows),
             "existe": exists,
             "anterior_sha256": previous,
-            "amostra": [{"titulo": t["titulo"], "artista": t["artista"]} for t in rows[:10]],
+            "amostra": [{"arquivo": t["arquivo"], "titulo": t["titulo"], "artista": t["artista"]} for t in rows[:10]],
         }
         if not write:
             return preview

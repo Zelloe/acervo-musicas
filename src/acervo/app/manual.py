@@ -1,5 +1,7 @@
 """Reviewable manual track edits, missing artwork and recoverable removal."""
 
+import hashlib
+import json
 import secrets
 import time
 from pathlib import Path
@@ -11,7 +13,7 @@ from acervo.library.artwork import cover_summary
 from acervo.library.core import TAG_FIELDS, atomic_json, metadata_values, secure_file, sha256
 from acervo.library.importer import import_reviewed
 from acervo.library.manual import remove_track
-from acervo.library.query import album_key
+from acervo.library.query import album_key, sort_tracks
 from acervo.library.scan import read_track, signature
 from acervo.messages import _, register
 
@@ -24,8 +26,30 @@ register(
         "This track has no album or artist; add its cover individually": "Esta faixa não tem álbum ou artista; adicione a capa individualmente",
         "The selected files already have artwork": "Os arquivos selecionados já têm capa",
         "Select up to 500 tracks for one cover": "Selecione até 500 faixas para uma capa",
+        "This track has no album or artist; edit its tags individually first": "Esta faixa não tem álbum ou artista; edite suas tags individualmente primeiro",
+        "Select an album with up to 500 tracks": "Selecione um álbum com até 500 faixas",
+        "The album changed; refresh the library and open the album editor again": "O álbum mudou; atualize a biblioteca e abra o editor do álbum novamente",
+        "The album changed since the editor was opened; review it again": "O álbum mudou desde a abertura do editor; confira novamente",
+        "There are no unprotected album changes to save": "Não há alterações não protegidas do álbum para salvar",
+        "Select between 1 and 500 distinct tracks from the current library": "Selecione entre 1 e 500 faixas diferentes da biblioteca atual",
+        "The selected tracks changed; open the selection editor again": "As faixas selecionadas mudaram; abra o editor da seleção novamente",
+        "There are no unprotected changes to save": "Não há alterações não protegidas para salvar",
     }
 )
+
+ALBUM_FIELDS = ("artista", "artista_album", "album", "genero", "ano", "disco")
+
+
+def validate_fields(fields, allowed):
+    if not isinstance(fields, dict) or not fields or set(fields) - set(allowed):
+        raise ValueError(_("Choose valid metadata fields"))
+    for values in fields.values():
+        if (
+            not isinstance(values, list)
+            or len(values) > 50
+            or any(not isinstance(v, str) or not v.strip() or len(v) > 4096 or "\x00" in v for v in values)
+        ):
+            raise ValueError(_("Choose valid metadata fields"))
 
 
 def live_track(path):
@@ -88,24 +112,14 @@ class ManualOperations:
         }
 
     def preview_manual_edit(self, data):
-        if (
-            set(data) != {"id", "campos", "anterior_sha256"}
-            or not isinstance(data["campos"], dict)
-            or not data["campos"]
-            or set(data["campos"]) - TAG_FIELDS.keys()
-        ):
+        if set(data) != {"id", "campos", "anterior_sha256"}:
             raise ValueError(_("Choose valid metadata fields"))
+        validate_fields(data["campos"], TAG_FIELDS)
         editor = self.manual_editor(data["id"])
         if editor["anterior_sha256"] != data["anterior_sha256"]:
             raise ValueError(_("The file changed since the preview; review it again"))
         changes = {}
         for field, values in data["campos"].items():
-            if (
-                not isinstance(values, list)
-                or len(values) > 50
-                or any(not isinstance(v, str) or not v.strip() or len(v) > 4096 or "\x00" in v for v in values)
-            ):
-                raise ValueError(_("Choose valid metadata fields"))
             if values != editor["campos"][field]:
                 changes[field] = {"atual": editor["campos"][field], "proposto": values}
         if not changes:
@@ -121,6 +135,166 @@ class ManualOperations:
         sample = [{"id": data["id"], "arquivo": editor["arquivo"], "titulo": editor["campos"]["titulo"]}]
         return self._manual_preview(
             "edit", [operation], sample, alteracoes=[{"campo": field, **change} for field, change in changes.items()]
+        )
+
+    def _manual_album(self, ident):
+        track = self._manual_track(ident)
+        if not any(value.strip() for value in track["album"]) or not any(
+            value.strip() for value in track["artista_album"] + track["artista"]
+        ):
+            raise ValueError(_("This track has no album or artist; edit its tags individually first"))
+        with self.lock:
+            tracks = [dict(row) for row in self.tracks if album_key(row) == album_key(track)]
+        if not tracks or len(tracks) > 500:
+            raise ValueError(_("Select an album with up to 500 tracks"))
+        return track, sort_tracks(tracks, "album")
+
+    def _manual_rows(self, members, expected_album=None):
+        policy = protections.load(self.storage, self.root)
+        rows = []
+        for member in members:
+            path = secure_file(self.root, member["arquivo"])
+            before = signature(path)
+            digest = sha256(path)
+            current = live_track(path)
+            fields = metadata_values(path)
+            if signature(path) != before:
+                raise ValueError(_("The file changed since the preview; review it again"))
+            if expected_album is not None and album_key(current) != expected_album:
+                raise ValueError(_("The album changed; refresh the library and open the album editor again"))
+            rows.append(
+                {
+                    "id": member["id"],
+                    "arquivo": str(path),
+                    "titulo": current["titulo"],
+                    "campos": fields,
+                    "anterior_sha256": digest,
+                    "campos_protegidos": sorted(protections.protected(policy, self.root, str(path))),
+                }
+            )
+        return rows
+
+    def album_editor(self, ident):
+        track, members = self._manual_album(ident)
+        rows = self._manual_rows(members, album_key(track))
+        after = self._manual_album(ident)[1]
+        if [(row["id"], row["arquivo"]) for row in members] != [(row["id"], row["arquivo"]) for row in after]:
+            raise ValueError(_("The album changed; refresh the library and open the album editor again"))
+        editor = self._common_editor(rows)
+        return {
+            **editor,
+            "kind": "album-edit",
+            "id": ident,
+            "album": track["album"],
+            "artista": track["artista_album"] or track["artista"],
+            "album_revision": editor["batch_revision"],
+        }
+
+    def _common_editor(self, rows):
+        revision = hashlib.sha256(
+            json.dumps([(row["id"], row["arquivo"], row["anterior_sha256"]) for row in rows]).encode()
+        ).hexdigest()
+        common, status = {}, {}
+        for field in ALBUM_FIELDS:
+            values = rows[0]["campos"][field]
+            mixed = any(row["campos"][field] != values for row in rows[1:])
+            common[field] = [] if mixed else values
+            status[field] = {"mixed": mixed, "protected_count": sum(field in row["campos_protegidos"] for row in rows)}
+        return {
+            "batch_revision": revision,
+            "faixas_total": len(rows),
+            "campos": common,
+            "field_status": status,
+            "musicas": rows,
+        }
+
+    def preview_album_edit(self, data):
+        if set(data) != {"id", "album_revision", "campos"}:
+            raise ValueError(_("Choose valid metadata fields"))
+        validate_fields(data["campos"], ALBUM_FIELDS)
+        editor = self.album_editor(data["id"])
+        if editor["album_revision"] != data["album_revision"]:
+            raise ValueError(_("The album changed since the editor was opened; review it again"))
+        return self._preview_common_edit(editor, data["campos"])
+
+    def _manual_selection(self, identifiers):
+        if (
+            not isinstance(identifiers, list)
+            or not 1 <= len(identifiers) <= 500
+            or any(not isinstance(ident, str) for ident in identifiers)
+            or len(set(identifiers)) != len(identifiers)
+        ):
+            raise ValueError(_("Select between 1 and 500 distinct tracks from the current library"))
+        with self.lock:
+            if self.occupied():
+                raise ValueError(_("Wait for the current operation to finish"))
+            if any(ident not in self.by_id for ident in identifiers):
+                raise ValueError(_("Select between 1 and 500 distinct tracks from the current library"))
+            return [dict(self.by_id[ident]) for ident in identifiers]
+
+    def selection_editor(self, data):
+        if set(data) != {"ids"}:
+            raise ValueError(_("Select between 1 and 500 distinct tracks from the current library"))
+        members = self._manual_selection(data["ids"])
+        rows = self._manual_rows(members)
+        after = self._manual_selection(data["ids"])
+        if [(row["id"], row["arquivo"]) for row in members] != [(row["id"], row["arquivo"]) for row in after]:
+            raise ValueError(_("The selected tracks changed; open the selection editor again"))
+        return {**self._common_editor(rows), "kind": "batch-edit", "ids": list(data["ids"])}
+
+    def preview_selection_edit(self, data):
+        if set(data) != {"ids", "batch_revision", "campos"}:
+            raise ValueError(_("Choose valid metadata fields"))
+        validate_fields(data["campos"], ALBUM_FIELDS)
+        editor = self.selection_editor({"ids": data["ids"]})
+        if editor["batch_revision"] != data["batch_revision"]:
+            raise ValueError(_("The selected tracks changed; open the selection editor again"))
+        return self._preview_common_edit(editor, data["campos"])
+
+    def _preview_common_edit(self, editor, fields):
+        operations, sample, reviews = [], [], []
+        protected_count = 0
+        for row in editor["musicas"]:
+            changes, protected = {}, []
+            for field, values in fields.items():
+                if values == row["campos"][field]:
+                    continue
+                if field in row["campos_protegidos"]:
+                    protected.append(field)
+                    protected_count += 1
+                else:
+                    changes[field] = {"atual": row["campos"][field], "proposto": values}
+            reviews.append(
+                {
+                    "id": row["id"],
+                    "arquivo": row["arquivo"],
+                    "titulo": row["titulo"],
+                    "alteracoes": [{"campo": field, **change} for field, change in changes.items()],
+                    "campos_protegidos": protected,
+                }
+            )
+            if changes:
+                operations.append(
+                    {
+                        "acao": "metadados",
+                        "arquivo": row["arquivo"],
+                        "antes_sha256": row["anterior_sha256"],
+                        "alteracoes": changes,
+                    }
+                )
+                sample.append({"id": row["id"], "arquivo": row["arquivo"], "titulo": row["titulo"]})
+        if not operations:
+            raise ValueError(_("There are no unprotected changes to save"))
+        return self._manual_preview(
+            editor["kind"],
+            operations,
+            sample,
+            album=editor.get("album", []),
+            artista=editor.get("artista", []),
+            faixas_total=editor["faixas_total"],
+            track_changes=reviews,
+            protected_count=protected_count,
+            skipped=editor["faixas_total"] - len(operations),
         )
 
     def preview_manual_cover(self, data):

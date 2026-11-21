@@ -155,6 +155,28 @@ class ManualHTTPTest(unittest.TestCase):
         self.wait_job()
         self.assertEqual(sha256(self.music), original)
 
+    def test_tagless_tracks_keep_filename_and_report_missing_artwork(self):
+        for path, ident in ((self.music, self.ident), (self.flac, self.flac_id)):
+            with self.subTest(format=path.suffix):
+                original = sha256(path)
+                track = self.request("/api/track?id=" + ident)
+                self.assertEqual(track["file"], str(path))
+                self.assertEqual(track["title"], [])
+                self.assertEqual(track["artist"], [])
+                self.assertEqual(track["covers"], [])
+                with self.assertRaises(HTTPError) as caught:
+                    urlopen(self.url + "/api/cover?id=" + ident, timeout=5)
+                with caught.exception as response:
+                    self.assertEqual(response.status, 404)
+                    self.assertEqual(response.read(), b"")
+                queue = {t["id"]: t for t in self.request("/api/queue")["tracks"]}
+                self.assertEqual(queue[ident]["file"], str(path))
+                self.assertEqual(queue[ident]["title"], [])
+                self.assertIs(queue[ident]["has_cover"], False)
+                preview = self.request("/api/playlists/preview", {"name": "Tagless", "q": path.name})
+                self.assertEqual(preview["sample"], [{"file": str(path), "title": [], "artist": []}])
+                self.assertEqual(sha256(path), original)
+
     def test_edit_preserves_unapproved_id3_frames_and_version(self):
         for version in (3, 4):
             tags = ID3()
@@ -195,11 +217,17 @@ class ManualHTTPTest(unittest.TestCase):
                 else metadata_values(self.sample_root / "sample.flac"),
             )
             self.assertTrue(self.request("/api/track?id=" + ident)["covers"])
+            queue = {t["id"]: t for t in self.request("/api/queue")["tracks"]}
+            self.assertIs(queue[ident]["has_cover"], True)
+            with urlopen(self.url + "/api/cover?id=" + ident, timeout=5) as response:
+                self.assertEqual(response.read(), base64.b64decode(image))
             self.request("/api/tracks/cover/preview", {"id": ident, "image": image}, status=400)
             manifests = list((self.storage / "backups").glob("*/manifesto.json"))
             self.assertTrue(all(image not in p.read_text(encoding="utf-8") for p in manifests))
             self.undo()
             self.assertEqual(sha256(path), original)
+            queue = {t["id"]: t for t in self.request("/api/queue")["tracks"]}
+            self.assertIs(queue[ident]["has_cover"], False)
 
     def test_album_cover_fills_only_missing_images_in_same_album_and_artist(self):
         self.save(self.edit({"album": ["Disco"], "artist": ["Banda"]}))

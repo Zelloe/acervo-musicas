@@ -13,6 +13,7 @@ from acervo.app.common import readable_music
 from acervo.app.downloads import DownloadQueue
 from acervo.app.lyrics import LyricsOperations
 from acervo.app.manual import ManualOperations
+from acervo.app.session import PlaybackSessions
 from acervo.downloads.picker import DownloadPicker
 from acervo.downloads.staged import Downloads
 from acervo.library import protections
@@ -47,7 +48,7 @@ def restart_required():
         return True
 
 
-class App(DownloadQueue, LyricsOperations, CollectionOperations, ManualOperations):
+class App(DownloadQueue, LyricsOperations, CollectionOperations, ManualOperations, PlaybackSessions):
     def __init__(self, root: Path, storage: Path | None = None):
         self.root = root.expanduser().resolve(strict=True)
         if not self.root.is_dir():

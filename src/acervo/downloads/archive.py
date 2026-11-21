@@ -30,6 +30,7 @@ register(
         "The file is larger than the Internet Archive listed": "O arquivo é maior do que o Internet Archive informou",
         "The file differs from the one the Internet Archive listed (size or MD5)": "O arquivo difere do informado pelo Internet Archive (tamanho ou MD5)",
         "Not enough space in the destination folder": "Não há espaço suficiente na pasta de destino",
+        "The download stopped making progress; try again": "O download parou de avançar; tente novamente",
     }
 )
 
@@ -209,7 +210,7 @@ def fetch(item: dict, target: Path) -> None:
     expected = int(item["tamanho_bytes"])
     if shutil.disk_usage(target.parent).free < expected * 2:
         raise OSError(28, _("Not enough space in the destination folder"))
-    digest, written, failures = hashlib.md5(usedforsecurity=False), 0, 0
+    digest, written, failures, furthest = hashlib.md5(usedforsecurity=False), 0, 0, 0
     with target.open("wb") as handle:
         # Archive servers often drop slow connections; continue from the last byte instead of failing.
         while written < expected:
@@ -221,20 +222,28 @@ def fetch(item: dict, target: Path) -> None:
                         handle.truncate()
                         digest, written = hashlib.md5(usedforsecurity=False), 0
                     while chunk := response.read(CHUNK):
-                        written += len(chunk)
-                        if written > expected:
+                        if written + len(chunk) > expected:
                             raise ValueError(_("The file is larger than the Internet Archive listed"))
-                        digest.update(chunk)
                         handle.write(chunk)
+                        digest.update(chunk)
+                        written += len(chunk)
             except (OSError, HTTPException):
-                if written == before:
+                if written > furthest:
+                    furthest, failures = written, 0
+                else:
                     failures += 1
                     if failures >= RETRIES:
                         raise
                 continue
             if written == before:
                 break  # the server ended the file without sending anything new
-            failures = 0
+            if written > furthest:
+                furthest, failures = written, 0
+            else:
+                # Restarting from zero is not progress until the previous prefix is exceeded.
+                failures += 1
+                if failures >= RETRIES:
+                    raise ValueError(_("The download stopped making progress; try again"))
     if written != expected or digest.hexdigest() != item["md5"]:
         raise ValueError(_("The file differs from the one the Internet Archive listed (size or MD5)"))
 

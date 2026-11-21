@@ -192,12 +192,26 @@ def changes_for(
             values = [v[:4] for v in values]
         if not values or old == values:
             continue
+        if field == "titulo" and len(old) == len(values) == 1 and is_title_abbreviation(old[0], values[0]):
+            continue
         if field == "genero" and any(v.strip() for v in old) and not force_genre:
             continue
         if not replace and field not in ("album", "genero") and any(v.strip() for v in old):
             continue
         changes[field] = {"atual": old, "proposto": values}
     return changes
+
+
+def is_title_abbreviation(current: str, proposed: str) -> bool:
+    """Keep a known full title when a source supplies its initials instead."""
+    words = re.findall(r"[^\W_]+(?:['’][^\W_]+)*", normalized(current))
+    candidate = re.sub(r"[.\s-]", "", normalized(proposed))
+    return (
+        len(words) >= 2
+        and len(candidate) >= 2
+        and candidate.isalpha()
+        and candidate == "".join(word[0] for word in words)
+    )
 
 
 class Downloads:

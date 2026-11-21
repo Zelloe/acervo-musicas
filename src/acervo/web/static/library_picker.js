@@ -75,11 +75,14 @@ async function openChosenLibrary(button) {
   libraryPicker.opening = true;
   button.textContent = tr("Opening…");
   try {
+    await flushPlaybackSession().catch(() => {}); // the last checkpoint is a convenience, not a blocker
+    playbackSessionState.suspended = true;
     const { library } = await api("/api/library/open", { folder: button.dataset.libraryOpen });
     rememberLibrary(library);
     location.hash = "home";
     location.reload();
   } catch (error) {
+    playbackSessionState.suspended = false;
     libraryPicker.opening = false;
     buttons.forEach((item) => {
       item.disabled = false;

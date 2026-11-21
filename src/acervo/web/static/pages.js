@@ -9,17 +9,19 @@ const foldName = (value) =>
     .toLocaleLowerCase();
 
 function artistLinks(names, scope = "library") {
-  return (Array.isArray(names) ? names : [names])
-    .filter(Boolean)
-    .map(
-      (name) =>
-        `<button class="inline-link" data-page-artist="${escapeHTML(name)}" data-page-scope="${scope}" data-i18n-user="true">${escapeHTML(name)}</button>`,
-    )
-    .join(" / ");
+  return (
+    (Array.isArray(names) ? names : [names])
+      .filter((name) => name?.trim())
+      .map(
+        (name) =>
+          `<button class="inline-link" data-page-artist="${escapeHTML(name)}" data-page-scope="${scope}" data-i18n-user="true">${escapeHTML(name)}</button>`,
+      )
+      .join(" / ") || escapeHTML(tr("Unknown artist"))
+  );
 }
 
 function albumLink(title, id) {
-  return `<button class="inline-link" data-page-album="${escapeHTML(id)}">${escapeHTML(title)}</button>`;
+  return `<button class="inline-link" data-page-album="${escapeHTML(id)}">${escapeHTML(title.trim() || tr("Unknown album"))}</button>`;
 }
 
 function globalAlbumLink(title, artist) {
@@ -248,7 +250,7 @@ async function renderAlbumPage() {
   if (!first) return pageBack() + empty(tr("No tracks here"), tr("Refresh library"), "disc");
   return (
     pageBack() +
-    `<section class="detail-hero"><div class="detail-art">${trackArtwork(first)}</div><div><span class="section-kicker">${tr("Album")}</span><h1 data-i18n-user="true">${escapeHTML(join(first.album))}</h1><p>${artistLinks(first.artist)}</p><p>${escapeHTML((join(first.year).match(/\d{4}/) || [""])[0])} · ${number(result.total)} ${tr("tracks")}</p><div class="detail-actions"><button class="button primary" data-play="${first.id}">${icon("play")}${tr("Play")}</button><button class="button ghost" data-action="page-shuffle">${icon("shuffle")}${tr("Shuffle all")}</button></div></div></section>` +
+    `<section class="detail-hero"><div class="detail-art">${trackArtwork(first)}</div><div><span class="section-kicker">${tr("Album")}</span><h1 data-i18n-user="true">${escapeHTML(trackAlbum(first))}</h1><p>${artistLinks(first.artist)}</p><p>${escapeHTML((join(first.year).match(/\d{4}/) || [""])[0])} · ${number(result.total)} ${tr("tracks")}</p><div class="detail-actions"><button class="button primary" data-play="${first.id}">${icon("play")}${tr("Play")}</button><button class="button ghost" data-action="page-shuffle">${icon("shuffle")}${tr("Shuffle all")}</button><button class="button ghost" data-manual="album-edit" data-id="${escapeHTML(first.id)}" data-manual-write>${icon("edit")}${tr("Edit album tags")}</button></div></div></section>` +
     pageTrackList(result)
   );
 }

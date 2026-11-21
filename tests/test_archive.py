@@ -166,6 +166,39 @@ class ArchiveDownloadTest(unittest.TestCase):
         self.assertEqual(result["estado"], "baixado", result)
         self.assertEqual(calls, [None, f"bytes={half}-"])
 
+    def test_restarting_connections_cannot_retry_forever_without_progress(self):
+        for dropped in (True, False):
+            with self.subTest(dropped=dropped):
+                calls = []
+
+                def stalled(request, timeout, calls=calls, dropped=dropped):
+                    calls.append(request.get_header("Range"))
+                    self.assertLessEqual(len(calls), archive.RETRIES + 2, "Repeated prefixes must exhaust retries")
+                    cut = len(self.data) // (3 if len(calls) % 2 else 2)
+                    return (
+                        Response(self.data, self.SERVER, cut=cut) if dropped else Response(self.data[:cut], self.SERVER)
+                    )
+
+                with patch.object(archive, "urlopen", side_effect=stalled):
+                    result = downloader.download([self.item], self.folder, lyrics=False)[0]
+                self.assertEqual(result["estado"], "erro", result)
+                self.assertLessEqual(len(calls), archive.RETRIES + 2)
+                self.assertEqual(list(self.folder.iterdir()), [])
+
+    def test_repeated_connections_can_finish_when_each_advances_the_file(self):
+        calls = []
+
+        def advancing(request, timeout):
+            offset = int((request.get_header("Range") or "bytes=0-")[6:-1])
+            calls.append(offset)
+            return Response(self.data[offset:], self.SERVER, status=206 if offset else 200, cut=len(self.data) // 8)
+
+        with patch.object(archive, "urlopen", side_effect=advancing):
+            result = downloader.download([self.item], self.folder, lyrics=False)[0]
+        self.assertEqual(result["estado"], "baixado", result)
+        self.assertGreater(len(calls), archive.RETRIES)
+        self.assertEqual(calls, sorted(set(calls)))
+
     def test_wrong_content_and_foreign_hosts_publish_nothing(self):
         damaged = bytearray(self.data)
         damaged[-1] ^= 1

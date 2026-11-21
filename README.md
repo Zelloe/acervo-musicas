@@ -90,6 +90,41 @@ and search until you give them a title; this fallback does not write tags.
 The editor accepts one value per line and an empty field clears that tag.
 Unlock protected fields in Track details before editing them.
 
+In the editor, **Use filename** suggests title, artist and track number.
+For example, `02 - AC-DC - T.N.T..mp3` fills artist `AC-DC`, title `T.N.T.`
+and track `2`. It also accepts `Artist - Title`, `02. Title` and `02 Title`.
+Only missing, unprotected tags are filled, preserving what you have typed.
+Suggestions depend on how the file was named: check the fields and preview
+before saving. Writes retain the backup and undo through History.
+
+The editor and previews show **Field / Current value / New value**, highlighting
+changes and marking protected fields. Current and candidate artwork also appear
+side by side. External suggestions consisting only of a known full title's exact
+initials keep the full title; manual editing remains available to choose another
+title.
+
+**Edit selected tracks:** check the boxes next to tracks in the library or a local
+track list, then choose **Edit selected tracks** in the selection bar. The header
+checkbox selects the currently loaded rows. Your choices survive filtering and
+loading more tracks; the bar explicitly counts selected tracks outside the current
+view, and **Clear selection** clears all of them. Select up to 500 tracks per edit.
+This also works across albums and with files without any tags, so you can assign
+artist, album artist, album and genre together. Mark only the fields to apply,
+review each track, then confirm once. Protected values, titles, track numbers and
+unselected fields are preserved; History restores the selected originals exactly.
+
+**Edit a whole album:** open the album and choose **Edit album tags**, or use the
+same option in any track's **⋯** menu. Select **Genre** to enter it once for the
+album. You can also select artist, album artist, album name, year and disc number.
+Only checked fields are applied; an empty checked field clears that value.
+Different existing values are marked **Multiple values**. The preview lists every
+track with its current and proposed values, including protected fields that are
+kept. Titles, track numbers, artwork and unselected tags are preserved. Confirm
+once to save the approved changes, with full backups and album-wide undo in
+**History**. Album grouping uses album artist (or artist) and album name, including
+all discs. For files without those tags, use **Edit selected tracks** to assign
+their shared artist and album first.
+
 For covers, choose a JPEG or PNG up to 5 MB (`ffmpeg` must be installed).
 The image is embedded in the audio file. You can fill missing covers across the
 same album and artist; files that already have artwork are preserved.
@@ -209,6 +244,17 @@ server (the page warns you when that is needed).
 To open another folder, click the pencil next to the folder path in the sidebar, or
 use **Preferences**. The browser remembers your choice for the next time, unless you
 start Acervo with `--folder`.
+
+**Playback session:** Acervo remembers the track, position, queue, shuffle/repeat,
+volume and mute state for each library. Reopening restores it **paused**, including
+when the desktop app uses another port. In **Preferences → Restore the last session
+on startup**, you can disable this and clear the saved session. Download previews
+do not replace your library session. Checkpoints stay in Acervo's data folder;
+music files are untouched. If the last track was removed, the next available track
+in the saved queue is selected.
+
+The library total includes tracks without genres or tags. After adding files with
+another program, use **Scan library again** to update the inventory and counters.
 
 Keyboard: `Space` plays or pauses, `←`/`→` move 5 seconds, `N`/`P` change track, `+`/`-`
 set the volume, `M` mutes, `S` shuffles, `R` repeats, `F` opens now playing and `L` the

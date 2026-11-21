@@ -72,12 +72,8 @@ function selectedLocal(row, choice) {
 }
 
 function diffHTML(changes) {
-  return Object.entries(changes || {})
-    .map(
-      ([field, c]) =>
-        `<div class="download-diff"><span>${escapeHTML(tr(fieldNames[field] || field))}</span><span class="change-old">${escapeHTML(join(c.current) || tr("Not set"))}</span><span class="change-new">${icon("arrow")}${escapeHTML(join(c.proposed))}</span></div>`,
-    )
-    .join("");
+  const rows = Object.entries(changes || {}).map(([field, change]) => ({ field, ...change }));
+  return rows.length ? tagComparison(rows) : "";
 }
 
 function downloadRowHeader(row, metadata, index, art, available) {
@@ -202,15 +198,16 @@ async function previewDownloadImport() {
 async function playStaged(id) {
   const row = downloadState.batch.tracks.find((r) => r.id === id);
   if (!row?.real) throw new Error(tr("Audio is not available yet."));
+  if (typeof flushPlaybackSession === "function") flushPlaybackSession().catch(() => {});
   playback.serial++;
   state.current = { ...row.real, id: `stage-${id}` };
   if (typeof setLyricsTrack === "function") setLyricsTrack(null);
   state.queue = [];
   clearPlayback();
   $("#player-title").dataset.i18nUser = "true";
-  $("#player-title").textContent = join(row.real.title);
+  $("#player-title").textContent = trackTitle(row.real);
   $("#player-artist").dataset.i18nUser = "true";
-  $("#player-artist").textContent = join(row.real.artist) + " " + tr("· download preview");
+  $("#player-artist").textContent = trackArtist(row.real) + " " + tr("· download preview");
   $("#player-cover").innerHTML = row.real.covers.length
     ? `<img src="${stagedURL("cover", downloadState.batchId, id)}" alt="">`
     : icon("disc");

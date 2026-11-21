@@ -10,9 +10,15 @@ const escapeHTML = (value) =>
     /[&<>"']/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
   );
-const join = (values) => (values || []).join(" / ");
+const join = (values) =>
+  (values || [])
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(" / ");
 const trackTitle = (track) => join(track?.title).trim() || track?.file?.split(/[\\/]/).pop() || tr("Untitled track");
 const trackArtist = (track) => join(track?.artist).trim() || tr("Unknown artist");
+const trackAlbum = (track) => join(track?.album) || tr("Unknown album");
+const trackHasArtwork = (track) => track.has_cover ?? Boolean(track.covers?.length);
 const number = (value) => new Intl.NumberFormat(uiLocale()).format(value || 0);
 const duration = (value) => {
   const seconds = Math.max(0, Math.floor(Number(value) || 0));
@@ -21,10 +27,9 @@ const duration = (value) => {
 const cover = (id) =>
   `/api/cover?id=${encodeURIComponent(id)}&v=${encodeURIComponent(state.summary?.library_revision || "")}`;
 function trackArtwork(track, className = "", alt = "") {
-  const missing = track.has_cover === false || (Array.isArray(track.covers) && !track.covers.length);
-  return missing
-    ? `<span class="${className} cover-placeholder" aria-hidden="true">${icon("disc")}</span>`
-    : `<img class="${className}" src="${cover(track.id)}" alt="${escapeHTML(alt)}" loading="lazy">`;
+  return trackHasArtwork(track)
+    ? `<img class="${className}" src="${cover(track.id)}" alt="${escapeHTML(alt)}" loading="lazy">`
+    : `<span class="${className} cover-placeholder" aria-hidden="true">${icon("disc")}</span>`;
 }
 
 const SORT_OPTIONS = [
@@ -88,7 +93,7 @@ function languageHeaders() {
   return { "X-Acervo-Language": typeof uiLanguage === "function" ? uiLanguage() : "en" };
 }
 
-async function api(path, data) {
+async function api(path, data, extra = {}) {
   const options =
     data === undefined
       ? { headers: languageHeaders() }
@@ -97,7 +102,7 @@ async function api(path, data) {
           headers: { ...languageHeaders(), "Content-Type": "application/json", "X-Library-Token": token },
           body: JSON.stringify(data),
         };
-  const response = await fetch(path, options);
+  const response = await fetch(path, { ...options, ...extra });
   const result = await response.json();
   if (!response.ok)
     throw Object.assign(new Error(result.error || tr("Could not complete the operation.")), {
@@ -184,8 +189,9 @@ function setWriteControls() {
       '[data-manual-write], [data-action="analyze"], [data-action="confirm-apply"], [data-action="confirm-restore"], [data-action="fetch-downloads"], [data-action="review-import"], [data-action="confirm-import"], [data-action="export-playlist"], [data-action="confirm-playlist"], [data-playlist-album], [data-track-protection], [data-protection-album], [data-action="protect-album"], [data-action="unprotect-album"], [data-action="preview-lyrics"], [data-action="confirm-lyrics"], [data-action="bulk-review"], [data-action="bulk-confirm"], [data-action="sync-review"], #lyrics-editor, #playlist-form [type="submit"], #download-form [type="submit"]',
     )
     .forEach((el) => {
-      el.disabled = blocked;
+      el.disabled = blocked || !!el.closest("[data-manual-pending]");
     });
+  if (typeof updateTrackSelectionControls === "function") updateTrackSelectionControls(blocked);
   if (typeof setCatalogControls === "function") setCatalogControls();
   if (typeof updateBulkSelection === "function") updateBulkSelection();
   if (typeof updateSyncControls === "function") updateSyncControls();
@@ -196,7 +202,9 @@ function featuredAlbums() {
 }
 
 function albumCard(album) {
-  return `<article class="album-card"><div class="album-image">${trackArtwork({ id: album.track_id, has_cover: album.has_cover }, "", tr("Cover of") + " " + album.album)}<button class="album-play" data-play="${album.track_id}" aria-label="${tr("Listen")} ${escapeHTML(album.album)}">${icon("play")}</button></div><button class="album-title" data-page-album="${album.track_id}" title="${escapeHTML(album.album)}">${escapeHTML(album.album)}</button><span class="album-artist">${artistLinks(album.artist.split(" / "))}</span><span class="album-meta">${escapeHTML(album.year.slice(0, 4) || tr("Year unknown"))} · ${album.tracks} ${album.tracks === 1 ? tr("track") : tr("tracks")}</span><button class="text-button" data-playlist-album="${album.track_id}" aria-label="${tr("Export M3U8 for")} ${escapeHTML(album.album)} ${tr("by")} ${escapeHTML(album.artist)}" ${state.summary.job?.status === "running" ? "disabled" : ""}>${icon("download")} ${tr("Export M3U8")}</button><button class="text-button" data-protection-album="${album.track_id}" aria-label="${tr("Protect fields for")} ${escapeHTML(album.album)} ${tr("by")} ${escapeHTML(album.artist)}" ${state.summary.job?.status === "running" ? "disabled" : ""}>${icon("lock")} ${tr("Protect fields")}</button></article>`;
+  const title = album.album.trim() || tr("Unknown album");
+  const artist = album.artist.trim() || tr("Unknown artist");
+  return `<article class="album-card"><div class="album-image">${trackArtwork({ id: album.track_id, has_cover: album.has_cover }, "", tr("Cover of") + " " + title)}<button class="album-play" data-play="${album.track_id}" aria-label="${tr("Listen")} ${escapeHTML(title)}">${icon("play")}</button></div><button class="album-title" data-page-album="${album.track_id}" title="${escapeHTML(title)}">${escapeHTML(title)}</button><span class="album-artist">${artistLinks(album.artist.split(" / "))}</span><span class="album-meta">${escapeHTML(album.year.slice(0, 4) || tr("Year unknown"))} · ${album.tracks} ${album.tracks === 1 ? tr("track") : tr("tracks")}</span><button class="text-button" data-playlist-album="${album.track_id}" aria-label="${tr("Export M3U8 for")} ${escapeHTML(title)} ${tr("by")} ${escapeHTML(artist)}" ${state.summary.job?.status === "running" ? "disabled" : ""}>${icon("download")} ${tr("Export M3U8")}</button><button class="text-button" data-protection-album="${album.track_id}" aria-label="${tr("Protect fields for")} ${escapeHTML(title)} ${tr("by")} ${escapeHTML(artist)}" ${state.summary.job?.status === "running" ? "disabled" : ""}>${icon("lock")} ${tr("Protect fields")}</button></article>`;
 }
 
 function statCard(label, value, name, description, amber = false) {
@@ -207,13 +215,13 @@ function trackRows(tracks, offset = 0) {
   return tracks
     .map(
       (t, i) =>
-        `<tr><td class="num row-number"><span>${offset + i + 1}</span><button class="icon-button row-play" data-play="${t.id}" aria-label="${tr("Listen")} ${escapeHTML(trackTitle(t))}">${icon("play")}</button></td><td><div class="track-info">${trackArtwork(t, "track-cover")}<div class="track-text"><span class="track-name" title="${escapeHTML(trackTitle(t))}">${escapeHTML(trackTitle(t))}</span><span class="track-artist">${t.artist.some((value) => value.trim()) ? artistLinks(t.artist) : escapeHTML(trackArtist(t))}</span>${t.version ? recordingBadges(t.version) : ""}</div></div></td><td class="album-cell" title="${escapeHTML(join(t.album))}">${albumLink(join(t.album), t.id)}</td><td>${t.genre.length ? `<span class="source">${escapeHTML(join(t.genre))}</span>` : `<span class="missing">${tr("Not set")}</span>`}</td><td><span class="format ${t.format === "FLAC" ? "flac" : ""}">${t.format}</span></td><td class="time-cell">${duration(t.duration_seconds)}</td><td><button class="icon-button" data-track-menu="${t.id}" aria-haspopup="menu" aria-expanded="false" aria-label="${tr("Track actions for")} ${escapeHTML(trackTitle(t))}">${icon("more")}</button></td></tr>`,
+        `<tr>${typeof trackSelectionCell === "function" ? trackSelectionCell(t) : ""}<td class="num row-number"><span>${offset + i + 1}</span><button class="icon-button row-play" data-play="${t.id}" aria-label="${tr("Listen")} ${escapeHTML(trackTitle(t))}">${icon("play")}</button></td><td><div class="track-info">${trackArtwork(t, "track-cover")}<div class="track-text"><span class="track-name" title="${escapeHTML(trackTitle(t))}">${escapeHTML(trackTitle(t))}</span><span class="track-artist">${artistLinks(t.artist)}</span>${t.version ? recordingBadges(t.version) : ""}</div></div></td><td class="album-cell" title="${escapeHTML(trackAlbum(t))}">${albumLink(join(t.album), t.id)}</td><td>${t.genre.length ? `<span class="source">${escapeHTML(join(t.genre))}</span>` : `<span class="missing">${tr("Not set")}</span>`}</td><td><span class="format ${t.format === "FLAC" ? "flac" : ""}">${t.format}</span></td><td class="time-cell">${duration(t.duration_seconds)}</td><td><button class="icon-button" data-track-menu="${t.id}" aria-haspopup="menu" aria-expanded="false" aria-label="${tr("Track actions for")} ${escapeHTML(trackTitle(t))}">${icon("more")}</button></td></tr>`,
     )
     .join("");
 }
 
 function trackTable(tracks, offset = 0) {
-  return `<div class="table-wrap"><table><thead><tr><th class="num">#</th><th>${tr("TITLE")}</th><th>${tr("ALBUM")}</th><th>${tr("GENRE")}</th><th>${tr("FORMAT")}</th><th class="time-cell">${icon("clock")}</th><th></th></tr></thead><tbody>${trackRows(tracks, offset)}</tbody></table></div>`;
+  return `<div class="table-wrap"><table><thead><tr>${typeof trackSelectionHeader === "function" ? trackSelectionHeader() : ""}<th class="num">#</th><th>${tr("TITLE")}</th><th>${tr("ALBUM")}</th><th>${tr("GENRE")}</th><th>${tr("FORMAT")}</th><th class="time-cell">${icon("clock")}</th><th></th></tr></thead><tbody>${trackRows(tracks, offset)}</tbody></table></div>`;
 }
 
 function breadcrumb(label) {
@@ -297,6 +305,7 @@ async function loadMoreTracks() {
     state.page++;
     state.queue.push(...result.tracks.map((t) => t.id));
     $("#content tbody").insertAdjacentHTML("beforeend", trackRows(result.tracks, offset));
+    if (typeof refreshTrackSelection === "function") refreshTrackSelection();
     const shown = offset + result.tracks.length;
     $("#library-shown").textContent = libraryCount(shown, result.total);
     if (!result.tracks.length || shown >= result.total) end.remove();
@@ -401,7 +410,7 @@ async function renderReview() {
   if (state.reviewFilter === "pendentes") {
     const query = state.search.toLowerCase();
     const rows = state.pending.filter((t) =>
-      `${join(t.title)} ${join(t.artist)} ${join(t.album)}`.toLowerCase().includes(query),
+      `${trackTitle(t)} ${join(t.artist)} ${join(t.album)}`.toLowerCase().includes(query),
     );
     return `${heading(tr("A CLOSER LOOK"), tr("A few tracks need a closer look."), `${number(rows.length)} ${tr("tracks without a reliable genre suggestion.")}`)}<div class="review-summary">${icon("search")}<p><strong>${tr("A little doubt is better than a wrong tag.")}</strong>${tr("These tracks were preserved. You can enable MusicBrainz and scan again.")}</p><button class="button small ghost" data-action="preferences">${tr("Preferences")}</button></div>${reviewTabs()}${rows.length ? trackTable(rows) : empty(tr("No pending tracks in this filter"), tr("Try another search or check the available suggestions."), "check")}`;
   }
@@ -451,7 +460,7 @@ async function renderAlbums() {
 }
 
 function historyRow(r, labels) {
-  return `<article class="history-row"><span class="history-icon">${icon("history")}</span><div class="history-text"><strong>${number(r.files)} ${r.files === 1 ? tr("file") : tr("files")} · ${r.category === "lyrics" ? tr(r.files > 1 ? "lyrics batch" : "track lyrics") : r.type === "deletion" ? tr("track deletion") : r.category === "manual-cover" ? tr("track artwork") : r.category === "manual-edit" ? tr("manual tag edit") : r.type === "downloads" ? tr("download import") : tr("metadata update")}</strong><p>${escapeHTML(new Date(r.date).toLocaleString(uiLocale()))} · ${r.type === "downloads" ? tr("originals backed up · additions can be archived when undoing") : tr("full backup")}${r.error ? " · " + escapeHTML(r.error) : ""}</p></div><span class="chip ${r.status === "interrupted" ? "amber" : ""}">${escapeHTML(labels[r.status] || r.status)}</span><button class="button small ghost" data-restore="${r.id}" data-restore-kind="${r.category === "lyrics" || r.category.startsWith("manual-") ? "metadata" : r.type === "downloads" ? "downloads" : "metadata"}" ${r.status === "restored" ? "disabled" : ""}>${icon("history")} ${r.category === "lyrics" ? tr("Restore lyrics") : r.type === "deletion" ? tr("Restore track") : r.category.startsWith("manual-") ? tr("Restore") : r.type === "downloads" ? tr("Undo import") : tr("Restore")}</button></article>`;
+  return `<article class="history-row"><span class="history-icon">${icon("history")}</span><div class="history-text"><strong>${number(r.files)} ${r.files === 1 ? tr("file") : tr("files")} · ${r.category === "lyrics" ? tr(r.files > 1 ? "lyrics batch" : "track lyrics") : r.type === "deletion" ? tr("track deletion") : r.category === "manual-cover" ? tr("track artwork") : r.category === "manual-edit" ? tr("manual tag edit") : r.category === "manual-album-edit" ? tr("album tag edit") : r.category === "manual-batch-edit" ? tr("selected track tag edit") : r.type === "downloads" ? tr("download import") : tr("metadata update")}</strong><p>${escapeHTML(new Date(r.date).toLocaleString(uiLocale()))} · ${r.type === "downloads" ? tr("originals backed up · additions can be archived when undoing") : tr("full backup")}${r.error ? " · " + escapeHTML(r.error) : ""}</p></div><span class="chip ${r.status === "interrupted" ? "amber" : ""}">${escapeHTML(labels[r.status] || r.status)}</span><button class="button small ghost" data-restore="${r.id}" data-restore-kind="${r.category === "lyrics" || r.category.startsWith("manual-") ? "metadata" : r.type === "downloads" ? "downloads" : "metadata"}" ${r.status === "restored" ? "disabled" : ""}>${icon("history")} ${r.category === "lyrics" ? tr("Restore lyrics") : r.type === "deletion" ? tr("Restore track") : r.category.startsWith("manual-") ? tr("Restore") : r.type === "downloads" ? tr("Undo import") : tr("Restore")}</button></article>`;
 }
 
 async function renderHistory() {
@@ -504,6 +513,7 @@ async function render() {
         `<div class="error-box"><strong>${tr("Protected fields unavailable.")}</strong> ${escapeHTML(state.summary.protection_error)} ${tr("Changes are blocked until this file is fixed.")}</div>` +
         html;
     $("#content").innerHTML = html;
+    if (typeof refreshTrackSelection === "function") refreshTrackSelection();
     watchLibraryEnd();
     setWriteControls();
     applySimpleVersionFilter();
@@ -634,14 +644,14 @@ async function showDetails(id) {
     [null, tr("File"), track.file],
   ];
   modal(
-    `${modalHead(tr("Track details"), tr("Metadata read from your file. Protect fields to preserve your choices."))}<div class="detail-hero"><img src="${cover(id)}" alt="${tr("Album cover")}"><div><h3>${escapeHTML(trackTitle(track))}</h3><p>${escapeHTML(join(track.artist))}</p><button class="button small primary" data-play="${id}">${icon("play")} ${tr("Listen")}</button><button class="button small ghost" data-lyrics="${escapeHTML(id)}">${icon("lyrics")} ${tr("Lyrics")}</button></div></div><div class="modal-body">${track.protection_error ? `<div class="error-box">${escapeHTML(track.protection_error)}</div>` : ""}<dl class="details-list">${pairs.map(([field, k, v]) => `<div><dt>${k}</dt><dd>${escapeHTML(v || tr("Not set"))}${field ? protectionControl(track, field) : ""}</dd></div>`).join("")}</dl></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${tr("Close")}</button></div>`,
+    `${modalHead(tr("Track details"), tr("Metadata read from your file. Protect fields to preserve your choices."))}<div class="detail-hero">${trackArtwork(track, "detail-cover", tr("Album cover"))}<div><h3>${escapeHTML(trackTitle(track))}</h3><p>${escapeHTML(trackArtist(track))}</p><button class="button small primary" data-play="${id}">${icon("play")} ${tr("Listen")}</button><button class="button small ghost" data-lyrics="${escapeHTML(id)}">${icon("lyrics")} ${tr("Lyrics")}</button></div></div><div class="modal-body">${track.protection_error ? `<div class="error-box">${escapeHTML(track.protection_error)}</div>` : ""}<dl class="details-list">${pairs.map(([field, k, v]) => `<div><dt>${k}</dt><dd>${escapeHTML(v || tr("Not set"))}${field ? protectionControl(track, field) : ""}</dd></div>`).join("")}</dl></div><div class="modal-actions track-detail-actions"><button class="button ghost" data-manual="edit" data-id="${escapeHTML(id)}" data-manual-write>${tr("Edit tags")}</button>${!trackHasArtwork(track) ? `<button class="button ghost" data-manual="cover" data-id="${escapeHTML(id)}" data-manual-write>${tr("Add missing cover")}</button>` : ""}<button class="button ghost" data-action="close-modal">${tr("Close")}</button></div>`,
   );
 }
 
 function showSettings() {
   const options = settings();
   modal(
-    `${modalHead(tr("Make it yours."), tr("Preferences for the next library scan."))}<div class="modal-body"><div class="form-row"><label><input type="checkbox" class="check" id="use-musicbrainz" ${options.musicbrainz ? "checked" : ""}> ${tr("Look up MusicBrainz for genres without a local rule")}</label><p>${tr("Looks up artist and album names. Suggestions always require your approval. No audio files are uploaded.")}</p><input id="musicbrainz-contact" class="field" type="text" placeholder="${tr("Your contact email or URL")}" aria-label="${tr("MusicBrainz client contact")}" value="${escapeHTML(options.contact)}"></div><div class="form-row"><label>${icon("folder")} ${tr("Current library")}</label><p>${escapeHTML(state.summary.library)}</p><button type="button" class="button small ghost" data-action="choose-library">${tr("Change music folder")}</button> <button type="button" class="button small ghost" data-action="keyboard-shortcuts">${tr("Keyboard shortcuts")}</button></div><div class="form-row"><label>${icon("tag")} ${tr("Editable genre rules")}</label><p>${tr("Local suggestions are stored in genre_rules.csv. Genres already present in your files are preserved.")}</p></div><div class="form-row"><label>${icon("lock")} ${tr("Preserved choices")}</label><p><button class="text-button" data-action="protection-list">${tr("View protected fields and unlock")}</button></p></div><div class="form-row"><label>${icon("download")} ${tr("More options")}</label><p><button class="text-button" data-view="lyrics">${tr("Lyrics for all tracks")}</button></p><p><button class="text-button" data-view="advanced-downloads">${tr("Advanced downloads with review and import")}</button></p></div></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${tr("Cancel")}</button><button class="button primary" data-action="save-settings">${tr("Save preferences")}</button></div>`,
+    `${modalHead(tr("Make it yours."), tr("Playback and library preferences."))}<div class="modal-body">${playbackSessionSettings()}<div class="form-row"><label><input type="checkbox" class="check" id="use-musicbrainz" ${options.musicbrainz ? "checked" : ""}> ${tr("Look up MusicBrainz for genres without a local rule")}</label><p>${tr("Looks up artist and album names. Suggestions always require your approval. No audio files are uploaded.")}</p><input id="musicbrainz-contact" class="field" type="text" placeholder="${tr("Your contact email or URL")}" aria-label="${tr("MusicBrainz client contact")}" value="${escapeHTML(options.contact)}"></div><div class="form-row"><label>${icon("folder")} ${tr("Current library")}</label><p>${escapeHTML(state.summary.library)}</p><button type="button" class="button small ghost" data-action="choose-library">${tr("Change music folder")}</button> <button type="button" class="button small ghost" data-action="keyboard-shortcuts">${tr("Keyboard shortcuts")}</button></div><div class="form-row"><label>${icon("tag")} ${tr("Editable genre rules")}</label><p>${tr("Local suggestions are stored in genre_rules.csv. Genres already present in your files are preserved.")}</p></div><div class="form-row"><label>${icon("lock")} ${tr("Preserved choices")}</label><p><button class="text-button" data-action="protection-list">${tr("View protected fields and unlock")}</button></p></div><div class="form-row"><label>${icon("download")} ${tr("More options")}</label><p><button class="text-button" data-view="lyrics">${tr("Lyrics for all tracks")}</button></p><p><button class="text-button" data-view="advanced-downloads">${tr("Advanced downloads with review and import")}</button></p></div></div><div class="modal-actions"><button class="button ghost" data-action="close-modal">${tr("Cancel")}</button><button class="button primary" data-action="save-settings">${tr("Save preferences")}</button></div>`,
   );
 }
 
@@ -667,6 +677,11 @@ async function play(id, serial = ++playback.serial) {
   }
   const track = await api(`/api/track?id=${encodeURIComponent(id)}`);
   if (serial !== playback.serial) return;
+  loadPlayerTrack(track);
+  await audio.play();
+}
+
+function loadPlayerTrack(track) {
   state.current = track;
   if (typeof setLyricsTrack === "function") setLyricsTrack(track);
   $("#player-title").dataset.i18nUser = "true";
@@ -675,12 +690,11 @@ async function play(id, serial = ++playback.serial) {
   $("#player-artist").textContent = trackArtist(track);
   $("#player-cover").innerHTML = trackArtwork(track);
   $("#audio-quality").textContent = `${track.format} · ${Math.round((track.bitrate_bps || 0) / 1000)} KBPS`;
-  audio.src = `/api/audio?id=${encodeURIComponent(id)}`;
+  audio.src = `/api/audio?id=${encodeURIComponent(track.id)}`;
   $("#play-toggle").disabled = false;
   $("#seek").disabled = false;
   $("#time-total").textContent = duration(track.duration_seconds);
   syncPlayback(track);
-  await audio.play();
 }
 audio.addEventListener("play", () => {
   $("#play-toggle").innerHTML = icon("pause");
@@ -802,9 +816,12 @@ document.addEventListener("click", async (event) => {
           $("#musicbrainz-contact").focus();
           return;
         }
+        button.disabled = true;
         localStorage.setItem("acervo-options", JSON.stringify(options));
+        const restore = $("#restore-playback").checked;
+        if (restore !== playbackSessionState.enabled) await setPlaybackSessionEnabled(restore);
         $("#modal").close();
-        toast(tr("Preferences saved for the next scan."));
+        toast(tr("Preferences saved."));
       } else if (action === "analyze") await analyze();
     }
   } catch (error) {
@@ -870,6 +887,7 @@ async function poll() {
     const previousPolicy = state.summary?.protection_revision;
     const previousPolicyError = state.summary?.protection_error;
     await updateState();
+    if (typeof initializePlaybackSession === "function") await initializePlaybackSession();
     const job = state.summary.job;
     const jobKey = job ? `${job.id}:${job.status}` : "";
     if (job?.status === "error" && state.lastJob !== jobKey) toast(job.message);
@@ -947,6 +965,7 @@ document.addEventListener(
     try {
       await updateState();
       await openRememberedLibrary();
+      await initializePlaybackSession();
       state.albums = (await api("/api/albums")).albums;
       routeFromHash();
       poll();
