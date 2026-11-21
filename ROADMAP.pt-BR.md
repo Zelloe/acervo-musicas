@@ -2,25 +2,30 @@
 
 [English](ROADMAP.md) · **Português**
 
-As 15 funcionalidades abaixo fazem parte do escopo planejado do projeto.
+As 16 funcionalidades abaixo fazem parte do escopo planejado do projeto.
 As caixas indicam a entrega completa e validada de cada item; recursos que já
 tenham suporte parcial devem ser aproveitados e ampliados.
 
 **Prioridade atual (12/11/2026):** planejar o empacotamento para Windows,
 macOS e Android, conforme [Empacotamento multiplataforma](#empacotamento-multiplataforma).
 O plano orienta a implementação; os instaladores ainda não foram entregues.
-Os 15 itens funcionais abaixo continuam como referência, sem acrescentar
+Os 16 itens funcionais abaixo continuam como referência, sem acrescentar
 recursos ao trabalho de empacotamento. Downloads com spotDL e organização da
 biblioteca existente devem continuar disponíveis no desktop.
 
 ## Regras para todas as etapas
 
-- Manter a biblioteca nos caminhos atuais, sem criar pastas por gênero ou álbum.
+- Manter a biblioteca nos caminhos atuais por padrão. Renomear ou mover arquivos
+  e criar uma organização de pastas somente por escolha explícita, com prévia,
+  backup verificável e restauração dos caminhos originais.
 - Armazenar informações musicais nos metadados dos arquivos, com compatibilidade
   com players. Filtros, preferências e tarefas podem usar o banco local do app.
 - Apresentar uma prévia e exigir aprovação antes de modificar a coleção.
 - Fazer backup verificável e permitir restauração das alterações.
 - Preservar capas, tags válidas, faixas distintas e versões legítimas.
+- Preferir títulos completos e não abreviá-los automaticamente. Siglas propostas
+  por fontes externas não devem substituir um nome completo conhecido; mudanças
+  de título escolhidas manualmente continuam possíveis (pedido de 20/11/2026).
 - Não excluir, renomear ou reconverter arquivos automaticamente. Downloads e
   substituições devem ser escolhidos explicitamente.
 - Encaminhar identificações ambíguas para revisão e registrar suas fontes.
@@ -121,6 +126,56 @@ biblioteca existente devem continuar disponíveis no desktop.
   Permitir testar a interface e contribuir sem acessar a coleção pessoal,
   com dados e backups de demonstração isolados e opção de reiniciar a demonstração.
 
+- [ ] **16. Paridade funcional com o MusicBrainz Picard**
+  **Pedido do usuário em 20/11/2026:** tudo que o Picard faz deve ter um fluxo
+  equivalente no Acervo. Esta é uma meta de produto ainda não entregue.
+  Inventariar as funções nativas e as oferecidas por plugins em uma matriz
+  versionada, com equivalente no Acervo, dependências, limitações por plataforma
+  e testes de aceite; acompanhar novas versões do Picard.
+
+  Cobrir identificação por tags, nomes, MusicBrainz e impressão digital
+  AcoustID/Chromaprint; agrupamento e associação de faixas à edição correta;
+  preenchimento, atualização e edição individual/em lote de metadados; busca,
+  download e gravação de capas. Priorizar o fluxo **arquivo sem nenhuma tag →
+  identificação pelo áudio → revisão de título, artista, álbum e capa →
+  gravação aprovada com backup**. Referência:
+  [capacidades do Picard](https://picard-docs.musicbrainz.org/en/latest/about_picard/introduction.html).
+
+  Incluir os formatos e mapeamentos de tags suportados pela referência,
+  extração de tags do nome do arquivo, scripts para tags e nomes, renomeação
+  e organização opcionais, perfis de configuração e extensões equivalentes.
+  Incluir consultas por CD/Disc ID e logs de extração, além de submissões de
+  fingerprints, ISRCs, Disc IDs e lançamentos aos serviços correspondentes,
+  sempre por ação explícita do usuário.
+  [Formatos](https://picard-docs.musicbrainz.org/en/latest/faq/faq_file_formats.html),
+  [configuração](https://picard-docs.musicbrainz.org/en/latest/config/configuration.html)
+  e [tarefas adicionais](https://picard-docs.musicbrainz.org/en/latest/usage/other.html).
+
+  Marcar a paridade somente após validar a matriz completa, preservando
+  aprovação, campos protegidos, áudio, versões legítimas e restauração exata.
+  Resultados ausentes ou ambíguos permanecem para revisão.
+
+  **Entrega inicial (20/11/2026):** o editor de MP3/FLAC oferece **Usar nome do
+  arquivo** para sugerir título, artista e número da faixa. Preenche apenas
+  tags ausentes e não protegidas, mantém valores digitados e usa o fluxo de
+  prévia, confirmação, backup e Histórico. A paridade completa continua aberta.
+
+  **Comparação visual (20/11/2026):** editor e prévias com campo, valor atual e
+  novo valor lado a lado, alterações destacadas e capas atual/candidata. O fluxo
+  de metadados dos downloads avançados preserva o título conhecido quando a
+  sugestão da fonte contém somente suas iniciais exatas, como no exemplo
+  `Curse of the Legions of Death` → `C.O.T.L.O.D.`. Esta preferência não tenta
+  adivinhar a expansão de uma sigla desconhecida.
+
+  **Edição manual em lote (20/11/2026):** os metadados comuns podem ser editados
+  para um álbum identificado inteiro ou uma seleção explícita de até 500 faixas
+  MP3/FLAC, incluindo arquivos sem tags. Cada campo é marcado explicitamente;
+  valores atuais/novos e proteções preservadas são revisados por faixa antes de
+  uma única operação com backup e restauração exata pelo Histórico. A seleção
+  permanece ao filtrar e carregar mais linhas, com contagem visível das faixas
+  selecionadas fora da tela. É edição manual de metadados; identificação pelo
+  áudio e paridade completa continuam abertas.
+
 ## Ordem proposta de entrega
 
 | Etapa | Itens | Resultado esperado |
@@ -129,6 +184,10 @@ biblioteca existente devem continuar disponíveis no desktop.
 | 2 — Identificação e álbuns | 3, 4, 2 e 1 | Comparar gravações e edições para reconhecer o que existe e o que falta. |
 | 3 — Downloads e portabilidade | 9, 10 e 13 | Recuperar tarefas, revisar substituições e exportar playlists. |
 | 4 — Exploração e contribuições | 8, 12, 14 e 15 | Explorar a coleção e facilitar extensões e demonstrações públicas. |
+
+O item 16 é uma meta transversal às etapas, começando pela identificação de
+arquivos sem tags e recuperação de metadados e capas. O suporte parcial dos
+itens existentes não significa que a paridade com o Picard esteja concluída.
 
 A ordem orienta prioridades, sem estabelecer datas. Funcionalidades
 independentes podem ser antecipadas. A comparação de edições deve preceder a

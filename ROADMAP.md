@@ -2,24 +2,29 @@
 
 **English** · [Português](ROADMAP.pt-BR.md)
 
-The 15 features below are part of the project's planned scope.
+The 16 features below are part of the project's planned scope.
 The checkboxes indicate that each item has been fully delivered and validated;
 existing partial support should be reused and extended.
 
 **Current priority (2026-11-12):** plan packaging for Windows, macOS and Android,
 following the [complete packaging plan in Portuguese](ROADMAP.pt-BR.md#empacotamento-multiplataforma).
 The plan guides implementation; installers have not been delivered yet.
-The 15 features below remain a reference rather than extra packaging scope.
+The 16 features below remain a reference rather than extra packaging scope.
 Desktop spotDL downloads and management of existing files must remain available.
 
 ## Rules for every stage
 
-- Keep the library at its current paths, without creating genre or album folders.
+- Keep the library at its current paths by default. Renaming or moving files
+  and creating a folder structure require an explicit choice, a preview,
+  a verifiable backup and restoration of the original paths.
 - Store music information in file metadata, compatible with music players.
   Filters, preferences and tasks may use the app's local database.
 - Show a preview and require approval before modifying the collection.
 - Create a verifiable backup and allow changes to be restored.
 - Preserve cover art, valid tags, distinct tracks and legitimate versions.
+- Prefer full titles and never abbreviate them automatically. Initials proposed
+  by external sources must not replace a known full title; explicitly chosen
+  manual title edits remain possible (user request on 2026-11-20).
 - Never delete, rename or re-encode files automatically. Downloads and
   replacements must be chosen explicitly.
 - Send ambiguous identifications for review and record their sources.
@@ -123,6 +128,55 @@ Desktop spotDL downloads and management of existing files must remain available.
   personal collection, with isolated demo data and backups and an option to
   reset the demonstration.
 
+- [ ] **16. Functional parity with MusicBrainz Picard**
+  **User request on 2026-11-20:** everything Picard does should have an equivalent
+  workflow in Acervo. This is a product goal that has not been delivered yet.
+  Inventory native and plugin capabilities in a versioned matrix recording
+  their Acervo equivalents, dependencies, platform limitations and acceptance
+  tests; track new Picard versions.
+
+  Cover identification through tags, filenames, MusicBrainz and
+  AcoustID/Chromaprint fingerprints; clustering and matching tracks to the
+  correct edition; filling, updating and editing metadata individually or in
+  batches; finding, downloading and embedding artwork. Prioritize **a file
+  with no tags → audio identification → review of title, artist, album and
+  artwork → approved write with backup**. Reference:
+  [Picard capabilities](https://picard-docs.musicbrainz.org/en/latest/about_picard/introduction.html).
+
+  Include the reference's supported formats and tag mappings, extracting tags
+  from filenames, scripts for tags and filenames, optional renaming and folder
+  organization, configuration profiles and equivalent extensions. Include
+  CD/Disc ID and ripping-log lookups, plus submission of fingerprints, ISRCs,
+  Disc IDs and releases to the corresponding services, always through an
+  explicit user action.
+  [Formats](https://picard-docs.musicbrainz.org/en/latest/faq/faq_file_formats.html),
+  [configuration](https://picard-docs.musicbrainz.org/en/latest/config/configuration.html)
+  and [other tasks](https://picard-docs.musicbrainz.org/en/latest/usage/other.html).
+
+  Mark parity complete only after validating the entire matrix while preserving
+  approval, protected fields, audio, legitimate versions and exact restoration.
+  Missing or ambiguous results remain pending review.
+
+  **Initial delivery (2026-11-20):** the MP3/FLAC editor offers **Use filename**
+  to suggest title, artist and track number. It fills only missing, unprotected
+  tags, keeps typed values and uses the preview, confirmation, backup and History
+  workflow. Full parity remains open.
+
+  **Visual comparison (2026-11-20):** editor and previews show field, current
+  value and new value side by side, highlight changes and compare current and
+  candidate artwork. Advanced download metadata keeps a known title when the
+  source suggests only its exact initials, as in
+  `Curse of the Legions of Death` → `C.O.T.L.O.D.`. This preference does not
+  attempt to guess the expansion of unknown initials.
+
+  **Manual batch editing (2026-11-20):** shared metadata can be edited for an
+  entire identified album or an explicit selection of up to 500 MP3/FLAC tracks,
+  including files with no tags. Each field is selected explicitly; current/new
+  values and preserved protections are reviewed per track before one backed-up
+  operation, with exact undo in History. Selection survives filtering and loading
+  more rows, while selected tracks outside the current view are counted visibly.
+  This is manual metadata editing; audio identification and full parity remain open.
+
 ## Proposed delivery order
 
 | Stage | Items | Expected outcome |
@@ -131,6 +185,10 @@ Desktop spotDL downloads and management of existing files must remain available.
 | 2 — Identification and albums | 3, 4, 2 and 1 | Compare recordings and editions to identify present and missing tracks. |
 | 3 — Downloads and portability | 9, 10 and 13 | Recover tasks, review replacements and export playlists. |
 | 4 — Exploration and contributions | 8, 12, 14 and 15 | Explore the collection and support extensions and public demonstrations. |
+
+Item 16 spans the delivery stages, starting with identifying tagless files and
+recovering metadata and artwork. Partial support in existing items does not
+mean Picard parity has been completed.
 
 This order guides priorities without setting dates. Independent features may
 be delivered earlier. Edition comparison must precede the final classification
